@@ -184,6 +184,8 @@ func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, arg
 	sqlstrTL :=	strings.TrimLeft(sqlstr, " \t")
 	sqlstrL	:= strings.ToLower(sqlstrTL[:6])
 	
+	T.debugPrint(sqlstr, args)
+	
 	//查询，用不上回滚
 	if strings.HasPrefix(sqlstrL, "select")	{
 		return T.DB.QueryRowContext(ctx, sqlstr, args...)
@@ -200,7 +202,6 @@ func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, arg
 		sqlTx =	tx
 	}
 	
-	T.debugPrint(sqlstr, args)
 	sqlRow := tx.QueryRowContext(ctx, sqlstr, args...)
 	return &dbRow{tx:sqlTx,	r:sqlRow}
 }
