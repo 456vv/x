@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"errors"
+	"log"
+	"reflect"
 	"github.com/mattn/anko/env"
 	"github.com/mattn/anko/parser"
 	"github.com/mattn/anko/vm"
@@ -111,8 +113,10 @@ func (T *Anko) Execute(out io.Writer, in interface{}) (err error) {
 		return err
 	}
 	if out != nil && retn != nil {
-		if sv, ok := retn.(string); ok {
-			io.WriteString(out, sv)
+		switch rv := retn.(type) {
+		case string:io.WriteString(out, rv)
+		case []byte:out.Write(rv)
+		default:log.Printf("anko returned unrecognized data type %s\n", reflect.TypeOf(&rv).Elem().String())
 		}
 	}
 	return nil

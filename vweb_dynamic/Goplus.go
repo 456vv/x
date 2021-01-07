@@ -195,8 +195,10 @@ func (T *GoPlus) Execute(out io.Writer, in interface{}) (err error) {
 		goctx.Call(T.mainFn)
 		
 		if T.mainFn.NumOut() == 1 {
-			if sv,ok := goctx.Get(-1).(string); ok {
-				io.WriteString(out, sv)
+			switch rv := goctx.Get(-1).(type) {
+			case string:io.WriteString(out, rv)
+			case []byte:out.Write(rv)
+			default:log.Printf("goplus returned unrecognized data type %s\n", reflect.TypeOf(&rv).Elem().String())
 			}
 		}
 	})
