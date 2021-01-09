@@ -9,15 +9,6 @@ func init(){
 	for name, pkg := range templatePackage() {
 		vweb.ExtendTemplatePackage(name, pkg)
 	}
-	for name, pkg := range luteTemplatePackage() {
-		vweb.ExtendTemplatePackage(name, pkg)
-	}
-	for name, pkg := range yamlTemplatePackage() {
-		vweb.ExtendTemplatePackage(name, pkg)
-	}
-	for name, pkg := range tomlTemplatePackage() {
-		vweb.ExtendTemplatePackage(name, pkg)
-	}
 	for name, pkg := range reflectxTemplatePackage() {
 		vweb.ExtendTemplatePackage(name, pkg)
 	}
