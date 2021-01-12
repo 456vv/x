@@ -199,8 +199,7 @@ func (T *GoPlus) Execute(out io.Writer, in interface{}) (err error) {
 			case string:io.WriteString(out, rv)
 			case []byte:out.Write(rv)
 			default:
-				//暂时不显示无法识别类型
-				//log.Printf("goplus url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
+				log.Printf("goplus url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
 			}
 		}
 	})
