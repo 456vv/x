@@ -116,7 +116,9 @@ func (T *Anko) Execute(out io.Writer, in interface{}) (err error) {
 		switch rv := retn.(type) {
 		case string:io.WriteString(out, rv)
 		case []byte:out.Write(rv)
-		default:log.Printf("anko returned unrecognized data type %s\n", reflect.TypeOf(&rv).Elem().String())
+		default:
+			//暂时不显示无法识别类型
+			//log.Printf("anko url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
 		}
 	}
 	return nil
