@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"errors"
-	"log"
-	"reflect"
 	"github.com/mattn/anko/env"
 	"github.com/mattn/anko/parser"
 	"github.com/mattn/anko/vm"
