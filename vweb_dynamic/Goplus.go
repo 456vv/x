@@ -17,7 +17,8 @@ import (
 	"github.com/goplus/gop/token"
 	"github.com/goplus/gop/exec.spec"
 	_ "github.com/goplus/gop/lib/builtin"
-    _ "github.com/456vv/goplus_lib"
+	_ "github.com/goplus/gop/lib/unsafe"
+    _ "github.com/456vv/x/goplus_lib"
 )
 
 func execmerrorError(_ int, p *gop.Context) {
