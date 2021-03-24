@@ -870,6 +870,9 @@ return  map[string]template.FuncMap{
         "ValidString":utf8.ValidString,
     },
     "io":{
+    	"Discard":io.Discard,
+    	"NopCloser":io.NopCloser,
+    	"ReadAll":io.ReadAll,
 		"EOF":io.EOF,
 		"Copy":io.Copy,
 		"CopyBuffer":io.CopyBuffer,
@@ -892,6 +895,12 @@ return  map[string]template.FuncMap{
         "WriteFile":ioutil.WriteFile,
     },
     "os":{
+    	"WriteFile":os.WriteFile,
+    	"ReadDir":os.ReadDir,
+    	"ReadFile":os.ReadFile,
+    	"MkdirTemp":os.MkdirTemp,
+    	"CreateTemp":os.CreateTemp,
+    	"DirFS":os.DirFS,
     	"Stdin":os.Stdin,
     	"Stdout":os.Stdout,
     	"Stderr":os.Stderr,
@@ -932,6 +941,7 @@ return  map[string]template.FuncMap{
     	"FileMode":func(FileMode uint32) os.FileMode {return os.FileMode(FileMode)},
     },
     "log":{
+    	"Default":log.Default,
 		"Print":log.Print,
 		"Printf":log.Printf,
 		"Println":log.Println,

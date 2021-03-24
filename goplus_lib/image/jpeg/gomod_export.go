@@ -56,13 +56,13 @@ func execmFormatErrorError(_ int, p *gop.Context) {
 	p.Ret(1, ret0)
 }
 
-func execmReaderRead(_ int, p *gop.Context) {
+func execiReaderRead(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
 	ret0, ret1 := args[0].(io.Reader).Read(args[1].([]byte))
 	p.Ret(2, ret0, ret1)
 }
 
-func execmByteReaderReadByte(_ int, p *gop.Context) {
+func execiByteReaderReadByte(_ int, p *gop.Context) {
 	args := p.GetArgs(1)
 	ret0, ret1 := args[0].(io.ByteReader).ReadByte()
 	p.Ret(1, ret0, ret1)
@@ -83,8 +83,8 @@ func init() {
 		I.Func("DecodeConfig", jpeg.DecodeConfig, execDecodeConfig),
 		I.Func("Encode", jpeg.Encode, execEncode),
 		I.Func("(FormatError).Error", (jpeg.FormatError).Error, execmFormatErrorError),
-		I.Func("(Reader).Read", (io.Reader).Read, execmReaderRead),
-		I.Func("(ByteReader).ReadByte", (io.ByteReader).ReadByte, execmByteReaderReadByte),
+		I.Func("(Reader).Read", (io.Reader).Read, execiReaderRead),
+		I.Func("(ByteReader).ReadByte", (io.ByteReader).ReadByte, execiByteReaderReadByte),
 		I.Func("(UnsupportedError).Error", (jpeg.UnsupportedError).Error, execmUnsupportedErrorError),
 	)
 	I.RegisterTypes(

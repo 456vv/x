@@ -1,5 +1,7 @@
 @echo off
 
+go env -w GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://gocenter.io,https://proxy.golang.org,https://goproxy.io,https://athens.azurefd.net,direct
+
 if "%1" == "" goto input
 
 for /f "delims=" %%I in (%1) do (gop export -outdir . %%I)
@@ -16,7 +18,7 @@ goto exit
 	for /f "delims=" %%I in (gop_gen_lib_pkg_list.txt) do (gop export -outdir . %%I)
 	
 	set fileName=default.go
-	set pkgName=lib
+	set pkgName=goplus_lib
 	set pkgDir=github.com/456vv/x/goplus_lib
 	
 	echo package %pkgName%> %fileName%
