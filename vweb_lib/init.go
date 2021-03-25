@@ -9,7 +9,4 @@ func init(){
 	for name, pkg := range templatePackage() {
 		vweb.ExtendTemplatePackage(name, pkg)
 	}
-	for name, pkg := range reflectxTemplatePackage() {
-		vweb.ExtendTemplatePackage(name, pkg)
-	}
 }

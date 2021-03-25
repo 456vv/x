@@ -19,6 +19,7 @@ github.com/88250/lute/ast
 github.com/88250/lute/parse
 github.com/88250/lute/html
 github.com/88250/lute/render
+github.com/bep/golibsass/libsass
 fmt
 reflect
 bytes

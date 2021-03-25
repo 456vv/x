@@ -57,6 +57,7 @@ import(
    	"errors"
    	"log"
    	"text/template"
+   	htemplate "html/template"
 )
 
 func templatePackage() map[string]template.FuncMap {
@@ -955,5 +956,21 @@ return  map[string]template.FuncMap{
 		"Logger":func(a ...interface{}) (retn *log.Logger) {builtin.GoTypeTo(&retn)(a...);return retn},
 		"New":log.New,
     },
+    "template":{
+    	"HTMLEscape":htemplate.HTMLEscape,
+    	"HTMLEscapeString":htemplate.HTMLEscapeString,
+    	"HTMLEscaper":htemplate.HTMLEscaper,
+    	"IsTrue":htemplate.IsTrue,
+    	"JSEscape":htemplate.JSEscape,
+    	"JSEscapeString":htemplate.JSEscapeString,
+    	"JSEscaper":htemplate.JSEscaper,
+    	"URLQueryEscaper":htemplate.URLQueryEscaper,
+    	"CSS":func(CSS string) htemplate.CSS {return htemplate.CSS(CSS)},
+    	"HTML":func(HTML string) htemplate.HTML {return htemplate.HTML(HTML)},
+    	"HTMLAttr":func(HTMLAttr string) htemplate.HTMLAttr {return htemplate.HTMLAttr(HTMLAttr)},
+    	"JS":func(JS string) htemplate.JS {return htemplate.JS(JS)},
+    	"JSStr":func(JSStr string) htemplate.JSStr {return htemplate.JSStr(JSStr)},
+    	"Srcset":func(Srcset string) htemplate.Srcset {return htemplate.Srcset(Srcset)},
+    }
 }
 }
