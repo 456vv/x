@@ -4,10 +4,12 @@ import (
 	"sync"
 	"log"
 	"io"
+	"os"
 	"path/filepath"
 	"fmt"
 	"errors"
 	"reflect"
+	"bytes"
     "github.com/456vv/vweb/v2"
 	"github.com/goplus/gop"
 	"github.com/goplus/gop/exec/bytecode"
@@ -21,7 +23,7 @@ import (
     _ "github.com/456vv/x/goplus_lib"
 )
 
-func execmerrorError(_ int, p *gop.Context) {
+func execierrorError(_ int, p *gop.Context) {
 	args := p.GetArgs(1)
 	ret0 := args[0].(error).Error()
 	p.Ret(1, ret0)
@@ -56,7 +58,7 @@ func (T *GoPlus) init(){
 		if gopI == nil {
 			gopI = bytecode.NewGoPackage("")
 		}
-		gopI.RegisterFuncs(gopI.Func("(error).Error", (error).Error, execmerrorError))
+		gopI.RegisterFuncs(gopI.Func("(error).Error", (error).Error, execierrorError))
 		
 		for name, fn := range vweb.TemplateFunc {
 			tfn := reflect.TypeOf(fn)
@@ -67,7 +69,7 @@ func (T *GoPlus) init(){
 						args := p.GetArgs(arity)
 						retn, err := vweb.ExecFunc(fn, args...)
 						if err != nil {
-							log.Printf("callied %s(%v) (%v, %v)\n", name, args, retn, err)
+							log.Printf("call %s(%v) (%v, %v)\n", name, args, retn, err)
 						}
 						p.Ret(arity, retn...)
 					}
@@ -81,28 +83,7 @@ func (T *GoPlus) init(){
 	T.inited = true
 }
 
-func (T *GoPlus) ParseText(name, content string) error {
-	T.init()
-	if T.name == "" {
-		T.name = name
-	}
-	pkgs, err := parser.Parse(T.fset, name, content, 0)
-	if err != nil {
-		return err
-	}
-	for n, p := range pkgs {
-		T.pkgs[n]=p
-	}
-	return nil
-}
-
-func (T *GoPlus) ParseFile(path string) error {
-	T.init()
-	src, err := parser.ParseFile(T.fset, path, nil, 0)
-	if err != nil {
-		return err
-	}
-	name := src.Name.Name
+func (T *GoPlus) newPkg(name string) *ast.Package {
 	pkg, found := T.pkgs[name]
 	if !found {
 		pkg = &ast.Package{
@@ -111,11 +92,31 @@ func (T *GoPlus) ParseFile(path string) error {
 		}
 		T.pkgs[name] = pkg
 	}
-	pkg.Files[path] = src
+	return pkg
+}
+
+func (T *GoPlus) ParseText(name, content string) error {
+	T.init()
+	if T.name == "" {
+		T.name = name
+	}
+	
+	r := bytes.NewBufferString(content)
+	return T.Parse(r)
+}
+
+func (T *GoPlus) ParseFile(path string) error {
+	T.init()
 	if T.name == "" {
 		T.name = filepath.Base(path)
 	}
-	return nil
+	
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return T.Parse(file)
 }
 
 func (T *GoPlus) ParseDir(dir string) error {
@@ -124,8 +125,8 @@ func (T *GoPlus) ParseDir(dir string) error {
 	if err != nil {
 		return err
 	}
-	for n, p := range pkgs {
-		T.pkgs[n]=p
+	for name, file := range pkgs {
+		T.pkgs[name]=file
 	}
 	return nil
 }
@@ -136,14 +137,24 @@ func (T *GoPlus) SetPath(root, page string){
     T.name = filepath.Base(T.pagePath)
 }
 
-func (T *GoPlus) Parse(r io.Reader) (err error) {
+func (T *GoPlus) Parse(r io.Reader) error {
 	T.init()
-	pkgs, err := parser.Parse(T.fset, T.name, r, 0)
+	fileHeader, body, err := vweb.TemplateSeparation(r)
 	if err != nil {
 		return err
 	}
-	for n, p := range pkgs {
-		T.pkgs[n]=p
+	filesContent, err := fileHeader.OpenFile(T.rootPath, T.pagePath)
+	if err != nil {
+		return err
+	}
+	filesContent[T.name]=string(body)
+	for filename, filecontent := range filesContent {
+		src, err := parser.ParseFile(T.fset, filename, filecontent, 0)
+		if err != nil {
+			return err
+		}
+		pkg := T.newPkg(src.Name.Name)
+		pkg.Files[filename]=src
 	}
 	return nil
 }
