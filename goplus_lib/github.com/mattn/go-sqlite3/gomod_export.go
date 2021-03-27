@@ -7,6 +7,7 @@ import (
         reflect "reflect"
 
         gop "github.com/goplus/gop"
+        qspec "github.com/goplus/gop/exec.spec"
         sqlite3 "github.com/mattn/go-sqlite3"
 )
 

@@ -829,6 +829,18 @@ func execiTemplateDoterSwap(_ int, p *gop.Context) {
 	p.Ret(1, ret0)
 }
 
+func execmTemplateHeaderOpenFile(_ int, p *gop.Context) {
+	args := p.GetArgs(3)
+	ret0, ret1 := args[0].(*vweb.TemplateHeader).OpenFile(args[1].(string), args[2].(string))
+	p.Ret(3, ret0, ret1)
+}
+
+func execTemplateSeparation(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0, ret1, ret2 := vweb.TemplateSeparation(toType2(args[0]))
+	p.Ret(1, ret0, ret1, ret2)
+}
+
 // I is a Go package instance.
 var I = gop.NewGoPackage("github.com/456vv/vweb/v2")
 
@@ -955,6 +967,8 @@ func init() {
 		I.Func("(TemplateDoter).RootDir", (vweb.TemplateDoter).RootDir, execiTemplateDoterRootDir),
 		I.Func("(TemplateDoter).Session", (vweb.TemplateDoter).Session, execiTemplateDoterSession),
 		I.Func("(TemplateDoter).Swap", (vweb.TemplateDoter).Swap, execiTemplateDoterSwap),
+		I.Func("(*TemplateHeader).OpenFile", (*vweb.TemplateHeader).OpenFile, execmTemplateHeaderOpenFile),
+		I.Func("TemplateSeparation", vweb.TemplateSeparation, execTemplateSeparation),
 	)
 	I.RegisterFuncvs(
 		I.Funcv("DepthField", vweb.DepthField, execDepthField),
@@ -997,6 +1011,7 @@ func init() {
 		I.Type("SitePool", reflect.TypeOf((*vweb.SitePool)(nil)).Elem()),
 		I.Type("TemplateDot", reflect.TypeOf((*vweb.TemplateDot)(nil)).Elem()),
 		I.Type("TemplateDoter", reflect.TypeOf((*vweb.TemplateDoter)(nil)).Elem()),
+		I.Type("TemplateHeader", reflect.TypeOf((*vweb.TemplateHeader)(nil)).Elem()),
 	)
 	I.RegisterConsts(
 		I.Const("PluginTypeHTTP", qspec.Int, vweb.PluginTypeHTTP),
