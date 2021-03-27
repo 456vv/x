@@ -23,7 +23,7 @@ import(
     "github.com/456vv/vweb/v2"
     "github.com/456vv/verifycode"
     "github.com/456vv/vweb/v2/builtin"
-    "github.com/456vv/vweb/v2/server"
+    "github.com/456vv/vweb/v2/server/config"
     "regexp"
     "unicode"
     "unicode/utf8"
@@ -89,8 +89,8 @@ return  map[string]template.FuncMap{
 		"NewSitePool":vweb.NewSitePool,
 		"TemplateDot":func(a ...interface{}) (retn *vweb.TemplateDot) {builtin.GoTypeTo(&retn)(a...);return retn},
 	},
-	"vweb/server":{
-		"ConfigSitePlugin":func(a ...interface{}) (retn *server.ConfigSitePlugin) {builtin.GoTypeTo(&retn)(a...);return retn},
+	"vweb/server/config":{
+		"ConfigSitePlugin":func(a ...interface{}) (retn *config.ConfigSitePlugin) {builtin.GoTypeTo(&retn)(a...);return retn},
 	},
 	"vconnpool":{
 		"ConnPool":func(a ...interface{}) (retn *vconnpool.ConnPool) {builtin.GoTypeTo(&retn)(a...);return retn},
