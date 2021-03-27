@@ -971,6 +971,6 @@ return  map[string]template.FuncMap{
     	"JS":func(JS string) htemplate.JS {return htemplate.JS(JS)},
     	"JSStr":func(JSStr string) htemplate.JSStr {return htemplate.JSStr(JSStr)},
     	"Srcset":func(Srcset string) htemplate.Srcset {return htemplate.Srcset(Srcset)},
-    }
+    },
 }
 }
