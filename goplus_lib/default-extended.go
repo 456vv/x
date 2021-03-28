@@ -1,4 +1,4 @@
-// +build extended
+// +build extended general
 
 package goplus_lib
 

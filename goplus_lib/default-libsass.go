@@ -1,4 +1,4 @@
-// +build libsass
+// +build libsass general
 
 package goplus_lib
 
