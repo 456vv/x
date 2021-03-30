@@ -13,6 +13,7 @@ import(
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/builtin"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/server/config"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/server/watch"
+     _ "github.com/456vv/x/goplus_lib/github.com/goplusjs/reflectx"
      _ "github.com/456vv/x/goplus_lib/archive/zip"
      _ "github.com/456vv/x/goplus_lib/fmt"
      _ "github.com/456vv/x/goplus_lib/reflect"

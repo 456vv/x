@@ -10,6 +10,7 @@ github.com/456vv/verifycode
 github.com/456vv/vweb/v2/builtin
 github.com/456vv/vweb/v2/server/config
 github.com/456vv/vweb/v2/server/watch
+github.com/goplusjs/reflectx"
 
 archive/zip
 fmt
