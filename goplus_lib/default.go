@@ -30,7 +30,7 @@ import(
      _ "github.com/456vv/x/goplus_lib/encoding/json"
      _ "github.com/456vv/x/goplus_lib/encoding/hex"
      _ "github.com/456vv/x/goplus_lib/encoding/base64"
-     _ "github.com/456vv/x/goplus_lib/encoding/binary"
+     _ "github.com/456vv/x/goplus_lib/encoding/gob"
      _ "github.com/456vv/x/goplus_lib/encoding/pem"
      _ "github.com/456vv/x/goplus_lib/regexp"
      _ "github.com/456vv/x/goplus_lib/unicode"
