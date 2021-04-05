@@ -14,6 +14,8 @@ import(
     "encoding/json"
     "encoding/hex"
     "encoding/base64"
+    "encoding/gob"
+    "encoding/pem"
     "github.com/456vv/vmap/v2"
     "github.com/456vv/vconnpool/v2"
     "github.com/456vv/vforward"
@@ -822,6 +824,20 @@ return  map[string]template.FuncMap{
 		"NewEncoder":base64.NewEncoder,
 		"Encoding":func(a ...interface{}) (retn *base64.Encoding) {builtin.GoTypeTo(&retn)(a...);return retn},
 		"NewEncoding":base64.NewEncoding,
+	},
+	"encoding/gob":{
+		"Register":gob.Register,
+		"RegisterName":gob.RegisterName,
+		"NewDecoder":gob.NewDecoder,
+		"NewEncoder":gob.NewEncoder,
+		"GobDecoder":func(a ...interface{}) (retn gob.GobDecoder) {builtin.GoTypeTo(&retn)(a...);return retn},
+		"GobEncoder":func(a ...interface{}) (retn gob.GobEncoder) {builtin.GoTypeTo(&retn)(a...);return retn},
+	},
+	"encoding/pem":{
+		"Encode":pem.Encode,
+		"EncodeToMemory":pem.EncodeToMemory,
+		"Decode":pem.Decode,
+		"Block":func(a ...interface{}) (retn *pem.Block) {builtin.GoTypeTo(&retn)(a...);return retn},
 	},
     "regexp":{
         "Match":regexp.Match,

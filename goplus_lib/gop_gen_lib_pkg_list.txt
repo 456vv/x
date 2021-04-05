@@ -28,7 +28,7 @@ encoding/asn1
 encoding/json
 encoding/hex
 encoding/base64
-encoding/binary
+encoding/gob
 encoding/pem
 regexp
 unicode
