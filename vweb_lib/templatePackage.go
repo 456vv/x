@@ -991,6 +991,6 @@ return  map[string]template.FuncMap{
     },
     "container/list":{
     	"New":list.New,
-    }
+    },
 }
 }
