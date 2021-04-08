@@ -59,6 +59,7 @@ import(
    	"errors"
    	"log"
    	"text/template"
+   	"container/list"
    	htemplate "html/template"
 )
 
@@ -988,5 +989,8 @@ return  map[string]template.FuncMap{
     	"JSStr":func(JSStr string) htemplate.JSStr {return htemplate.JSStr(JSStr)},
     	"Srcset":func(Srcset string) htemplate.Srcset {return htemplate.Srcset(Srcset)},
     },
+    "container/list":{
+    	"New":list.New,
+    }
 }
 }

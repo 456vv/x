@@ -12,6 +12,7 @@ github.com/456vv/vweb/v2/server/config
 github.com/456vv/vweb/v2/server/watch
 github.com/goplusjs/reflectx"
 
+container/list
 archive/zip
 fmt
 reflect
