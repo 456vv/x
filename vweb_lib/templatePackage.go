@@ -60,6 +60,7 @@ import(
    	"log"
    	"text/template"
    	"container/list"
+   	"sort"
    	htemplate "html/template"
 )
 
@@ -991,6 +992,28 @@ return  map[string]template.FuncMap{
     },
     "container/list":{
     	"New":list.New,
+    },
+    "sort":{
+		"Float64s":sort.Float64s,
+		"Float64sAreSorted":sort.Float64sAreSorted,
+		"Ints":sort.Ints,
+		"IntsAreSorted":sort.IntsAreSorted,
+		"Strings":sort.Strings,
+		"StringsAreSorted":sort.StringsAreSorted,
+		"Search":sort.Search,
+		"SearchFloat64s":sort.SearchFloat64s,
+		"SearchInts":sort.SearchInts,
+		"SearchStrings":sort.SearchStrings,
+		"Sort":sort.Sort,
+		"Reverse":sort.Reverse,
+		"IsSorted":sort.IsSorted,
+		"Slice":sort.Slice,
+		"SliceStable":sort.SliceStable,
+		"SliceIsSorted":sort.SliceIsSorted,
+		"Float64Slice":func(Float64Slice []float64) sort.Float64Slice {return sort.Float64Slice(Float64Slice)},
+		"IntSlice":func(IntSlice []int) sort.IntSlice {return sort.IntSlice(IntSlice)},
+		"StringSlice":func(StringSlice []string) sort.StringSlice {return sort.StringSlice(StringSlice)},
+		"Interface":func(a ...interface{}) (retn sort.Interface) {builtin.GoTypeTo(&retn)(a...);return retn},
     },
 }
 }
