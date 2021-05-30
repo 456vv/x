@@ -12,7 +12,7 @@ require (
 	github.com/456vv/vforward v1.0.8
 	github.com/456vv/viot/v2 v2.2.3-0.20210530130226-56e3961f9a61
 	github.com/456vv/vmap/v2 v2.3.1
-	github.com/456vv/vweb/v2 v2.1.1-0.20210530130309-15b9b515c524 // indirect
+	github.com/456vv/vweb/v2 v2.4.6
 	github.com/88250/lute v1.7.2
 	github.com/bep/golibsass v1.0.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
