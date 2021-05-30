@@ -16,6 +16,12 @@ func execiCloseNotifierCloseNotify(_ int, p *gop.Context) {
 	p.Ret(1, ret0)
 }
 
+func execmConnRawConn(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*vconn.Conn).RawConn()
+	p.Ret(1, ret0)
+}
+
 func execmConnSetBackgroundReadDiscard(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
 	args[0].(*vconn.Conn).SetBackgroundReadDiscard(args[1].(bool))
@@ -107,6 +113,7 @@ var I = gop.NewGoPackage("github.com/456vv/vconn")
 func init() {
 	I.RegisterFuncs(
 		I.Func("(CloseNotifier).CloseNotify", (vconn.CloseNotifier).CloseNotify, execiCloseNotifierCloseNotify),
+		I.Func("(*Conn).RawConn", (*vconn.Conn).RawConn, execmConnRawConn),
 		I.Func("(*Conn).SetBackgroundReadDiscard", (*vconn.Conn).SetBackgroundReadDiscard, execmConnSetBackgroundReadDiscard),
 		I.Func("(*Conn).SetReadLimit", (*vconn.Conn).SetReadLimit, execmConnSetReadLimit),
 		I.Func("(*Conn).DisableBackgroundRead", (*vconn.Conn).DisableBackgroundRead, execmConnDisableBackgroundRead),

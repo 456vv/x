@@ -13,6 +13,11 @@ import(
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/builtin"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/server/config"
      _ "github.com/456vv/x/goplus_lib/github.com/goplus/reflectx"
+	 _ "github.com/456vv/x/goplus_lib/github.com/456vv/x/sqltable"
+	 _ "github.com/456vv/x/goplus_lib/github.com/456vv/x/smtp"
+	 _ "github.com/456vv/x/goplus_lib/github.com/456vv/x/db"
+	 _ "github.com/456vv/x/goplus_lib/github.com/456vv/x/watch"
+	 _ "github.com/456vv/x/goplus_lib/github.com/456vv/x/ticker"
      _ "github.com/456vv/x/goplus_lib/container/list"
      _ "github.com/456vv/x/goplus_lib/archive/zip"
      _ "github.com/456vv/x/goplus_lib/fmt"
@@ -76,5 +81,8 @@ import(
      _ "github.com/456vv/x/goplus_lib/mime/multipart"
      _ "github.com/456vv/x/goplus_lib/sort"
      _ "github.com/456vv/x/goplus_lib/hash"
+    
+    "github.com/fsnotify/fsnotify"
 )
-
+//bug
+var _ = (*fsnotify.Event)(nil)
