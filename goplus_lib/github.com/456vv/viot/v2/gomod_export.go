@@ -2,6 +2,7 @@
 package viot
 
 import (
+	bufio "bufio"
 	context "context"
 	io "io"
 	net "net"
@@ -134,6 +135,12 @@ func execExtendTemplatePackage(_ int, p *gop.Context) {
 	p.PopN(2)
 }
 
+func execiFlusherFlush(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	args[0].(viot.Flusher).Flush()
+	p.PopN(1)
+}
+
 func execiGlobalerDel(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
 	args[0].(vweb.Globaler).Del(args[1])
@@ -218,74 +225,14 @@ func execiHijackerHijack(_ int, p *gop.Context) {
 	p.Ret(1, ret0, ret1, ret2)
 }
 
-func execmHomePoolName(_ int, p *gop.Context) {
-	args := p.GetArgs(1)
-	ret0 := args[0].(*viot.Home).PoolName()
-	p.Ret(1, ret0)
-}
-
-func execmHomeManAdd(_ int, p *gop.Context) {
-	args := p.GetArgs(3)
-	args[0].(*viot.HomeMan).Add(args[1].(string), args[2].(*viot.Home))
-	p.PopN(3)
-}
-
-func execmHomeManGet(_ int, p *gop.Context) {
-	args := p.GetArgs(2)
-	ret0, ret1 := args[0].(*viot.HomeMan).Get(args[1].(string))
-	p.Ret(2, ret0, ret1)
-}
-
-func execmHomeManRange(_ int, p *gop.Context) {
-	args := p.GetArgs(2)
-	args[0].(*viot.HomeMan).Range(args[1].(func(host string, home *viot.Home) bool))
-	p.PopN(2)
-}
-
-func execmHomePoolNewHome(_ int, p *gop.Context) {
-	args := p.GetArgs(2)
-	ret0 := args[0].(*viot.HomePool).NewHome(args[1].(string))
-	p.Ret(2, ret0)
-}
-
-func execmHomePoolDelHome(_ int, p *gop.Context) {
-	args := p.GetArgs(2)
-	args[0].(*viot.HomePool).DelHome(args[1].(string))
-	p.PopN(2)
-}
-
-func execmHomePoolRangeHome(_ int, p *gop.Context) {
-	args := p.GetArgs(2)
-	args[0].(*viot.HomePool).RangeHome(args[1].(func(name string, home *viot.Home) bool))
-	p.PopN(2)
-}
-
-func execmHomePoolSetRecoverSession(_ int, p *gop.Context) {
-	args := p.GetArgs(2)
-	args[0].(*viot.HomePool).SetRecoverSession(args[1].(time.Duration))
-	p.PopN(2)
-}
-
-func execmHomePoolStart(_ int, p *gop.Context) {
-	args := p.GetArgs(1)
-	ret0 := args[0].(*viot.HomePool).Start()
-	p.Ret(1, ret0)
-}
-
-func execmHomePoolClose(_ int, p *gop.Context) {
-	args := p.GetArgs(1)
-	ret0 := args[0].(*viot.HomePool).Close()
-	p.Ret(1, ret0)
-}
-
 func execiLauncherLaunch(_ int, p *gop.Context) {
 	args := p.GetArgs(1)
 	ret0 := args[0].(viot.Launcher).Launch()
 	p.Ret(1, ret0)
 }
 
-func execNewHomePool(_ int, p *gop.Context) {
-	ret0 := viot.NewHomePool()
+func execNewSitePool(_ int, p *gop.Context) {
+	ret0 := viot.NewSitePool()
 	p.Ret(0, ret0)
 }
 
@@ -298,6 +245,12 @@ func execParseIOTVersion(_ int, p *gop.Context) {
 	args := p.GetArgs(1)
 	ret0, ret1, ret2 := viot.ParseIOTVersion(args[0].(string))
 	p.Ret(1, ret0, ret1, ret2)
+}
+
+func execiRawControlerRawControl(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(viot.RawControler).RawControl(args[1].(func(net.Conn, *bufio.Reader) error))
+	p.PopN(2)
 }
 
 func execReadRequest(_ int, p *gop.Context) {
@@ -705,6 +658,36 @@ func execmSessionsSession(_ int, p *gop.Context) {
 	p.Ret(3, ret0)
 }
 
+func execmSitePoolName(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*vweb.Site).PoolName()
+	p.Ret(1, ret0)
+}
+
+func execmSiteManAdd(_ int, p *gop.Context) {
+	args := p.GetArgs(3)
+	args[0].(*vweb.SiteMan).Add(args[1].(string), args[2].(*vweb.Site))
+	p.PopN(3)
+}
+
+func execmSiteManGet(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	ret0, ret1 := args[0].(*vweb.SiteMan).Get(args[1].(string))
+	p.Ret(2, ret0, ret1)
+}
+
+func execmSiteManRange(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*vweb.SiteMan).Range(args[1].(func(host string, site *vweb.Site) bool))
+	p.PopN(2)
+}
+
+func execmSitePoolNewSite(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	ret0 := args[0].(*viot.SitePool).NewSite(args[1].(string))
+	p.Ret(2, ret0)
+}
+
 func execmTemplateDotRootDir(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
 	ret0 := args[0].(*viot.TemplateDot).RootDir(args[1].(string))
@@ -863,6 +846,7 @@ func init() {
 		I.Func("(DynamicTemplater).SetPath", (viot.DynamicTemplater).SetPath, execiDynamicTemplaterSetPath),
 		I.Func("Error", viot.Error, execError),
 		I.Func("ExtendTemplatePackage", viot.ExtendTemplatePackage, execExtendTemplatePackage),
+		I.Func("(Flusher).Flush", (viot.Flusher).Flush, execiFlusherFlush),
 		I.Func("(Globaler).Del", (vweb.Globaler).Del, execiGlobalerDel),
 		I.Func("(Globaler).Get", (vweb.Globaler).Get, execiGlobalerGet),
 		I.Func("(Globaler).Has", (vweb.Globaler).Has, execiGlobalerHas),
@@ -877,20 +861,11 @@ func init() {
 		I.Func("(Header).Del", (viot.Header).Del, execmHeaderDel),
 		I.Func("(Header).Clone", (viot.Header).Clone, execmHeaderClone),
 		I.Func("(Hijacker).Hijack", (viot.Hijacker).Hijack, execiHijackerHijack),
-		I.Func("(*Home).PoolName", (*viot.Home).PoolName, execmHomePoolName),
-		I.Func("(*HomeMan).Add", (*viot.HomeMan).Add, execmHomeManAdd),
-		I.Func("(*HomeMan).Get", (*viot.HomeMan).Get, execmHomeManGet),
-		I.Func("(*HomeMan).Range", (*viot.HomeMan).Range, execmHomeManRange),
-		I.Func("(*HomePool).NewHome", (*viot.HomePool).NewHome, execmHomePoolNewHome),
-		I.Func("(*HomePool).DelHome", (*viot.HomePool).DelHome, execmHomePoolDelHome),
-		I.Func("(*HomePool).RangeHome", (*viot.HomePool).RangeHome, execmHomePoolRangeHome),
-		I.Func("(*HomePool).SetRecoverSession", (*viot.HomePool).SetRecoverSession, execmHomePoolSetRecoverSession),
-		I.Func("(*HomePool).Start", (*viot.HomePool).Start, execmHomePoolStart),
-		I.Func("(*HomePool).Close", (*viot.HomePool).Close, execmHomePoolClose),
 		I.Func("(Launcher).Launch", (viot.Launcher).Launch, execiLauncherLaunch),
-		I.Func("NewHomePool", viot.NewHomePool, execNewHomePool),
+		I.Func("NewSitePool", viot.NewSitePool, execNewSitePool),
 		I.Func("Nonce", viot.Nonce, execNonce),
 		I.Func("ParseIOTVersion", viot.ParseIOTVersion, execParseIOTVersion),
+		I.Func("(RawControler).RawControl", (viot.RawControler).RawControl, execiRawControlerRawControl),
 		I.Func("ReadRequest", viot.ReadRequest, execReadRequest),
 		I.Func("ReadResponse", viot.ReadResponse, execReadResponse),
 		I.Func("(*Request).GetNonce", (*viot.Request).GetNonce, execmRequestGetNonce),
@@ -952,6 +927,11 @@ func init() {
 		I.Func("(*Sessions).SetSession", (*vweb.Sessions).SetSession, execmSessionsSetSession),
 		I.Func("(*Sessions).DelSession", (*vweb.Sessions).DelSession, execmSessionsDelSession),
 		I.Func("(*Sessions).Session", (*vweb.Sessions).Session, execmSessionsSession),
+		I.Func("(*Site).PoolName", (*vweb.Site).PoolName, execmSitePoolName),
+		I.Func("(*SiteMan).Add", (*vweb.SiteMan).Add, execmSiteManAdd),
+		I.Func("(*SiteMan).Get", (*vweb.SiteMan).Get, execmSiteManGet),
+		I.Func("(*SiteMan).Range", (*vweb.SiteMan).Range, execmSiteManRange),
+		I.Func("(*SitePool).NewSite", (*viot.SitePool).NewSite, execmSitePoolNewSite),
 		I.Func("(*TemplateDot).RootDir", (*viot.TemplateDot).RootDir, execmTemplateDotRootDir),
 		I.Func("(*TemplateDot).Request", (*viot.TemplateDot).Request, execmTemplateDotRequest),
 		I.Func("(*TemplateDot).Header", (*viot.TemplateDot).Header, execmTemplateDotHeader),
@@ -982,18 +962,20 @@ func init() {
 		I.Funcv("(TemplateDoter).Defer", (viot.TemplateDoter).Defer, execiTemplateDoterDefer),
 	)
 	I.RegisterVars(
-		I.Var("DefaultHomePool", &viot.DefaultHomePool),
+		I.Var("DefaultSitePool", &viot.DefaultSitePool),
 		I.Var("ErrAbortHandler", &viot.ErrAbortHandler),
 		I.Var("ErrBodyNotAllowed", &viot.ErrBodyNotAllowed),
 		I.Var("ErrConnClose", &viot.ErrConnClose),
 		I.Var("ErrDoned", &viot.ErrDoned),
 		I.Var("ErrGetBodyed", &viot.ErrGetBodyed),
 		I.Var("ErrHijacked", &viot.ErrHijacked),
-		I.Var("ErrHomeInvalid", &viot.ErrHomeInvalid),
+		I.Var("ErrHostInvalid", &viot.ErrHostInvalid),
 		I.Var("ErrLaunched", &viot.ErrLaunched),
 		I.Var("ErrMethodInvalid", &viot.ErrMethodInvalid),
 		I.Var("ErrProtoInvalid", &viot.ErrProtoInvalid),
 		I.Var("ErrReqUnavailable", &viot.ErrReqUnavailable),
+		I.Var("ErrRespUnavailable", &viot.ErrRespUnavailable),
+		I.Var("ErrRwaControl", &viot.ErrRwaControl),
 		I.Var("ErrServerClosed", &viot.ErrServerClosed),
 		I.Var("ErrURIInvalid", &viot.ErrURIInvalid),
 		I.Var("LocalAddrContextKey", &viot.LocalAddrContextKey),
@@ -1007,15 +989,15 @@ func init() {
 		I.Type("DotContexter", reflect.TypeOf((*viot.DotContexter)(nil)).Elem()),
 		I.Type("DynamicTemplateFunc", reflect.TypeOf((*viot.DynamicTemplateFunc)(nil)).Elem()),
 		I.Type("DynamicTemplater", reflect.TypeOf((*viot.DynamicTemplater)(nil)).Elem()),
+		I.Type("Flusher", reflect.TypeOf((*viot.Flusher)(nil)).Elem()),
 		I.Type("Globaler", reflect.TypeOf((*viot.Globaler)(nil)).Elem()),
 		I.Type("Handler", reflect.TypeOf((*viot.Handler)(nil)).Elem()),
 		I.Type("HandlerFunc", reflect.TypeOf((*viot.HandlerFunc)(nil)).Elem()),
 		I.Type("Header", reflect.TypeOf((*viot.Header)(nil)).Elem()),
 		I.Type("Hijacker", reflect.TypeOf((*viot.Hijacker)(nil)).Elem()),
-		I.Type("Home", reflect.TypeOf((*viot.Home)(nil)).Elem()),
-		I.Type("HomeMan", reflect.TypeOf((*viot.HomeMan)(nil)).Elem()),
-		I.Type("HomePool", reflect.TypeOf((*viot.HomePool)(nil)).Elem()),
 		I.Type("Launcher", reflect.TypeOf((*viot.Launcher)(nil)).Elem()),
+		I.Type("LogLevel", reflect.TypeOf((*viot.LogLevel)(nil)).Elem()),
+		I.Type("RawControler", reflect.TypeOf((*viot.RawControler)(nil)).Elem()),
 		I.Type("Request", reflect.TypeOf((*viot.Request)(nil)).Elem()),
 		I.Type("RequestConfig", reflect.TypeOf((*viot.RequestConfig)(nil)).Elem()),
 		I.Type("Response", reflect.TypeOf((*viot.Response)(nil)).Elem()),
@@ -1029,11 +1011,16 @@ func init() {
 		I.Type("Session", reflect.TypeOf((*viot.Session)(nil)).Elem()),
 		I.Type("Sessioner", reflect.TypeOf((*viot.Sessioner)(nil)).Elem()),
 		I.Type("Sessions", reflect.TypeOf((*viot.Sessions)(nil)).Elem()),
+		I.Type("Site", reflect.TypeOf((*viot.Site)(nil)).Elem()),
+		I.Type("SiteMan", reflect.TypeOf((*viot.SiteMan)(nil)).Elem()),
+		I.Type("SitePool", reflect.TypeOf((*viot.SitePool)(nil)).Elem()),
 		I.Type("TemplateDot", reflect.TypeOf((*viot.TemplateDot)(nil)).Elem()),
 		I.Type("TemplateDoter", reflect.TypeOf((*viot.TemplateDoter)(nil)).Elem()),
 	)
 	I.RegisterConsts(
 		I.Const("DefaultLineBytes", qspec.ConstUnboundInt, viot.DefaultLineBytes),
+		I.Const("LogDebug", qspec.Int, viot.LogDebug),
+		I.Const("LogErr", qspec.Int, viot.LogErr),
 		I.Const("StateActive", qspec.Int, viot.StateActive),
 		I.Const("StateClosed", qspec.Int, viot.StateClosed),
 		I.Const("StateHijacked", qspec.Int, viot.StateHijacked),

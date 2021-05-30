@@ -1,3 +1,4 @@
+github.com/456vv/verifycode
 github.com/456vv/vmap/v2
 github.com/456vv/vconnpool/v2
 github.com/456vv/vforward
@@ -6,11 +7,9 @@ github.com/456vv/vbody
 github.com/456vv/vcipher
 github.com/456vv/viot/v2
 github.com/456vv/vweb/v2
-github.com/456vv/verifycode
 github.com/456vv/vweb/v2/builtin
 github.com/456vv/vweb/v2/server/config
-github.com/456vv/vweb/v2/server/watch
-github.com/goplusjs/reflectx"
+github.com/goplus/reflectx
 
 container/list
 archive/zip
@@ -31,6 +30,7 @@ encoding/hex
 encoding/base64
 encoding/gob
 encoding/pem
+encoding/binary
 regexp
 unicode
 unicode/utf8
@@ -59,8 +59,8 @@ crypto/sha512
 crypto/md5
 math/big
 math/rand
-path/filepath
 path
+path/filepath
 sync
 sync/atomic
 errors

@@ -22,6 +22,18 @@ func execmConnSetBackgroundReadDiscard(_ int, p *gop.Context) {
 	p.PopN(2)
 }
 
+func execmConnSetReadLimit(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*vconn.Conn).SetReadLimit(args[1].(int))
+	p.PopN(2)
+}
+
+func execmConnDisableBackgroundRead(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*vconn.Conn).DisableBackgroundRead(args[1].(bool))
+	p.PopN(2)
+}
+
 func execmConnCloseNotify(_ int, p *gop.Context) {
 	args := p.GetArgs(1)
 	ret0 := args[0].(*vconn.Conn).CloseNotify()
@@ -96,6 +108,8 @@ func init() {
 	I.RegisterFuncs(
 		I.Func("(CloseNotifier).CloseNotify", (vconn.CloseNotifier).CloseNotify, execiCloseNotifierCloseNotify),
 		I.Func("(*Conn).SetBackgroundReadDiscard", (*vconn.Conn).SetBackgroundReadDiscard, execmConnSetBackgroundReadDiscard),
+		I.Func("(*Conn).SetReadLimit", (*vconn.Conn).SetReadLimit, execmConnSetReadLimit),
+		I.Func("(*Conn).DisableBackgroundRead", (*vconn.Conn).DisableBackgroundRead, execmConnDisableBackgroundRead),
 		I.Func("(*Conn).CloseNotify", (*vconn.Conn).CloseNotify, execmConnCloseNotify),
 		I.Func("(*Conn).Read", (*vconn.Conn).Read, execmConnRead),
 		I.Func("(*Conn).Write", (*vconn.Conn).Write, execmConnWrite),

@@ -319,6 +319,66 @@ func execmPositionInvalid(_ int, p *gop.Context) {
 	p.Ret(1, ret0)
 }
 
+func execmtomlValueValue(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*toml.PubTOMLValue).Value()
+	p.Ret(1, ret0)
+}
+
+func execmtomlValueComment(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*toml.PubTOMLValue).Comment()
+	p.Ret(1, ret0)
+}
+
+func execmtomlValueCommented(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*toml.PubTOMLValue).Commented()
+	p.Ret(1, ret0)
+}
+
+func execmtomlValueMultiline(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*toml.PubTOMLValue).Multiline()
+	p.Ret(1, ret0)
+}
+
+func execmtomlValuePosition(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*toml.PubTOMLValue).Position()
+	p.Ret(1, ret0)
+}
+
+func execmtomlValueSetValue(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*toml.PubTOMLValue).SetValue(args[1])
+	p.PopN(2)
+}
+
+func execmtomlValueSetComment(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*toml.PubTOMLValue).SetComment(args[1].(string))
+	p.PopN(2)
+}
+
+func execmtomlValueSetCommented(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*toml.PubTOMLValue).SetCommented(args[1].(bool))
+	p.PopN(2)
+}
+
+func execmtomlValueSetMultiline(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*toml.PubTOMLValue).SetMultiline(args[1].(bool))
+	p.PopN(2)
+}
+
+func execmtomlValueSetPosition(_ int, p *gop.Context) {
+	args := p.GetArgs(2)
+	args[0].(*toml.PubTOMLValue).SetPosition(args[1].(toml.Position))
+	p.PopN(2)
+}
+
 func execmTreeUnmarshal(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
 	ret0 := args[0].(*toml.Tree).Unmarshal(args[1])
@@ -601,6 +661,16 @@ func init() {
 		I.Func("ParseLocalTime", toml.ParseLocalTime, execParseLocalTime),
 		I.Func("(Position).String", (toml.Position).String, execmPositionString),
 		I.Func("(Position).Invalid", (toml.Position).Invalid, execmPositionInvalid),
+		I.Func("(*PubTOMLValue).Value", (*toml.PubTOMLValue).Value, execmtomlValueValue),
+		I.Func("(*PubTOMLValue).Comment", (*toml.PubTOMLValue).Comment, execmtomlValueComment),
+		I.Func("(*PubTOMLValue).Commented", (*toml.PubTOMLValue).Commented, execmtomlValueCommented),
+		I.Func("(*PubTOMLValue).Multiline", (*toml.PubTOMLValue).Multiline, execmtomlValueMultiline),
+		I.Func("(*PubTOMLValue).Position", (*toml.PubTOMLValue).Position, execmtomlValuePosition),
+		I.Func("(*PubTOMLValue).SetValue", (*toml.PubTOMLValue).SetValue, execmtomlValueSetValue),
+		I.Func("(*PubTOMLValue).SetComment", (*toml.PubTOMLValue).SetComment, execmtomlValueSetComment),
+		I.Func("(*PubTOMLValue).SetCommented", (*toml.PubTOMLValue).SetCommented, execmtomlValueSetCommented),
+		I.Func("(*PubTOMLValue).SetMultiline", (*toml.PubTOMLValue).SetMultiline, execmtomlValueSetMultiline),
+		I.Func("(*PubTOMLValue).SetPosition", (*toml.PubTOMLValue).SetPosition, execmtomlValueSetPosition),
 		I.Func("(*Tree).Unmarshal", (*toml.Tree).Unmarshal, execmTreeUnmarshal),
 		I.Func("(*Tree).Marshal", (*toml.Tree).Marshal, execmTreeMarshal),
 		I.Func("(*Tree).Position", (*toml.Tree).Position, execmTreePosition),

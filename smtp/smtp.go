@@ -36,7 +36,7 @@ func (a *plainAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 	}
 	return nil, nil
 }
-type SmtpInfo struct{
+type Info struct{
 	Server		string
 	Host		string
 	UserName	string
@@ -46,7 +46,7 @@ type SmtpInfo struct{
 	Extra		map[string]interface{}
 }
 type Smtp struct{
-	Info 		*SmtpInfo
+	Info 		*Info
 	conn		net.Conn
 	client		*smtp.Client
 	connClosed	atomicBool

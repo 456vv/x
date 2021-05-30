@@ -101,6 +101,7 @@ return  map[string]template.FuncMap{
 	},
 	"vconn":{
 		"NewConn":vconn.NewConn,
+		"Conn":func(a ...interface{}) (retn *vconn.Conn) {builtin.GoTypeTo(&retn)(a...);return retn},
 		"CloseNotifier":func(a ...interface{}) (retn vconn.CloseNotifier) {builtin.GoTypeTo(&retn)(a...);return retn},
 	},
 	"vbody":{

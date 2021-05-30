@@ -11,17 +11,17 @@ goto exit
 :input
 	set /p flag=enter pkg path:
 	if "%flag%" == "" goto all
-	gop export -outdir . %flag%
+	gop export -outdir ../../ %flag%
 	pause
 	goto input
 	exit 0
 :all
 	for /f "tokens=1* delims=:" %%a in ('findstr /n .* gop_gen_lib_pkg_list.txt') do (
 		if "%%b" == "" (pause) else (
-			if not exist %%b (gop export -outdir . %%b) else (echo skip %%b)
+			if not exist %%b (gop export -outdir ../../ %%b) else (echo skip %%b)
 		)
 	)
-	set fileName=default.go
+	set fileName=../../default.go
 	set pkgName=goplus_lib
 	set pkgDir=github.com/456vv/x/goplus_lib
 	

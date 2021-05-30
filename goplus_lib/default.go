@@ -1,6 +1,7 @@
 package goplus_lib
 
 import(
+     _ "github.com/456vv/x/goplus_lib/github.com/456vv/verifycode"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vmap/v2"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vconnpool/v2"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vforward"
@@ -9,11 +10,9 @@ import(
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vcipher"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/viot/v2"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2"
-     _ "github.com/456vv/x/goplus_lib/github.com/456vv/verifycode"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/builtin"
      _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/server/config"
-     _ "github.com/456vv/x/goplus_lib/github.com/456vv/vweb/v2/server/watch"
-     _ "github.com/456vv/x/goplus_lib/github.com/goplusjs/reflectx"
+     _ "github.com/456vv/x/goplus_lib/github.com/goplus/reflectx"
      _ "github.com/456vv/x/goplus_lib/container/list"
      _ "github.com/456vv/x/goplus_lib/archive/zip"
      _ "github.com/456vv/x/goplus_lib/fmt"
@@ -33,6 +32,7 @@ import(
      _ "github.com/456vv/x/goplus_lib/encoding/base64"
      _ "github.com/456vv/x/goplus_lib/encoding/gob"
      _ "github.com/456vv/x/goplus_lib/encoding/pem"
+     _ "github.com/456vv/x/goplus_lib/encoding/binary"
      _ "github.com/456vv/x/goplus_lib/regexp"
      _ "github.com/456vv/x/goplus_lib/unicode"
      _ "github.com/456vv/x/goplus_lib/unicode/utf8"
@@ -61,8 +61,8 @@ import(
      _ "github.com/456vv/x/goplus_lib/crypto/md5"
      _ "github.com/456vv/x/goplus_lib/math/big"
      _ "github.com/456vv/x/goplus_lib/math/rand"
-     _ "github.com/456vv/x/goplus_lib/path/filepath"
      _ "github.com/456vv/x/goplus_lib/path"
+     _ "github.com/456vv/x/goplus_lib/path/filepath"
      _ "github.com/456vv/x/goplus_lib/sync"
      _ "github.com/456vv/x/goplus_lib/sync/atomic"
      _ "github.com/456vv/x/goplus_lib/errors"
@@ -76,7 +76,5 @@ import(
      _ "github.com/456vv/x/goplus_lib/mime/multipart"
      _ "github.com/456vv/x/goplus_lib/sort"
      _ "github.com/456vv/x/goplus_lib/hash"
-    "github.com/fsnotify/fsnotify"
 )
-//bug
-var _ = (*fsnotify.Event)(nil)
+

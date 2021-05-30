@@ -149,6 +149,18 @@ func execiDynamicTemplaterSetPath(_ int, p *gop.Context) {
 	p.PopN(3)
 }
 
+func execmExecCallFunc(arity int, p *gop.Context) {
+	args := p.GetArgs(arity)
+	ret0 := args[0].(*vweb.ExecCall).Func(args[1], args[2:]...)
+	p.Ret(arity, ret0)
+}
+
+func execmExecCallExec(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0 := args[0].(*vweb.ExecCall).Exec()
+	p.Ret(1, ret0)
+}
+
 func execExecFunc(arity int, p *gop.Context) {
 	args := p.GetArgs(arity)
 	ret0, ret1 := vweb.ExecFunc(args[0], args[1:]...)
@@ -864,6 +876,7 @@ func init() {
 		I.Func("(DynamicTemplater).Execute", (vweb.DynamicTemplater).Execute, execiDynamicTemplaterExecute),
 		I.Func("(DynamicTemplater).Parse", (vweb.DynamicTemplater).Parse, execiDynamicTemplaterParse),
 		I.Func("(DynamicTemplater).SetPath", (vweb.DynamicTemplater).SetPath, execiDynamicTemplaterSetPath),
+		I.Func("(*ExecCall).Exec", (*vweb.ExecCall).Exec, execmExecCallExec),
 		I.Func("(*ExitCall).Free", (*vweb.ExitCall).Free, execmExitCallFree),
 		I.Func("ExtendTemplatePackage", vweb.ExtendTemplatePackage, execExtendTemplatePackage),
 		I.Func("ForMethod", vweb.ForMethod, execForMethod),
@@ -972,6 +985,7 @@ func init() {
 	)
 	I.RegisterFuncvs(
 		I.Funcv("DepthField", vweb.DepthField, execDepthField),
+		I.Funcv("(*ExecCall).Func", (*vweb.ExecCall).Func, execmExecCallFunc),
 		I.Funcv("ExecFunc", vweb.ExecFunc, execExecFunc),
 		I.Funcv("(*ExitCall).Defer", (*vweb.ExitCall).Defer, execmExitCallDefer),
 		I.Funcv("(*ServerHandlerDynamicTemplateExtend).Call", (*vweb.ServerHandlerDynamicTemplateExtend).Call, execmServerHandlerDynamicTemplateExtendCall),
@@ -990,6 +1004,7 @@ func init() {
 		I.Type("DotContexter", reflect.TypeOf((*vweb.DotContexter)(nil)).Elem()),
 		I.Type("DynamicTemplateFunc", reflect.TypeOf((*vweb.DynamicTemplateFunc)(nil)).Elem()),
 		I.Type("DynamicTemplater", reflect.TypeOf((*vweb.DynamicTemplater)(nil)).Elem()),
+		I.Type("ExecCall", reflect.TypeOf((*vweb.ExecCall)(nil)).Elem()),
 		I.Type("ExitCall", reflect.TypeOf((*vweb.ExitCall)(nil)).Elem()),
 		I.Type("Forward", reflect.TypeOf((*vweb.Forward)(nil)).Elem()),
 		I.Type("Globaler", reflect.TypeOf((*vweb.Globaler)(nil)).Elem()),
