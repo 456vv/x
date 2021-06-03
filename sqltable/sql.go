@@ -69,6 +69,18 @@ func (T *SQLTable) ColumnMark(q string) *SQLTable  {
 	T.columnMark=q
 	return T
 }
+func (T *SQLTable) addColumnMark(col string) string {
+	mark := T.columnMark
+	if mark == "" {
+		mark = `"`
+	}
+	for _, c := range col {
+		if c >= 'A' && c <= 'Z' {
+			return mark+ col +mark
+		}
+	}
+	return col
+}
 
 //他会替换语句中的 $Values$ 符号
 func (T *SQLTable) Value(column string, value interface{}) *SQLTable {
@@ -87,7 +99,7 @@ func (T *SQLTable) values(s string) string {
 		values []string
 	)
 	for key, val := range T.svalues {
-		conumns = append(conumns, T.columnMark + key + T.columnMark)
+		conumns = append(conumns,  T.addColumnMark(key) )
 		values	= append(values, T.progress(val))
 	}
 	if len(conumns) >0 {
@@ -182,7 +194,7 @@ func (T *SQLTable) more(f func(string, interface{}) *SQLTable ,a ...interface{})
 func (T *SQLTable) set(s string) string {
 	var sets []string
 	for key, val  := range T.sset {
-		sets = append(sets, fmt.Sprintf(`%s=%s`, T.columnMark + key + T.columnMark, T.progress(val)))
+		sets = append(sets, fmt.Sprintf(`%s=%s`, T.addColumnMark(key), T.progress(val)))
 	}
 	
 	set := strings.Join(sets,",")
@@ -203,7 +215,7 @@ func (T *SQLTable) Excluded(a ...string) *SQLTable {
 func (T *SQLTable) excluded(s string) string {
 	var sets []string
 	for _, val  := range T.sexcluded {
-		sets = append(sets, fmt.Sprintf(`%[1]s=excluded.%[1]s`, T.columnMark + val + T.columnMark))
+		sets = append(sets, fmt.Sprintf(`%[1]s=excluded.%[1]s`, T.addColumnMark(val)))
 	}
 	if len(sets) >0 {
 		s = strings.Replace(s,"$Excluded$", strings.Join(sets,","), 1)
