@@ -28,7 +28,9 @@ import(
 	DB.HasDataContext(ctx context.Context, sqlstr string, args ...interface{}) error
 */
 
+//支持于HasContext支持
 var	ErrRows	= errors.New("sql: have	rows in	result set")
+//支持于 HasContext，QueryReaderContext，QueryRowContext，PexecContext
 var ErrNoRows = sql.ErrNoRows
 
 type sqlRower interface{
@@ -93,6 +95,7 @@ func (T *DB) logf(format string, a ...interface{}) {
 	}
 	log.Printf(format+"\n", a...)
 }
+
 //打印调试信息
 func (T *DB) debugPrint(sqlStr string, args interface{}){
 	if T.Debug {
@@ -102,7 +105,8 @@ func (T *DB) debugPrint(sqlStr string, args interface{}){
 		T.logf("%s %#v\n", sqlStr, args)
 	}
 }
-//支持写入(postgresql)
+
+//支持写入(postgresql)，支持返回错误：error, ErrNoRows
 func (T	*DB) Pexec(tx *sql.Tx,	sqlstr string, args	...interface{})	error {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
@@ -167,7 +171,7 @@ func (T	*DB) ExecContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ..
 	return
 }
 
-//支持读取/写入
+//支持读取/写入，支持返回错误：error, ErrNoRows
 func (T	*DB) QueryRow(tx *sql.Tx, sqlstr string, args ...interface{}) sqlRower {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
@@ -206,7 +210,7 @@ func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, arg
 	return &dbRow{tx:sqlTx,	r:sqlRow}
 }
 
-//支持读取/写入
+//支持读取/写入，支持返回错误：error, ErrNoRows
 func (T	*DB) Query(tx *sql.Tx, sqlstr string, args ...interface{}) (data []map[string]interface{}, err error) {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
@@ -307,7 +311,7 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 	return
 }
 
-//支持读取/写入
+//支持读取/写入，支持返回错误：error, ErrNoRows
 //line={"A":*vbody.Reader, "B":*vbody.Reader}
 func (T	*DB) QueryReader(tx	*sql.Tx, id	string,	sqlstr string, args	...interface{})	(line map[interface{}]*vbody.Reader, err error)	{
 	ctx	:= context.Background()
@@ -412,7 +416,7 @@ func (T	*DB) QueryReaderContext(tx *sql.Tx,	ctx	context.Context, id	string,	sqls
 	return
 }
 
-//判断数据存在
+//判断数据存在，支持返回错误：error, ErrRows, ErrNoRows
 func (T	*DB) Has(sqlstr	string,	args ...interface{}) error {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
