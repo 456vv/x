@@ -41,8 +41,12 @@ type dbRow struct{
 	tx	*sql.Tx
 	r	*sql.Row
 	err	error
+	cancel context.CancelFunc
 }
 func (T	*dbRow)	Scan(dest ...interface{}) error	{
+	if T.cancel != nil {
+		defer T.cancel()
+	}
 	if T.err !=	nil	{
 		return T.err
 	}
@@ -174,11 +178,6 @@ func (T	*DB) ExecContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ..
 //支持读取/写入，支持返回错误：error, ErrNoRows
 func (T	*DB) QueryRow(tx *sql.Tx, sqlstr string, args ...interface{}) sqlRower {
 	ctx	:= context.Background()
-	var	cancel context.CancelFunc
-	if T.Timeout !=	0 {
-		ctx, cancel	= context.WithTimeout(ctx, T.Timeout)
-		defer cancel()
-	}
 	return T.QueryRowContext(tx, ctx, sqlstr, args...)
 }
 func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ...interface{}) sqlRower {
@@ -206,8 +205,16 @@ func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, arg
 		sqlTx =	tx
 	}
 	
+	var cancel context.CancelFunc = func(){}
+	if T.Timeout !=	0 {
+		//这个上下文没有设置超时
+		_, ok := ctx.Deadline()
+		if !ok {
+			ctx, cancel	= context.WithTimeout(ctx, T.Timeout)
+		}
+	}
 	sqlRow := tx.QueryRowContext(ctx, sqlstr, args...)
-	return &dbRow{tx:sqlTx,	r:sqlRow}
+	return &dbRow{tx:sqlTx,	r:sqlRow, cancel:cancel}
 }
 
 //支持读取/写入，支持返回错误：error, ErrNoRows
