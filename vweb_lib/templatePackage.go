@@ -1,4 +1,4 @@
-﻿package vweb_lib
+package vweb_lib
 import(
 	"fmt"
     "reflect"
