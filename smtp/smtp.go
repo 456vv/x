@@ -168,6 +168,7 @@ func (T *Smtp) Send(to []string, title, body string) error {
   			return err
   		}
   	}
+  	defer T.client.Reset()
   	w, err := T.client.Data()
   	if err != nil {
   		return err
