@@ -65,8 +65,6 @@ func (T *Smtp) OpenConfig(file string) error {
 	return json.NewDecoder(osFile).Decode(&T.Info)
 }
 func (T *Smtp) connection() error {
-	T.mu.Lock()
-	defer T.mu.Unlock()
 	if T.closed.isTrue() {
 		return errSmtpClosed
 	}
@@ -141,7 +139,7 @@ func (T *Smtp) Close() error {
 	
 	T.closed.setTrue()
 	if T.client != nil {
-		err := T.client.Close()
+		err := T.client.Quit()
 		T.client 	= nil
 		T.conn		= nil
 		return err
@@ -157,9 +155,13 @@ func (T *Smtp) notifyConn(){
 	}
 }
 func (T *Smtp) Send(to []string, title, body string) error {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	
 	if err := T.connection(); err != nil {
 		return err
 	}
+	defer T.client.Reset()
 	if err := T.client.Mail(T.Info.FromEmail); err != nil {
 		return err
 	}
@@ -168,7 +170,6 @@ func (T *Smtp) Send(to []string, title, body string) error {
   			return err
   		}
   	}
-  	defer T.client.Reset()
   	w, err := T.client.Data()
   	if err != nil {
   		return err
