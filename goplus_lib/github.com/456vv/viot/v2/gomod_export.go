@@ -361,15 +361,15 @@ func execmResponseSetNonce(_ int, p *gop.Context) {
 	p.PopN(2)
 }
 
-func execmResponseWriteTo(_ int, p *gop.Context) {
+func execmResponseWriteAt(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
-	args[0].(*viot.Response).WriteTo(toType3(args[1]))
+	args[0].(*viot.Response).WriteAt(toType3(args[1]))
 	p.PopN(2)
 }
 
-func execmResponseWrite(_ int, p *gop.Context) {
+func execmResponseWriteTo(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
-	ret0 := args[0].(*viot.Response).Write(toType1(args[1]))
+	ret0 := args[0].(*viot.Response).WriteTo(toType1(args[1]))
 	p.Ret(2, ret0)
 }
 
@@ -884,8 +884,8 @@ func init() {
 		I.Func("(*RequestConfig).Marshal", (*viot.RequestConfig).Marshal, execmRequestConfigMarshal),
 		I.Func("(*RequestConfig).Unmarshal", (*viot.RequestConfig).Unmarshal, execmRequestConfigUnmarshal),
 		I.Func("(*Response).SetNonce", (*viot.Response).SetNonce, execmResponseSetNonce),
+		I.Func("(*Response).WriteAt", (*viot.Response).WriteAt, execmResponseWriteAt),
 		I.Func("(*Response).WriteTo", (*viot.Response).WriteTo, execmResponseWriteTo),
-		I.Func("(*Response).Write", (*viot.Response).Write, execmResponseWrite),
 		I.Func("(*Response).ResponseConfig", (*viot.Response).ResponseConfig, execmResponseResponseConfig),
 		I.Func("(ResponseWriter).Header", (viot.ResponseWriter).Header, execiResponseWriterHeader),
 		I.Func("(ResponseWriter).SetBody", (viot.ResponseWriter).SetBody, execiResponseWriterSetBody),
