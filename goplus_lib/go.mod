@@ -10,7 +10,7 @@ require (
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/verror v1.1.0 // indirect
 	github.com/456vv/vforward v1.0.8
-	github.com/456vv/viot/v2 v2.2.3-0.20210530130226-56e3961f9a61
+	github.com/456vv/viot/v2 v2.2.5-0.20210701042951-b50e6214b3f2
 	github.com/456vv/vmap/v2 v2.3.1
 	github.com/456vv/vweb/v2 v2.4.6
 	github.com/456vv/x/db v0.0.0-20210530134931-1dc04f4064f0
