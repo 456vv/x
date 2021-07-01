@@ -231,6 +231,18 @@ func execiLauncherLaunch(_ int, p *gop.Context) {
 	p.Ret(1, ret0)
 }
 
+func execNewRequest(_ int, p *gop.Context) {
+	args := p.GetArgs(3)
+	ret0, ret1 := viot.NewRequest(args[0].(string), args[1].(string), args[2])
+	p.Ret(3, ret0, ret1)
+}
+
+func execNewRequestWithContext(_ int, p *gop.Context) {
+	args := p.GetArgs(4)
+	ret0, ret1 := viot.NewRequestWithContext(toType0(args[0]), args[1].(string), args[2].(string), args[3])
+	p.Ret(4, ret0, ret1)
+}
+
 func execNewSitePool(_ int, p *gop.Context) {
 	ret0 := viot.NewSitePool()
 	p.Ret(0, ret0)
@@ -369,14 +381,20 @@ func execmResponseWriteAt(_ int, p *gop.Context) {
 
 func execmResponseWriteTo(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
-	ret0 := args[0].(*viot.Response).WriteTo(toType1(args[1]))
-	p.Ret(2, ret0)
+	ret0, ret1 := args[0].(*viot.Response).WriteTo(toType1(args[1]))
+	p.Ret(2, ret0, ret1)
 }
 
 func execmResponseResponseConfig(_ int, p *gop.Context) {
 	args := p.GetArgs(2)
 	ret0, ret1 := args[0].(*viot.Response).ResponseConfig(args[1].(string))
 	p.Ret(2, ret0, ret1)
+}
+
+func execmResponseConfigMarshal(_ int, p *gop.Context) {
+	args := p.GetArgs(1)
+	ret0, ret1 := args[0].(*viot.ResponseConfig).Marshal()
+	p.Ret(1, ret0, ret1)
 }
 
 func execiResponseWriterHeader(_ int, p *gop.Context) {
@@ -862,6 +880,8 @@ func init() {
 		I.Func("(Header).Clone", (viot.Header).Clone, execmHeaderClone),
 		I.Func("(Hijacker).Hijack", (viot.Hijacker).Hijack, execiHijackerHijack),
 		I.Func("(Launcher).Launch", (viot.Launcher).Launch, execiLauncherLaunch),
+		I.Func("NewRequest", viot.NewRequest, execNewRequest),
+		I.Func("NewRequestWithContext", viot.NewRequestWithContext, execNewRequestWithContext),
 		I.Func("NewSitePool", viot.NewSitePool, execNewSitePool),
 		I.Func("Nonce", viot.Nonce, execNonce),
 		I.Func("ParseIOTVersion", viot.ParseIOTVersion, execParseIOTVersion),
@@ -887,6 +907,7 @@ func init() {
 		I.Func("(*Response).WriteAt", (*viot.Response).WriteAt, execmResponseWriteAt),
 		I.Func("(*Response).WriteTo", (*viot.Response).WriteTo, execmResponseWriteTo),
 		I.Func("(*Response).ResponseConfig", (*viot.Response).ResponseConfig, execmResponseResponseConfig),
+		I.Func("(*ResponseConfig).Marshal", (*viot.ResponseConfig).Marshal, execmResponseConfigMarshal),
 		I.Func("(ResponseWriter).Header", (viot.ResponseWriter).Header, execiResponseWriterHeader),
 		I.Func("(ResponseWriter).SetBody", (viot.ResponseWriter).SetBody, execiResponseWriterSetBody),
 		I.Func("(ResponseWriter).Status", (viot.ResponseWriter).Status, execiResponseWriterStatus),
@@ -1021,6 +1042,7 @@ func init() {
 		I.Const("DefaultLineBytes", qspec.ConstUnboundInt, viot.DefaultLineBytes),
 		I.Const("LogDebug", qspec.Int, viot.LogDebug),
 		I.Const("LogErr", qspec.Int, viot.LogErr),
+		I.Const("LogNone", qspec.Int, viot.LogNone),
 		I.Const("StateActive", qspec.Int, viot.StateActive),
 		I.Const("StateClosed", qspec.Int, viot.StateClosed),
 		I.Const("StateHijacked", qspec.Int, viot.StateHijacked),
