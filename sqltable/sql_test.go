@@ -18,7 +18,7 @@ func Test_NewSQLTable_Values(t *testing.T){
 
 func Test_NewSQLTable_Set(t *testing.T){
 	var ssql1 = NewSQLTable().Prepare(`select * from "B" $Where$`).Or(`"G1"=?`,1).Or(`"G2"=?`,2)
-	var ssql = NewSQLTable().Prepare(`update into "A" $Set$ $Where$`).Sets(`"A1"`,1,`"A2"`,2).And(`"B1"=?`,1).And(`"B3"=?`,3).Where("and","B4=?",ssql1)
+	var ssql = NewSQLTable().Prepare(`update into "A" $Set$ $Where$`).Sets("A1",1,"A2",2).And(`"B1"=?`,1).And(`"B3"=?`,3).Where("and","B4=?",ssql1)
 	t.Log(ssql.SQL())
 }
 

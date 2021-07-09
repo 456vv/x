@@ -40,6 +40,8 @@ type SQLTable struct{
 	args		[]interface{}						//参数
 	prog		func(val interface{}) string
 	columnMark	string
+	valuesKeys []string
+	setKeys	   []string
 }
 func NewSQLTable() *SQLTable{
 	return &SQLTable{
@@ -85,7 +87,9 @@ func (T *SQLTable) addColumnMark(col string) string {
 //他会替换语句中的 $Values$ 符号
 func (T *SQLTable) Value(column string, value interface{}) *SQLTable {
 	T.reset()
-	T.svalues[column]=value
+	keyName := T.addColumnMark(column)
+	T.svalues[keyName]=value
+	T.valuesKeys = append(T.valuesKeys, keyName)
 	return T
 }
 
@@ -99,13 +103,13 @@ func (T *SQLTable) values(s string) string {
 		values []string
 	)
 	for key, val := range T.svalues {
-		conumns = append(conumns,  T.addColumnMark(key) )
+		conumns = append(conumns,  key)
 		values	= append(values, T.progress(val))
 	}
 	if len(conumns) >0 {
 		s = strings.Replace(s, "$Values$", fmt.Sprintf(`(%s) values(%s)`, strings.Join(conumns, ","), strings.Join(values, ",")), 1)
 	}
-	
+	s = strings.Replace(s, "$ValuesKeys$", strings.Join(T.valuesKeys, ","), 1)
 	return s
 }
 
@@ -133,9 +137,6 @@ func (T *SQLTable) Ors(a ...interface{}) *SQLTable {
 //他会替换语句中的 $Where$ 符号
 func (T *SQLTable) Where(symbol, column string, value interface{}) *SQLTable {
 	T.reset()
-	//if !strings.Contains(column, "?") {
-	//	column = fmt.Sprintf("%s=?" T.columnMark + column + T.columnMark)
-	//}
 	T.swhere = append(T.swhere, &sqlTableWhere{symbol, column, value})
 	return T
 }
@@ -169,7 +170,9 @@ func (T *SQLTable) where(s string) string {
 //他会替换语句中的 $Set$ 符号
 func (T *SQLTable) Set(column string, value interface{}) *SQLTable {
 	T.reset()
-	T.sset[column]=value
+	keyName := T.addColumnMark(column)
+	T.sset[keyName]=value
+	T.setKeys = append(T.setKeys, keyName)
 	return T
 }
 
@@ -194,7 +197,7 @@ func (T *SQLTable) more(f func(string, interface{}) *SQLTable ,a ...interface{})
 func (T *SQLTable) set(s string) string {
 	var sets []string
 	for key, val  := range T.sset {
-		sets = append(sets, fmt.Sprintf(`%s=%s`, T.addColumnMark(key), T.progress(val)))
+		sets = append(sets, fmt.Sprintf(`%s=%s`, key, T.progress(val)))
 	}
 	
 	set := strings.Join(sets,",")
@@ -203,6 +206,7 @@ func (T *SQLTable) set(s string) string {
 		set = "set "+set
 	}
 	s = strings.Replace(s, "$Set$", set, 1)
+	s = strings.Replace(s, "$SetKeys$", strings.Join(T.setKeys,","), 1)
 	return s
 }
 
@@ -262,7 +266,8 @@ func (T *SQLTable) Args(args ...interface{}) []interface{}{
 	for _, arg := range args {
 		T.count++
 		T.args = append(T.args, arg)
-		T.rsqlt = strings.Replace(T.rsqlt, "?", "$"+strconv.Itoa(T.count), 1)
+		dollar := "$"+strconv.Itoa(T.count)
+		T.rsqlt = strings.Replace(T.rsqlt, "?", dollar, 1)
 	}
 	return T.args
 }
