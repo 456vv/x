@@ -63,7 +63,7 @@ func Test_Template_separation(t *testing.T) {
 		    pagePath: "/template/t.bw",
 		}
 		bytesBuffer := bytes.NewBuffer(v.content)
-		h, _, err := vweb.TemplateSeparation(bytesBuffer)
+		h, _, err := TemplateSeparation(bytesBuffer)
         if err != nil{
         	if !v.err {
         		t.Fatal(err)
@@ -84,17 +84,17 @@ func Test_shdtHeader_openFile(t *testing.T) {
         pagePath = "/template/1.tmpl"
     )
     var tests = []struct{
-        shdth   vweb.TemplateHeader
+        shdth   TemplateHeader
         length  int
     }{
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/5.tmpl"},},length: 3},
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/6.tmpl"},},length: 0},// "/6.tmpl" 该文件不存在
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "/../3.tmpl", "/5.tmpl"},},length: 0},// "/../3.tmpl" 等于 "/3.tmpl" ，该文件不存在
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "./../5.tmpl", "/5.tmpl"},},length: 2},// "./../5.tmpl" 等于 "/5.tmpl"
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/5.tmpl"},},length: 2},// "../5.tmpl" 等于 "/5.tmpl"
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/"},},length: 0},// "/" 表示是根目录 "./test/wwwroot"，不是文件。
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "../../"},},length: 0},// "../../" 表示是根目录 "./test/wwwroot"，因为不能跨越根目录。同时也不是一个有效的文件。
-        {shdth:vweb.TemplateHeader{File: []string{"./2.tmpl", "3.tmpl", "t.bw"},},length: 3},
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/5.tmpl"},},length: 3},
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/6.tmpl"},},length: 0},// "/6.tmpl" 该文件不存在
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "/../3.tmpl", "/5.tmpl"},},length: 0},// "/../3.tmpl" 等于 "/3.tmpl" ，该文件不存在
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "./../5.tmpl", "/5.tmpl"},},length: 2},// "./../5.tmpl" 等于 "/5.tmpl"
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/5.tmpl"},},length: 2},// "../5.tmpl" 等于 "/5.tmpl"
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/"},},length: 0},// "/" 表示是根目录 "./test/wwwroot"，不是文件。
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "../../"},},length: 0},// "../../" 表示是根目录 "./test/wwwroot"，因为不能跨越根目录。同时也不是一个有效的文件。
+        {shdth:TemplateHeader{File: []string{"./2.tmpl", "3.tmpl", "t.bw"},},length: 3},
     }
     for index, v := range tests {
         m, err :=v.shdth.OpenFile(rootPath, pagePath)
@@ -106,28 +106,28 @@ func Test_shdtHeader_openFile(t *testing.T) {
 
 func Test_Template_format(t *testing.T) {
     var tests = []struct{
-        shdth   vweb.TemplateHeader
+        shdth   TemplateHeader
         content string
         result  string
     }{
         {
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : "{{\r\n.\r\n}}1234{{\r\n.\r\n}}",
         result  : "{{.}}1234{{.}}",
         },{
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : "{{\r\n.\r\n}}1234\r\n{{.}}",
         result  : "{{.}}1234\r\n{{.}}",
         },{
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : "{{\r\n.\r\n}}1234{{.}}",
         result  : "{{.}}1234{{.}}",
         },{
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : "{{\r\n.\r\n}}\r\n1234\r\n{{.}}",
         result  : "{{.}}\r\n1234\r\n{{.}}",
         },{
-        shdth   : vweb.TemplateHeader{DelimLeft:"#*", DelimRight:"*#"},
+        shdth   : TemplateHeader{DelimLeft:"#*", DelimRight:"*#"},
         content : "111#*\r\n.\r\n*#3333",
         result  : "111#*.*#3333",
         },
@@ -144,20 +144,20 @@ func Test_Template_format(t *testing.T) {
 
 func Test_Template_loadTmpl(t *testing.T) {
     var tests = []struct{
-        shdth   vweb.TemplateHeader
+        shdth   TemplateHeader
         content map[string]string
         result  string
         err     bool
     }{
         {
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : map[string]string{"1.tmpl":"{{define \"1.tmpl\"}}1111111{{end}}", "2.tmpl":"{{define \"2.tmpl\"}}222222{{end}}",},
         },{
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : map[string]string{"1.tmpl":"{{define \"1.tmpl\"}}1111111{{end}}", "2.tmpl":"{{define \"2.tmpl\"}}222222",},
         err     : true,
         },{
-        shdth   : vweb.TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
+        shdth   : TemplateHeader{DelimLeft:"{{", DelimRight:"}}"},
         content : map[string]string{"1.tmpl":"{{define \"1.tmpl\"}}1111111{{end}}", "2.tmpl":"222222222",},
         },
     }

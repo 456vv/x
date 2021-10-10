@@ -48,7 +48,7 @@ func (T *Template) SetPath(root, page string) {
 
 func (T *Template) Parse(r io.Reader) error {
 	//解析文件头和主体数据
-    h, cb, err := vweb.TemplateSeparation(r)
+    h, cb, err := TemplateSeparation(r)
     if err != nil {
         return err
     }
