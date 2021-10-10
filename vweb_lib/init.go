@@ -1,12 +1,12 @@
 package vweb_lib
 
 import (
-	"github.com/456vv/vweb/v2"
+	"github.com/456vv/x/vweb_dynamic"
 )
 
 func init(){
 	//给template模板增加模块包
 	for name, pkg := range templatePackage() {
-		vweb.ExtendTemplatePackage(name, pkg)
+		vweb_dynamic.ExtendPackage(name, pkg)
 	}
 }

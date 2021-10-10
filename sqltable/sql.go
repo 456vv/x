@@ -4,6 +4,7 @@ import (
 	"strings"
 	"fmt"
 	"strconv"
+	"reflect"
 )
 //使用方法：
 //
@@ -32,38 +33,65 @@ import (
 type SQLTable struct{
 	ssql		string								//未处理的sql语句
 	rsqlt		string								//最终sql语句
-	svalues		map[string]interface{}
 	swhere		[]*sqlTableWhere
-	sset 		map[string]interface{}
 	sexcluded 	[]string
 	count		int
 	args		[]interface{}						//参数
-	prog		func(val interface{}) string
+	extArgs		[]interface{}
 	columnMark	string
 	valuesKeys []string
+	valuesVals []interface{}
 	setKeys	   []string
+	setVals	   []interface{}
+	types		map[string]string
 }
 func NewSQLTable() *SQLTable{
-	return &SQLTable{
-		svalues	: make(map[string]interface{}),
-		sset	: make(map[string]interface{}),
-	}
+	return &SQLTable{types:make(map[string]string)}
 }
-func (T *SQLTable) reset(){
-	if T.count == 0 {
+
+func (T *SQLTable) progress(val interface{}) string {
+	if statement, ok := val.(*SQLTable); ok {
+		statement.count += T.count
+		s := "("+statement.SQL()+")"
+		T.count = statement.count
+		T.args = append(T.args, statement.args...)
+		return s
+	}
+	T.count++
+	T.args = append(T.args, val)
+	return "$"+strconv.Itoa(T.count)
+}
+
+//支持设置转换类型
+func (T *SQLTable) ToTypes(a ...interface{}) *SQLTable {
+	T.pairArgs(func(i int, k, v interface{}) bool {
+		key, ok := k.(string)
+		if !ok {
+			panic(fmt.Sprintf("SQLTable.ToTypes in %d, 键名是%#v，不是字符串!", i, k))
+			return true
+		}
+		val, ok := v.(string)
+		if !ok {
+			panic(fmt.Sprintf("SQLTable.ToTypes in %d, 键值是%#v，不是字符串!", i, v))
+			return true
+		}
+		keyName := T.addColumnMark(key)
+		T.types[keyName]=val
+		return false
+	},a...)
+	return T
+}
+
+func (T *SQLTable) pairArgs(a func(i int, k, v interface{}) bool, b ...interface{}){
+	var l = len(b)
+	if l%2 != 0 {
 		return
 	}
-	T.rsqlt = ""
-	T.count = 0
-	T.args	= []interface{}{}
-}
-func (T *SQLTable) progress(val interface{}) string {
-	if T.prog == nil {
-		T.count++
-		T.args = append(T.args, val)
-		return "$"+strconv.Itoa(T.count)
+	for i:=0;i<l;i+=2 {
+		if a(i, b[i], b[i+1]) {
+			return
+		}
 	}
-	return T.prog(val)
 }
 
 //可以对字段名加引号或者其它什么的
@@ -86,36 +114,41 @@ func (T *SQLTable) addColumnMark(col string) string {
 
 //他会替换语句中的 $Values$ 符号
 func (T *SQLTable) Value(column string, value interface{}) *SQLTable {
-	T.reset()
 	keyName := T.addColumnMark(column)
-	T.svalues[keyName]=value
 	T.valuesKeys = append(T.valuesKeys, keyName)
+	T.valuesVals = append(T.valuesVals, value)
 	return T
 }
-
+//读取所有值
+func (T *SQLTable) ValueValues(v ...interface{}) []interface{} {
+	return append(T.valuesVals, v ...)
+}
 //他会替换语句中的 $Values$ 符号
 func (T *SQLTable) Values(a ...interface{}) *SQLTable {
 	return T.more(T.Value, a...)
 }
 func (T *SQLTable) values(s string) string {
-	var (
-		conumns []string
-		values []string
-	)
-	for key, val := range T.svalues {
-		conumns = append(conumns,  key)
-		values	= append(values, T.progress(val))
+	var values []string
+	for index, val := range T.valuesVals {
+		keyName := T.valuesKeys[index]
+		keyVal := T.progress(val)
+		if typ, ok := T.types[keyName]; ok {
+			keyVal +="::"+typ
+		}
+		values	= append(values, keyVal)
 	}
-	if len(conumns) >0 {
-		s = strings.Replace(s, "$Values$", fmt.Sprintf(`(%s) values(%s)`, strings.Join(conumns, ","), strings.Join(values, ",")), 1)
+	if len(T.valuesKeys) > 0 {
+		valuesKeys := strings.Join(T.valuesKeys, ",")
+		valuesSerial := strings.Join(values, ",")
+		s = strings.Replace(s, "$Values$", fmt.Sprintf(`(%s) values(%s)`, valuesKeys, valuesSerial), 1)
+		s = strings.Replace(s, "$ValuesKeys$", valuesKeys, 1)
+		s = strings.Replace(s, "$ValuesSerial$", valuesSerial, 1)
 	}
-	s = strings.Replace(s, "$ValuesKeys$", strings.Join(T.valuesKeys, ","), 1)
 	return s
 }
 
 //他会替换语句中的 $Where$ 符号
 func (T *SQLTable) And(column string, value interface{}) *SQLTable {
-	T.reset()
 	return T.Where("and", column, value)
 }
 
@@ -126,7 +159,6 @@ func (T *SQLTable) Ands(a ...interface{}) *SQLTable {
 
 //他会替换语句中的 $Where$ 符号
 func (T *SQLTable) Or(column string, value interface{}) *SQLTable {
-	T.reset()
 	return T.Where("or", column, value)
 }
 
@@ -136,7 +168,6 @@ func (T *SQLTable) Ors(a ...interface{}) *SQLTable {
 }
 //他会替换语句中的 $Where$ 符号
 func (T *SQLTable) Where(symbol, column string, value interface{}) *SQLTable {
-	T.reset()
 	T.swhere = append(T.swhere, &sqlTableWhere{symbol, column, value})
 	return T
 }
@@ -148,11 +179,6 @@ func (T *SQLTable) where(s string) string {
 	for _, w := range T.swhere {
 		if len(swhere)>0 || isOptional {
 			swhere = append(swhere, w.symbol)
-		}
-		if sqlTable, ok := w.val.(*SQLTable); ok {
-			sqlTable.prog = T.progress
-			swhere = append(swhere, strings.Replace(w.key, "?", fmt.Sprintf("(%s)", sqlTable.SQL()), 1))
-			continue
 		}
 		swhere = append(swhere, strings.Replace(w.key, "?", T.progress(w.val), 1))
 	}
@@ -169,10 +195,9 @@ func (T *SQLTable) where(s string) string {
 
 //他会替换语句中的 $Set$ 符号
 func (T *SQLTable) Set(column string, value interface{}) *SQLTable {
-	T.reset()
 	keyName := T.addColumnMark(column)
-	T.sset[keyName]=value
 	T.setKeys = append(T.setKeys, keyName)
+	T.setVals = append(T.setVals, value)
 	return T
 }
 
@@ -190,14 +215,26 @@ func (T *SQLTable) more(f func(string, interface{}) *SQLTable ,a ...interface{})
 		if !ok {
 			return T
 		}
-		f(c, a[i+1])
+		val := a[i+1]
+		rv := reflect.ValueOf(val)
+		if rv.Kind() != reflect.Ptr {
+			val = &a[i+1]
+		}
+		f(c, val)
 	}
 	return T
 }
 func (T *SQLTable) set(s string) string {
 	var sets []string
-	for key, val  := range T.sset {
-		sets = append(sets, fmt.Sprintf(`%s=%s`, key, T.progress(val)))
+	var setsSernal []string
+	for index, keyName  := range T.setKeys {
+		val := T.setVals[index]
+		keyVal := T.progress(val)
+		if typ, ok := T.types[keyName]; ok {
+			keyVal +="::"+typ
+		}
+		sets = append(sets, fmt.Sprintf(`%s=%s`, keyName, keyVal))
+		setsSernal = append(setsSernal, keyVal)
 	}
 	
 	set := strings.Join(sets,",")
@@ -207,7 +244,12 @@ func (T *SQLTable) set(s string) string {
 	}
 	s = strings.Replace(s, "$Set$", set, 1)
 	s = strings.Replace(s, "$SetKeys$", strings.Join(T.setKeys,","), 1)
+	s = strings.Replace(s, "$SetSerial$", strings.Join(setsSernal,","), 1)
 	return s
+}
+
+func (T *SQLTable) SetValues(v ...interface{}) []interface{} {
+	return append(T.setVals, v ...)
 }
 
 //他会替换语句中的 $Excluded$ 符号
@@ -253,9 +295,20 @@ func (T *SQLTable) SQL() string {
 	if T.rsqlt == ""{
 		T.parse()
 	}
+	
+	for _,arg := range T.extArgs {
+		dollar := T.progress(arg)
+		T.rsqlt = strings.Replace(T.rsqlt, "?", dollar, 1)
+	}
 	return T.rsqlt
 }
 
+//扩展参数
+//	args ...interface{}		额外参数，在非解析SQL句子里的？
+func (T *SQLTable) ExtArgs(args ...interface{}) *SQLTable {
+	T.extArgs = append(T.extArgs, args...)
+	return T
+}
 //载入参数，他会替换语句中的？符号
 //	args ...interface{}		额外参数，在非解析SQL句子里的？
 //	[]interface{}			返回所有参数
@@ -263,11 +316,7 @@ func (T *SQLTable) Args(args ...interface{}) []interface{}{
 	if T.rsqlt == ""{
 		T.parse()
 	}
-	for _, arg := range args {
-		T.count++
-		T.args = append(T.args, arg)
-		dollar := "$"+strconv.Itoa(T.count)
-		T.rsqlt = strings.Replace(T.rsqlt, "?", dollar, 1)
-	}
-	return T.args
+	
+	T.extArgs = append(T.extArgs, args...)
+	return append(T.args, T.extArgs...)
 }

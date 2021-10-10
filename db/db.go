@@ -1,6 +1,7 @@
 package	db
 import(
 	"github.com/456vv/vbody"
+	"github.com/456vv/vweb/v2"
 	"database/sql"
 	_ "github.com/lib/pq"
 	"context"
@@ -106,6 +107,14 @@ func (T *DB) debugPrint(sqlStr string, args interface{}){
 		sqlStr =  strings.ReplaceAll(sqlStr, "\n", " ")
 		sqlStr =  strings.ReplaceAll(sqlStr, "\t", "")
 		sqlStr =  strings.ReplaceAll(sqlStr, "  ", " ")
+		rv := reflect.ValueOf(args)
+		rv = reflect.Indirect(rv)
+		if rv.Kind() == reflect.Slice {
+			for i:=0;i<rv.Len();i++ {
+				srv := rv.Index(i)
+				srv.Set(vweb.InDirect(srv))
+			}
+		}
 		T.logf("%s %#v\n", sqlStr, args)
 	}
 }

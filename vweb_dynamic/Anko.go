@@ -37,7 +37,7 @@ func (T *Anko) init(){
 		core.Import(anko_env) 		//加载内置的一些函数
 		
 		//增加内置函数
-		for name, fn := range vweb.TemplateFunc {
+		for name, fn := range TemplateFunc {
 			anko_env.Define(name, fn)
 		}
 	})

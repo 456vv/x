@@ -11,8 +11,24 @@ import (
 	"crypto/tls"
 	"sync"
 //	"time"
-		
 )
+
+//其中使得SMTP工作的基本的命令有7个，分别为：HELO﹑MAIL﹑RCPT﹑DATA﹑REST﹑NOOP和QUIT．下面分别介绍如下。
+//
+//HELO--发件方问候收件方，后面是发件人的服务器地址或标识。收件方回答OK时标识自己的身份。问候和确认过程表明两台机器可以进行通信，同时状态参量被复位，缓冲区被清空。
+//
+//MAIL--这个命令用来开始传送邮件，它的后面跟随发件方邮件地址（返回邮件地址）。它也用来当邮件无法送达时，发送失败通知。为保证邮件的成功发送，发件方的地址应是被对方或中间转发方同意接受的。这个命令会清空有关的缓冲区，为新的邮件做准备。
+//
+//RCPT --这个命令告诉收件方收件人的邮箱。当有多个收件人时，需要多次使用该命令，每次只能指明一个人。如果接收方服务器不同意转发这个地址的邮件，它必须报 550错误代码通知发件方。如果服务器同意转发，它要更改邮件发送路径，把最开始的目的地（该服务器）换成下一个服务器。
+//
+//DATA--收件方把该命令之后的数据作为发送的数据。数据被加入数据缓冲区中，以单独一行是"."的行结束数据。结束行对于接收方同时意味立即开始缓冲区内的数据传送，传送结束后清空缓冲区。如果传送接受，接收方回复OK。
+//
+//REST--这个命令用来通知收件方复位，所有已存入缓冲区的收件人数据，发件人数据和待传送的数据都必须清除，接收放必须回答OK.
+//
+//NOOP--这个命令不影响任何参数，只是要求接收放回答OK, 不会影响缓冲区的数据。
+//
+//QUIT--SMTP要求接收放必须回答OK，然后中断传输；在收到这个命令并回答OK前，收件方不得中断连接，即使传输出现错误。发件方在发出这个命令并收到OK答复前，也不得中断连接。
+
 var errSmtpInfo 		= errors.New("配置信息未加载")
 var errSmtpInfoServer	= errors.New("配置文件 Server 字段不正确！格式：host:port")
 var errSmtpClosed		= errors.New("smtp已经被关闭")
@@ -48,7 +64,7 @@ type Info struct{
 type Smtp struct{
 	Info 		*Info
 	conn		net.Conn
-	client		*smtp.Client
+	c			*smtp.Client
 	connClosed	atomicBool
 	closed		atomicBool
 	inited		atomicBool
@@ -127,7 +143,7 @@ func (T *Smtp) reconnection() error {
 	  	}
   	}
   	
-	T.client = c
+	T.c = c
 	T.inited.setTrue()
 	T.connClosed.setFalse()
 	go T.notifyConn()
@@ -138,9 +154,9 @@ func (T *Smtp) Close() error {
 	defer T.mu.Unlock()
 	
 	T.closed.setTrue()
-	if T.client != nil {
-		err := T.client.Quit()
-		T.client 	= nil
+	if T.c != nil {
+		err := T.c.Close()
+		T.c 		= nil
 		T.conn		= nil
 		return err
 	}
@@ -161,16 +177,18 @@ func (T *Smtp) Send(to []string, title, body string) error {
 	if err := T.connection(); err != nil {
 		return err
 	}
-	defer T.client.Reset()
-	if err := T.client.Mail(T.Info.FromEmail); err != nil {
+	if err := T.c.Reset(); err != nil {
+		return err
+	}
+	if err := T.c.Mail(T.Info.FromEmail); err != nil {
 		return err
 	}
 	for _, addr := range to {
-  		if err := T.client.Rcpt(addr); err != nil {
+  		if err := T.c.Rcpt(addr); err != nil {
   			return err
   		}
   	}
-  	w, err := T.client.Data()
+  	w, err := T.c.Data()
   	if err != nil {
   		return err
   	}
@@ -183,5 +201,5 @@ func (T *Smtp) Send(to []string, title, body string) error {
   	if err != nil {
   		return err
   	}
-  	return nil
+  	return T.c.Quit()
 }

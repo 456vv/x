@@ -280,6 +280,7 @@ return  map[string]template.FuncMap{
         "NewAt":reflect.NewAt,
         "ValueOf":reflect.ValueOf,
         "Zero":reflect.Zero,
+        "VisibleFields":reflect.VisibleFields,
     },
     "unsafe":{
     	"Uintptr":func(Pointer unsafe.Pointer) uintptr {return uintptr(Pointer)},
@@ -297,6 +298,7 @@ return  map[string]template.FuncMap{
     	"WithValue":context.WithValue,
     },
     "time":{
+    	"Layout":time.Layout,
 		"ANSIC":time.ANSIC,
 		"UnixDate":time.UnixDate,
 		"RubyDate":time.RubyDate,
@@ -340,6 +342,8 @@ return  map[string]template.FuncMap{
 		"Parse":time.Parse,
 		"ParseInLocation":time.ParseInLocation,
 		"Unix":time.Unix,
+		"UnixMicro":time.UnixMicro,
+		"UnixMilli":time.UnixMilli,
 		"Timer":func(a ...interface{}) (retn *time.Timer) {builtin.GoTypeTo(&retn)(a...);return retn},
 		"AfterFunc":time.AfterFunc,
 		"NewTimer":time.NewTimer,
@@ -790,6 +794,7 @@ return  map[string]template.FuncMap{
         "QuoteRune":strconv.QuoteRune,
         "QuoteRuneToASCII":strconv.QuoteRuneToASCII,
         "QuoteRuneToGraphic":strconv.QuoteRuneToGraphic,
+        "QuotedPrefix":strconv.QuotedPrefix,
         "Unquote":strconv.Unquote,
         "UnquoteChar":strconv.UnquoteChar,
     },

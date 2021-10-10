@@ -60,7 +60,7 @@ func (T *GoPlus) init(){
 		}
 		gopI.RegisterFuncs(gopI.Func("(error).Error", (error).Error, execierrorError))
 		
-		for name, fn := range vweb.TemplateFunc {
+		for name, fn := range TemplateFunc {
 			tfn := reflect.TypeOf(fn)
 			switch tfn.Kind() {
 			case reflect.Func:
