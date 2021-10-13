@@ -34,8 +34,9 @@ func NewTicker(d time.Duration) *Ticker {
 	return ticker
 }
 
-func (T *Ticker) Func(f func()){
+func (T *Ticker) Func(f func()) func() {
 	T.f = f
+	return f
 }
 func (T *Ticker) Reset(d time.Duration) {
 	T.t.Reset(d)
