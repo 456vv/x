@@ -93,6 +93,16 @@ func (T	*DB) Close() error {
 	return err
 }
 
+func (T *DB) txCommit(tx *sql.Tx, e *error) {
+	if *e != nil {
+		if err := tx.Rollback(); err != nil {
+			T.logf(err.Error())
+		}
+	}else if err := tx.Commit(); err != nil {
+		T.logf(err.Error())
+	}
+}
+
 //日志
 func (T *DB) logf(format string, a ...interface{}) {
 	if T.ErrorLog != nil {
@@ -165,19 +175,7 @@ func (T	*DB) ExecContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ..
 		if err != nil {
 			return nil,	err
 		}
-		defer func(){
-			if err != nil {
-				e := tx.Rollback()
-				if e != nil {
-					T.logf(e.Error())
-				}
-				return
-			}
-			err	= tx.Commit()
-			if err != nil {
-				T.logf(err.Error())
-			}
-		}()
+		defer T.txCommit(tx, &err)
 	}
 	T.debugPrint(sqlstr, args)
 	result,	err	= tx.ExecContext(ctx, sqlstr, args...)
@@ -193,13 +191,11 @@ func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, arg
 	if T.DB	== nil {
 		return &dbRow{err:sql.ErrConnDone}
 	}
-	sqlstrTL :=	strings.TrimLeft(sqlstr, " \t")
-	sqlstrL	:= strings.ToLower(sqlstrTL[:6])
-	
 	T.debugPrint(sqlstr, args)
 	
 	//查询，用不上回滚
-	if strings.HasPrefix(sqlstrL, "select")	{
+	var sqlstrTL = strings.ToLower(strings.TrimLeft(sqlstr, " \t\r\n"))
+	if strings.HasPrefix(sqlstrTL, "select")	{
 		return T.DB.QueryRowContext(ctx, sqlstr, args...)
 	}
 	
@@ -241,9 +237,11 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 		return nil,	sql.ErrConnDone
 	}
 
-	sqlstrTL :=	strings.ToLower(strings.TrimLeft(sqlstr, " \t\r\n"))
 	
-	var	rows *sql.Rows
+	var (
+		sqlstrTL = strings.ToLower(strings.TrimLeft(sqlstr, " \t\r\n"))
+		rows *sql.Rows
+	)	
 	if strings.HasPrefix(sqlstrTL, "select") {
 		//查询，有返回
 		T.debugPrint(sqlstr, args)
@@ -261,19 +259,7 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 			if err != nil {
 				return nil,	err
 			}
-			defer func(){
-				if err != nil {
-					e := tx.Rollback()
-					if e != nil {
-						T.logf(e.Error())
-					}
-					return
-				}
-				err	= tx.Commit()
-				if err != nil {
-					T.logf(err.Error())
-				}
-			}()
+			defer T.txCommit(tx, &err)
 		}
 		
 		T.debugPrint(sqlstr, args)
@@ -343,13 +329,14 @@ func (T	*DB) QueryReaderContext(tx *sql.Tx,	ctx	context.Context, id	string,	sqls
 		return nil,	sql.ErrConnDone
 	}
 	
-	sqlstrTL :=	strings.TrimLeft(sqlstr, " \t\r\n")
-	sqlstrL	:= strings.ToLower(sqlstrTL[:6])
 	if T.FormatColumnName {
 		id = keyToLower(id)
 	}
-	var	rows *sql.Rows
-	if strings.HasPrefix(sqlstrL, "select")	{
+	var (
+		sqlstrTL = strings.TrimLeft(sqlstr, " \t\r\n")
+		rows *sql.Rows
+	)
+	if strings.HasPrefix(sqlstrTL, "select")	{
 		T.debugPrint(sqlstr, args)
 		rows, err =	T.DB.QueryContext(ctx, sqlstr, args...)
 		if err != nil {
@@ -361,19 +348,7 @@ func (T	*DB) QueryReaderContext(tx *sql.Tx,	ctx	context.Context, id	string,	sqls
 			if err != nil {
 				return nil,	err
 			}
-			defer func(){
-				if err != nil {
-					e := tx.Rollback()
-					if e != nil {
-						T.logf(e.Error())
-					}
-					return
-				}
-				err	= tx.Commit()
-				if err != nil {
-					T.logf(err.Error())
-				}
-			}()
+			defer T.txCommit(tx, &err)
 		}
 		
 		T.debugPrint(sqlstr, args)
