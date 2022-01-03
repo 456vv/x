@@ -4,7 +4,6 @@ import (
 	"strings"
 	"fmt"
 	"strconv"
-	"reflect"
 )
 //使用方法：
 //
@@ -47,6 +46,9 @@ type SQLTable struct{
 }
 func NewSQLTable() *SQLTable{
 	return &SQLTable{types:make(map[string]string)}
+}
+func Prepare(s string) *SQLTable {
+	return NewSQLTable().Prepare(s)
 }
 
 func (T *SQLTable) progress(val interface{}) string {
@@ -121,7 +123,8 @@ func (T *SQLTable) Value(column string, value interface{}) *SQLTable {
 }
 //读取所有值
 func (T *SQLTable) ValueValues(v ...interface{}) []interface{} {
-	return append(T.valuesVals, v ...)
+	vals := append(T.valuesVals, v ...)
+	return quoteValue(vals)
 }
 //他会替换语句中的 $Values$ 符号
 func (T *SQLTable) Values(a ...interface{}) *SQLTable {
@@ -216,17 +219,15 @@ func (T *SQLTable) more(f func(string, interface{}) *SQLTable ,a ...interface{})
 			return T
 		}
 		val := a[i+1]
-		rv := reflect.ValueOf(val)
-		if rv.Kind() != reflect.Ptr {
-			val = &a[i+1]
-		}
 		f(c, val)
 	}
 	return T
 }
 func (T *SQLTable) set(s string) string {
-	var sets []string
-	var setsSernal []string
+	var (
+		sets []string
+		setsSerial []string
+	)
 	for index, keyName  := range T.setKeys {
 		val := T.setVals[index]
 		keyVal := T.progress(val)
@@ -234,7 +235,7 @@ func (T *SQLTable) set(s string) string {
 			keyVal +="::"+typ
 		}
 		sets = append(sets, fmt.Sprintf(`%s=%s`, keyName, keyVal))
-		setsSernal = append(setsSernal, keyVal)
+		setsSerial = append(setsSerial, keyVal)
 	}
 	
 	set := strings.Join(sets,",")
@@ -244,12 +245,13 @@ func (T *SQLTable) set(s string) string {
 	}
 	s = strings.Replace(s, "$Set$", set, 1)
 	s = strings.Replace(s, "$SetKeys$", strings.Join(T.setKeys,","), 1)
-	s = strings.Replace(s, "$SetSerial$", strings.Join(setsSernal,","), 1)
+	s = strings.Replace(s, "$SetSerial$", strings.Join(setsSerial,","), 1)
 	return s
 }
 
 func (T *SQLTable) SetValues(v ...interface{}) []interface{} {
-	return append(T.setVals, v ...)
+	vals := append(T.setVals, v ...)
+	return quoteValue(vals)
 }
 
 //他会替换语句中的 $Excluded$ 符号
@@ -261,7 +263,10 @@ func (T *SQLTable) Excluded(a ...string) *SQLTable {
 func (T *SQLTable) excluded(s string) string {
 	var sets []string
 	for _, val  := range T.sexcluded {
-		sets = append(sets, fmt.Sprintf(`%[1]s=excluded.%[1]s`, T.addColumnMark(val)))
+		val = T.addColumnMark(val)
+		if sliceContainString(T.valuesKeys, val) {
+			sets = append(sets, fmt.Sprintf(`%[1]s=excluded.%[1]s`, val))
+		}
 	}
 	if len(sets) >0 {
 		s = strings.Replace(s,"$Excluded$", strings.Join(sets,","), 1)
@@ -277,29 +282,46 @@ type sqlTableWhere struct {
 //解析sql语句
 //	s string 待解析的sql句子
 func (T *SQLTable) Prepare(s string) *SQLTable {
+	for i:=1;true;i++ {
+		dollar := fmt.Sprint("$",i)
+		if !strings.Contains(s, dollar) {
+			break
+		}
+		s = strings.ReplaceAll(s, dollar, fmt.Sprint("@",i))
+	}
 	T.ssql = s
 	return T
 }
 
-func (T *SQLTable) parse() {
-	T.rsqlt = T.ssql
-	T.rsqlt = T.where(T.rsqlt)
-	T.rsqlt = T.values(T.rsqlt)
-	T.rsqlt = T.set(T.rsqlt)
-	T.rsqlt = T.excluded(T.rsqlt)
+func (T *SQLTable) assemble(ssql string) string {
+	ssql = T.where(ssql)
+	ssql = T.values(ssql)
+	ssql = T.set(ssql)
+	ssql = T.excluded(ssql)
+	return ssql
+}
+
+func (T *SQLTable) assembleStatement() {
+	if T.rsqlt != ""{
+		return
+	}
+	ssql := T.ssql
+	for index,arg := range T.extArgs {
+		dollar := T.progress(arg)
+		essential := fmt.Sprint("@", index+1)
+		if strings.Contains(ssql, essential) {
+			ssql = strings.Replace(ssql, essential, dollar, -1)
+			continue
+		}
+		ssql = strings.Replace(ssql, "?", dollar, 1)
+	}
+	T.rsqlt = T.assemble(ssql)
 }
 
 //返回sql语句，需要先调用.Args方法再调用该方法
 //	string 格式后的SQL句子
 func (T *SQLTable) SQL() string {
-	if T.rsqlt == ""{
-		T.parse()
-	}
-	
-	for _,arg := range T.extArgs {
-		dollar := T.progress(arg)
-		T.rsqlt = strings.Replace(T.rsqlt, "?", dollar, 1)
-	}
+	T.assembleStatement()
 	return T.rsqlt
 }
 
@@ -309,14 +331,12 @@ func (T *SQLTable) ExtArgs(args ...interface{}) *SQLTable {
 	T.extArgs = append(T.extArgs, args...)
 	return T
 }
+
 //载入参数，他会替换语句中的？符号
 //	args ...interface{}		额外参数，在非解析SQL句子里的？
 //	[]interface{}			返回所有参数
 func (T *SQLTable) Args(args ...interface{}) []interface{}{
-	if T.rsqlt == ""{
-		T.parse()
-	}
-	
 	T.extArgs = append(T.extArgs, args...)
-	return append(T.args, T.extArgs...)
+	T.assembleStatement()
+	return T.args
 }

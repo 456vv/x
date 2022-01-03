@@ -71,6 +71,7 @@ type DB	struct{
 	*sql.DB
 	Timeout	time.Duration
 	FormatColumnName bool			//将例名 AbcDf	=> abcDf
+	TypeTo		func(ct *sql.ColumnType) reflect.Type
 	ErrorLog	*log.Logger
 	Debug		bool
 	driverName	string
@@ -119,13 +120,14 @@ func (T *DB) debugPrint(sqlStr string, args interface{}){
 		sqlStr =  strings.ReplaceAll(sqlStr, "  ", " ")
 		rv := reflect.ValueOf(args)
 		rv = reflect.Indirect(rv)
+		var argsStr []string
 		if rv.Kind() == reflect.Slice {
 			for i:=0;i<rv.Len();i++ {
 				srv := rv.Index(i)
-				srv.Set(vweb.InDirect(srv))
+				argsStr = append(argsStr, fmt.Sprintf("'%v'",vweb.InDirect(srv)))
 			}
 		}
-		T.logf("%s %#v\n", sqlStr, args)
+		T.logf("\nprepare test as %s;\nexecute test(%v);\ndeallocate test;\n", sqlStr, strings.Join(argsStr,","))
 	}
 }
 
@@ -286,11 +288,17 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 	if err != nil {
 		return nil,	err
 	}
-	var	values	= make([]interface{}, len(columnTypes))
+	var	values = make([]interface{}, len(columnTypes))
 	for	i, tp := range columnTypes {
 		st := tp.ScanType()
 		if st == nil {
 			st = reflect.TypeOf((*interface{})(nil))
+		}
+		if T.TypeTo != nil {
+			if tto := T.TypeTo(tp); tto != nil {
+				st = tto
+			}
+			
 		}
 		values[i] =	reflect.New(st).Interface()
 	}
@@ -381,6 +389,12 @@ func (T	*DB) QueryReaderContext(tx *sql.Tx,	ctx	context.Context, id	string,	sqls
 		st := tp.ScanType()
 		if st == nil {
 			st = reflect.TypeOf((*interface{})(nil))
+		}
+		if T.TypeTo != nil {
+			if tto := T.TypeTo(tp); tto != nil {
+				st = tto
+			}
+			
 		}
 		values[i] =	reflect.New(st).Interface()
 	}

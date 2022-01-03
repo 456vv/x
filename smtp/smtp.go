@@ -23,7 +23,7 @@ import (
 //
 //DATA--收件方把该命令之后的数据作为发送的数据。数据被加入数据缓冲区中，以单独一行是"."的行结束数据。结束行对于接收方同时意味立即开始缓冲区内的数据传送，传送结束后清空缓冲区。如果传送接受，接收方回复OK。
 //
-//REST--这个命令用来通知收件方复位，所有已存入缓冲区的收件人数据，发件人数据和待传送的数据都必须清除，接收放必须回答OK.
+//REST--这个命令用来通知收件方复位，所有已存入缓冲区的收件人数据，发件人数据和待传送的数据都必须清除，接收方必须回答OK.
 //
 //NOOP--这个命令不影响任何参数，只是要求接收放回答OK, 不会影响缓冲区的数据。
 //
@@ -155,7 +155,7 @@ func (T *Smtp) Close() error {
 	
 	T.closed.setTrue()
 	if T.c != nil {
-		err := T.c.Close()
+		err := T.c.Quit()
 		T.c 		= nil
 		T.conn		= nil
 		return err
@@ -201,5 +201,5 @@ func (T *Smtp) Send(to []string, title, body string) error {
   	if err != nil {
   		return err
   	}
-  	return T.c.Quit()
+  	return nil
 }
