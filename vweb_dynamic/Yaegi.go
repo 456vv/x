@@ -11,6 +11,7 @@ import (
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 	"github.com/traefik/yaegi/stdlib/unsafe"
+	"github.com/traefik/yaegi/stdlib/syscall"
 )
 
 var yaegiOnce sync.Once
@@ -86,6 +87,12 @@ func (T *Yaegi) parse(script string) error {
 	}
 	if err := i.Use(unsafe.Symbols); err != nil {
 		return err
+	}
+	if err := i.Use(syscall.Symbols); err != nil {
+		return err
+	}
+	if err := i.Use(interp.Symbols); err != nil {
+		return nil
 	}
 	//自定函数
 	if err := i.Use(yaegiFunc); err != nil {
