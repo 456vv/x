@@ -12,6 +12,7 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 	"github.com/traefik/yaegi/stdlib/unsafe"
 	"github.com/traefik/yaegi/stdlib/syscall"
+	"github.com/456vv/x/yaegi_lib"
 )
 
 var yaegiOnce sync.Once
@@ -39,6 +40,7 @@ func (T *Yaegi) init(){
 		for name, fn := range TemplateFunc {
 			builtin[name] = reflect.ValueOf(fn)
 		}
+		builtin["Symbols"] = reflect.ValueOf(yaegiFunc)
 		yaegiFunc["this/this"] = builtin
 		
 		T.options.GoPath = T.rootPath
@@ -92,7 +94,10 @@ func (T *Yaegi) parse(script string) error {
 		return err
 	}
 	if err := i.Use(interp.Symbols); err != nil {
-		return nil
+		return err
+	}
+	if err := i.Use(yaegi_lib.Symbols); err != nil {
+		return err
 	}
 	//自定函数
 	if err := i.Use(yaegiFunc); err != nil {

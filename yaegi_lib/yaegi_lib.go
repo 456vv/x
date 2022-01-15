@@ -1,6 +1,3 @@
-//go:build yaegi_lib
-// +build yaegi_lib
-
 package yaegi_lib
 
 import "reflect"
