@@ -6,7 +6,7 @@ import "reflect"
 var Symbols = map[string]map[string]reflect.Value{}
 
 func init() {
-	Symbols["github.com/456vv/x/yaegi_lib"] = map[string]reflect.Value{
+	Symbols["github.com/456vv/x/yaegi_lib/yaegi_lib"] = map[string]reflect.Value{
 		"Symbols": reflect.ValueOf(Symbols),
 	}
 }
