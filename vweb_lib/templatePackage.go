@@ -1,3 +1,6 @@
+//go:build vweb_lib
+// +build vweb_lib
+
 package vweb_lib
 import(
 	"fmt"
@@ -64,8 +67,8 @@ import(
    	htemplate "html/template"
 )
 
-func templatePackage() map[string]template.FuncMap {
-return  map[string]template.FuncMap{
+func init(){
+Symbols = map[string]template.FuncMap{
 	"vweb":{
 		"AddSalt":vweb.AddSalt,
 		"CopyStruct":vweb.CopyStruct,

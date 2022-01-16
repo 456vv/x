@@ -10,7 +10,6 @@ import(
     "reflect"
     "context"
     "github.com/456vv/vweb/v2"
-    _ "github.com/456vv/x/vweb_lib"
 )
 
 var errTemplateNotParse =  errors.New("The template has not been parsed yet!")
