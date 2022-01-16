@@ -1,3 +1,6 @@
+//go:build vweb_lib
+// +build vweb_lib
+
 package vweb_lib
 
 import (

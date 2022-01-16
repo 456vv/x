@@ -40,7 +40,6 @@ func init() {
 		"ErrServerClosed":       reflect.ValueOf(&viot.ErrServerClosed).Elem(),
 		"ErrURIInvalid":         reflect.ValueOf(&viot.ErrURIInvalid).Elem(),
 		"Error":                 reflect.ValueOf(viot.Error),
-		"ExtendTemplatePackage": reflect.ValueOf(viot.ExtendTemplatePackage),
 		"LocalAddrContextKey":   reflect.ValueOf(&viot.LocalAddrContextKey).Elem(),
 		"LogDebug":              reflect.ValueOf(viot.LogDebug),
 		"LogErr":                reflect.ValueOf(viot.LogErr),
