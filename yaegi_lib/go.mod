@@ -1,6 +1,6 @@
 module github.com/456vv/x/yaegi_lib
 
-go 1.16
+go 1.17
 
 require (
 	github.com/456vv/vbody v1.2.5
