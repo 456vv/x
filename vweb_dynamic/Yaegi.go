@@ -25,8 +25,7 @@ type Yaegi struct{
  	inited				bool
  	
  	options			interp.Options
- 	program			*interp.Program
- 	interpreter		*interp.Interpreter
+ 	mainFunc		reflect.Value
 }
 
 func (T *Yaegi) init(){
@@ -109,25 +108,25 @@ func (T *Yaegi) parse(script string) error {
 	if err != nil {
 		return err
 	}
-	T.interpreter = i
+	
+	var res reflect.Value
+   	res, err = i.Eval("Main")
+	if err != nil {
+		return err
+	}
+	T.mainFunc = res
 	return nil
 }
 
 func (T *Yaegi) Execute(out io.Writer, in interface{}) (err error) {
-	if T.interpreter == nil {
+	if !T.mainFunc.IsValid() {
 		return errors.New("The template has not been parsed and is not available!")
 	}
 	
-	var res reflect.Value
-   	res, err = T.interpreter.Eval("Main")
-	if err != nil {
-		return err
-	}
-	
-	if res.Kind() == reflect.Func {
-		rt := res.Type()
+	if T.mainFunc.Kind() == reflect.Func {
+		rt := T.mainFunc.Type()
 		if rt.NumIn() == 1  {
-			retn, err := call(res, in)
+			retn, err := call(T.mainFunc, in)
 			if err != nil {
 				return err
 			}

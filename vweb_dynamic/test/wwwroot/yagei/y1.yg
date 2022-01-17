@@ -3,12 +3,22 @@ package main
 import(
 	"this"
 	"fmt"
-	"github.com/456vv/vbody"
-	"github.com/456vv/x/yaegi_lib"
+	"time"
+	pkg "github.com/foo/pkg"
 )
 
-func Main(i interface{}) string {
+var i int
+func Main(a interface{}) string {
+	pkg.NewSample()()
 	fmt.Println(this.IsNil(nil))
+	
+	if i == 0 {
+		i++
+		time.Sleep(time.Second)
+	}
+	fmt.Printf("%#v %v\n",a, a)
+	
+	
 	return "789\n"
 }
 
