@@ -32,6 +32,7 @@ func (T *Yaegi) init(){
 	if T.inited {
 		return
 	}
+	T.options.GoPath = T.rootPath
 	yaegiOnce.Do(func (){
 		//增加内置函数
 		yaegiFunc = make(interp.Exports)
@@ -42,7 +43,6 @@ func (T *Yaegi) init(){
 		builtin["Symbols"] = reflect.ValueOf(yaegiFunc)
 		yaegiFunc["this/this"] = builtin
 		
-		T.options.GoPath = T.rootPath
 	})
 	T.inited = true
 }
