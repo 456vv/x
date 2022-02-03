@@ -1,6 +1,5 @@
 package	db
 import(
-	"github.com/456vv/vbody"
 	"github.com/456vv/vweb/v2"
 	"database/sql"
 	_ "github.com/lib/pq"
@@ -33,8 +32,10 @@ import(
 var	ErrRows	= errors.New("sql: have	rows in	result set")
 //支持于 HasContext，QueryReaderContext，QueryRowContext，PexecContext
 var ErrNoRows = sql.ErrNoRows
+	
+var errDebugResult = errors.New("The debug result type does not match the returned result type")
 
-type sqlRower interface{
+type Rower interface{
 	Scan(dest ...interface{}) error
 	Err() error
 }
@@ -73,9 +74,11 @@ type DB	struct{
 	FormatColumnName bool			//将例名 AbcDf	=> abcDf
 	TypeTo		func(ct *sql.ColumnType) reflect.Type
 	ErrorLog	*log.Logger
-	Debug		bool
+	DebugPrint	bool
+	DebugResult func(tx	*sql.Tx, ctx context.Context, sqlstr string, args ... interface{}) interface{}
 	driverName	string
 }
+
 
 func (T	*DB) Open(driverName, dataSourceName string) (*DB, error) {
 	var	err	error
@@ -112,12 +115,16 @@ func (T *DB) logf(format string, a ...interface{}) {
 	log.Printf(format+"\n", a...)
 }
 
+func (T *DB) debugFormat(sqlStr string) string {
+	sqlStr =  strings.ReplaceAll(sqlStr, "\n", " ")
+	sqlStr =  strings.ReplaceAll(sqlStr, "\t", "")
+	sqlStr =  strings.ReplaceAll(sqlStr, "  ", " ")
+	return sqlStr
+}
 //打印调试信息
 func (T *DB) debugPrint(sqlStr string, args interface{}){
-	if T.Debug {
-		sqlStr =  strings.ReplaceAll(sqlStr, "\n", " ")
-		sqlStr =  strings.ReplaceAll(sqlStr, "\t", "")
-		sqlStr =  strings.ReplaceAll(sqlStr, "  ", " ")
+	if T.DebugPrint {
+		sqlStr = T.debugFormat(sqlStr)
 		rv := reflect.ValueOf(args)
 		rv = reflect.Indirect(rv)
 		var argsStr []string
@@ -172,6 +179,13 @@ func (T	*DB) ExecContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ..
 		return nil,	sql.ErrConnDone
 	}
 	
+	T.debugPrint(sqlstr, args)
+	if T.DebugResult != nil {
+		if v, ok := T.DebugResult(tx, ctx, T.debugFormat(sqlstr), args...).(sql.Result); ok {
+			return v, nil
+		}
+	}
+	
 	if tx == nil {
 		tx,	err	= T.DB.Begin()
 		if err != nil {
@@ -179,21 +193,26 @@ func (T	*DB) ExecContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ..
 		}
 		defer T.txCommit(tx, &err)
 	}
-	T.debugPrint(sqlstr, args)
 	result,	err	= tx.ExecContext(ctx, sqlstr, args...)
 	return
 }
 
 //支持读取/写入，支持返回错误：error, ErrNoRows
-func (T	*DB) QueryRow(tx *sql.Tx, sqlstr string, args ...interface{}) sqlRower {
+func (T	*DB) QueryRow(tx *sql.Tx, sqlstr string, args ...interface{}) Rower {
 	ctx	:= context.Background()
 	return T.QueryRowContext(tx, ctx, sqlstr, args...)
 }
-func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ...interface{}) sqlRower {
+func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ...interface{}) Rower {
 	if T.DB	== nil {
 		return &dbRow{err:sql.ErrConnDone}
 	}
+	
 	T.debugPrint(sqlstr, args)
+	if T.DebugResult != nil {
+		if v, ok := T.DebugResult(tx, ctx, T.debugFormat(sqlstr), args...).(Rower); ok {
+			return v
+		}
+	}
 	
 	//查询，用不上回滚
 	var sqlstrTL = strings.ToLower(strings.TrimLeft(sqlstr, " \t\r\n"))
@@ -238,7 +257,13 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 	if T.DB	== nil {
 		return nil,	sql.ErrConnDone
 	}
-
+	
+	T.debugPrint(sqlstr, args)
+	if T.DebugResult != nil {
+		if v, ok := T.DebugResult(tx, ctx, T.debugFormat(sqlstr), args...).([]map[string]interface{}); ok {
+			return v, nil
+		}
+	}
 	
 	var (
 		sqlstrTL = strings.ToLower(strings.TrimLeft(sqlstr, " \t\r\n"))
@@ -246,7 +271,6 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 	)	
 	if strings.HasPrefix(sqlstrTL, "select") {
 		//查询，有返回
-		T.debugPrint(sqlstr, args)
 		rows, err =	T.DB.QueryContext(ctx, sqlstr, args...)
 		if err != nil {
 			return nil,	err
@@ -264,7 +288,6 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 			defer T.txCommit(tx, &err)
 		}
 		
-		T.debugPrint(sqlstr, args)
 		rows, err =	tx.QueryContext(ctx, sqlstr, args...)
 		if err != nil {
 			return nil,	err
@@ -321,106 +344,6 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 	return
 }
 
-//支持读取/写入，支持返回错误：error, ErrNoRows
-//line={"A":*vbody.Reader, "B":*vbody.Reader}
-func (T	*DB) QueryReader(tx	*sql.Tx, id	string,	sqlstr string, args	...interface{})	(line map[interface{}]*vbody.Reader, err error)	{
-	ctx	:= context.Background()
-	var	cancel context.CancelFunc
-	if T.Timeout !=	0 {
-		ctx, cancel	= context.WithTimeout(ctx, T.Timeout)
-		defer cancel()
-	}
-	return T.QueryReaderContext(tx,	ctx, id, sqlstr, args...)
-}
-func (T	*DB) QueryReaderContext(tx *sql.Tx,	ctx	context.Context, id	string,	sqlstr string, args	...interface{})	(line map[interface{}]*vbody.Reader, err error)	{
-	if T.DB	== nil {
-		return nil,	sql.ErrConnDone
-	}
-	
-	if T.FormatColumnName {
-		id = keyToLower(id)
-	}
-	var (
-		sqlstrTL = strings.TrimLeft(sqlstr, " \t\r\n")
-		rows *sql.Rows
-	)
-	if strings.HasPrefix(sqlstrTL, "select")	{
-		T.debugPrint(sqlstr, args)
-		rows, err =	T.DB.QueryContext(ctx, sqlstr, args...)
-		if err != nil {
-			return nil,	err
-		}
-	}else{
-		if tx == nil {
-			tx,	err	= T.DB.Begin()
-			if err != nil {
-				return nil,	err
-			}
-			defer T.txCommit(tx, &err)
-		}
-		
-		T.debugPrint(sqlstr, args)
-		rows, err =	tx.QueryContext(ctx, sqlstr, args...)
-		if err != nil {
-			return nil,	err
-		}
-		defer rows.Close()
-	}
-	
-	//字段名称
-	columns, err :=	rows.Columns()
-	if err != nil {
-		return nil,	err
-	}
-	if T.FormatColumnName {
-		for	index, col := range	columns	{
-			//字段名称转小写开头
-			columns[index]=keyToLower(col)
-		}
-	}
-	
-	//字段类型
-	columnTypes, err :=	rows.ColumnTypes();
-	if err != nil {
-		return nil,	err
-	}
-	var	values = make([]interface{}, len(columnTypes))
-	for	i, tp := range columnTypes {
-		st := tp.ScanType()
-		if st == nil {
-			st = reflect.TypeOf((*interface{})(nil))
-		}
-		if T.TypeTo != nil {
-			if tto := T.TypeTo(tp); tto != nil {
-				st = tto
-			}
-			
-		}
-		values[i] =	reflect.New(st).Interface()
-	}
-	
-	//读取行
-	for	rows.Next()	{
-		//扫描值放在values
-		err	= rows.Scan(values...)
-		if err != nil {
-			return nil,	err
-		}
-		if line	== nil {
-			line = make(map[interface{}]*vbody.Reader)
-		}
-		data	:= make(map[string]interface{})
-		for	i, value :=	range values {
-			data[columns[i]] = reflect.Indirect( reflect.ValueOf(value)	).Interface()
-		}
-		line[data[id]]=vbody.NewReader(data)
-	}
-	if line	== nil {
-		err	= sql.ErrNoRows
-	}
-	return
-}
-
 //判断数据存在，支持返回错误：error, ErrRows, ErrNoRows
 func (T	*DB) Has(sqlstr	string,	args ...interface{}) error {
 	ctx	:= context.Background()
@@ -436,6 +359,12 @@ func (T	*DB) HasContext(ctx	context.Context, sqlstr	string,	args ...interface{})
 		return sql.ErrConnDone
 	}
 	T.debugPrint(sqlstr, args)
+	if T.DebugResult != nil {
+		if v, ok := T.DebugResult(nil, ctx, T.debugFormat(sqlstr), args...).(error); ok {
+			return v
+		}
+	}
+	
 	var	err	error
 	var	rows *sql.Rows
 	rows, err =	T.DB.QueryContext(ctx, sqlstr, args...)
