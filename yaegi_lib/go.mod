@@ -10,7 +10,7 @@ require (
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/verror v1.1.0 // indirect
 	github.com/456vv/vforward v1.0.8
-	github.com/456vv/viot/v2 v2.3.4-0.20220203124938-9bd0eaf6aed6
+	github.com/456vv/viot/v2 v2.3.5
 	github.com/456vv/vmap/v2 v2.3.2
 	github.com/456vv/vweb/v2 v2.4.10
 	github.com/456vv/x/db v0.0.0-20220203125039-13fa6d871975
@@ -21,10 +21,12 @@ require (
 	github.com/88250/lute v1.7.3
 	github.com/bep/golibsass v1.0.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
-	github.com/goplus/reflectx v0.7.3
+	github.com/goplus/reflectx v0.8.6
 	github.com/lib/pq v1.10.4 // indirect
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/pelletier/go-toml v1.9.4
+	github.com/tidwall/gjson v1.14.0
+	github.com/tidwall/sjson v1.2.4
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -34,6 +36,8 @@ require (
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20210619142842-05447a1fa367 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	golang.org/x/image v0.0.0-20190802002840-cff245a6509b // indirect
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
 	golang.org/x/sys v0.0.0-20210420205809-ac73e9fd8988 // indirect

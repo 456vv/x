@@ -17,6 +17,24 @@ func init() {
 		"ErrRows":   reflect.ValueOf(&db.ErrRows).Elem(),
 
 		// type definitions
-		"DB": reflect.ValueOf((*db.DB)(nil)),
+		"DB":    reflect.ValueOf((*db.DB)(nil)),
+		"Rower": reflect.ValueOf((*db.Rower)(nil)),
+
+		// interface wrapper definitions
+		"_Rower": reflect.ValueOf((*_github_com_456vv_x_db_Rower)(nil)),
 	}
+}
+
+// _github_com_456vv_x_db_Rower is an interface wrapper for Rower type
+type _github_com_456vv_x_db_Rower struct {
+	IValue interface{}
+	WErr   func() error
+	WScan  func(dest ...interface{}) error
+}
+
+func (W _github_com_456vv_x_db_Rower) Err() error {
+	return W.WErr()
+}
+func (W _github_com_456vv_x_db_Rower) Scan(dest ...interface{}) error {
+	return W.WScan(dest...)
 }

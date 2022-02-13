@@ -16,6 +16,8 @@ github.com/456vv/x/db
 github.com/456vv/x/watch
 github.com/456vv/x/ticker
 
+github.com/tidwall/gjson
+github.com/tidwall/sjson
 gopkg.in/yaml.v2
 github.com/pelletier/go-toml
 github.com/88250/lute
