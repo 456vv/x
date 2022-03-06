@@ -13,11 +13,11 @@ require (
 	github.com/456vv/viot/v2 v2.3.6
 	github.com/456vv/vmap/v2 v2.3.2
 	github.com/456vv/vweb/v2 v2.4.11
-	github.com/456vv/x/db v0.0.0-20220203125039-13fa6d871975
-	github.com/456vv/x/smtp v0.0.0-20220203125039-13fa6d871975
-	github.com/456vv/x/sqltable v0.0.0-20220203125039-13fa6d871975
-	github.com/456vv/x/ticker v0.0.0-20220213160736-8dbf4115c079
-	github.com/456vv/x/watch v0.0.0-20220213160736-8dbf4115c079
+	github.com/456vv/x/db v0.0.0-20220306095811-062e982a7bdf
+	github.com/456vv/x/smtp v0.0.0-20220306095811-062e982a7bdf
+	github.com/456vv/x/sqltable v0.0.0-20220306095811-062e982a7bdf
+	github.com/456vv/x/ticker v0.0.0-20220306095811-062e982a7bdf
+	github.com/456vv/x/watch v0.0.0-20220306095811-062e982a7bdf
 	github.com/88250/lute v1.7.3
 	github.com/bep/golibsass v1.0.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
