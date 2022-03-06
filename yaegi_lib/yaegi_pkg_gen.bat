@@ -1,6 +1,6 @@
 @echo off
 
-go env -w GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://gocenter.io,https://proxy.golang.org,https://goproxy.io,https://athens.azurefd.net,direct
+go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,https://proxy.golang.org,direct
 go mod tidy
 
 if "%1" == "" goto input
@@ -21,16 +21,6 @@ goto exit
 			if not exist %%b (echo %%b && yaegi extract -tag yaegi_lib %%b) else (echo skip %%b)
 		)
 	)
-	rem set fileName=../../default.go
-	rem set pkgName=goplus_lib
-	rem set pkgDir=github.com/456vv/x/goplus_lib
-	rem 
-	rem echo package %pkgName%> %fileName%
-	rem echo.>> %fileName%
-	rem echo import(>> %fileName%
-	rem 	for /f "delims=" %%I in (yaegi_pkg_list.txt) do (echo      _ "%pkgDir%/%%I">> %fileName%)
-	rem echo )>> %fileName%
-	rem echo.>> %fileName%
 :exit0
 echo 生成完成
 pause

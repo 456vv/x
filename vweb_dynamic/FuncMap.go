@@ -94,8 +94,8 @@ var TemplateFunc = template.FuncMap{
     "DepthField": vweb.DepthField,
     "CopyStruct": vweb.CopyStruct,
     "CopyStructDeep": vweb.CopyStructDeep,
-    "GoTypeTo":builtin.GoTypeTo,
-    "GoTypeInit":builtin.GoTypeInit,
+    "Convert":builtin.Convert,
+    "Init":builtin.Init,
     "Value":builtin.Value,						//Value(v) reflect.Value
 	"_Value_":func(s []reflect.Value, v ...reflect.Value) []reflect.Value {return append(s, v...)},
 	"Call":call,

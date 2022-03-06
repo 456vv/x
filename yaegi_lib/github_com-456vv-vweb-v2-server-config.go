@@ -14,8 +14,6 @@ import (
 func init() {
 	Symbols["github.com/456vv/vweb/v2/server/config/config"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"ConfigDataParse":           reflect.ValueOf(config.ConfigDataParse),
-		"ConfigFileParse":           reflect.ValueOf(config.ConfigFileParse),
 		"ConfigSiteLogLevelDisable": reflect.ValueOf(config.ConfigSiteLogLevelDisable),
 
 		// type definitions
