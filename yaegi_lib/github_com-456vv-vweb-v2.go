@@ -53,6 +53,7 @@ func init() {
 		"PluginRPC":            reflect.ValueOf((*vweb.PluginRPC)(nil)),
 		"PluginRPCClient":      reflect.ValueOf((*vweb.PluginRPCClient)(nil)),
 		"PluginType":           reflect.ValueOf((*vweb.PluginType)(nil)),
+		"Pluginer":             reflect.ValueOf((*vweb.Pluginer)(nil)),
 		"Responser":            reflect.ValueOf((*vweb.Responser)(nil)),
 		"Route":                reflect.ValueOf((*vweb.Route)(nil)),
 		"ServerHandlerDynamic": reflect.ValueOf((*vweb.ServerHandlerDynamic)(nil)),
@@ -73,6 +74,7 @@ func init() {
 		"_Globaler":         reflect.ValueOf((*_github_com_456vv_vweb_v2_Globaler)(nil)),
 		"_PluginHTTP":       reflect.ValueOf((*_github_com_456vv_vweb_v2_PluginHTTP)(nil)),
 		"_PluginRPC":        reflect.ValueOf((*_github_com_456vv_vweb_v2_PluginRPC)(nil)),
+		"_Pluginer":         reflect.ValueOf((*_github_com_456vv_vweb_v2_Pluginer)(nil)),
 		"_Responser":        reflect.ValueOf((*_github_com_456vv_vweb_v2_Responser)(nil)),
 		"_Sessioner":        reflect.ValueOf((*_github_com_456vv_vweb_v2_Sessioner)(nil)),
 		"_TemplateDoter":    reflect.ValueOf((*_github_com_456vv_vweb_v2_TemplateDoter)(nil)),
@@ -225,6 +227,20 @@ func (W _github_com_456vv_vweb_v2_PluginRPC) Register(value interface{}) {
 }
 func (W _github_com_456vv_vweb_v2_PluginRPC) Type() vweb.PluginType {
 	return W.WType()
+}
+
+// _github_com_456vv_vweb_v2_Pluginer is an interface wrapper for Pluginer type
+type _github_com_456vv_vweb_v2_Pluginer struct {
+	IValue interface{}
+	WHTTP  func(name string) (vweb.PluginHTTP, error)
+	WRPC   func(name string) (vweb.PluginRPC, error)
+}
+
+func (W _github_com_456vv_vweb_v2_Pluginer) HTTP(name string) (vweb.PluginHTTP, error) {
+	return W.WHTTP(name)
+}
+func (W _github_com_456vv_vweb_v2_Pluginer) RPC(name string) (vweb.PluginRPC, error) {
+	return W.WRPC(name)
 }
 
 // _github_com_456vv_vweb_v2_Responser is an interface wrapper for Responser type

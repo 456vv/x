@@ -6,7 +6,6 @@
 package yaegi_lib
 
 import (
-	"github.com/456vv/vweb/v2"
 	"github.com/456vv/vweb/v2/server/config"
 	"reflect"
 )
@@ -41,23 +40,5 @@ func init() {
 		"ConfigSitePublic":     reflect.ValueOf((*config.ConfigSitePublic)(nil)),
 		"ConfigSiteSession":    reflect.ValueOf((*config.ConfigSiteSession)(nil)),
 		"ConfigSites":          reflect.ValueOf((*config.ConfigSites)(nil)),
-		"Pluginer":             reflect.ValueOf((*config.Pluginer)(nil)),
-
-		// interface wrapper definitions
-		"_Pluginer": reflect.ValueOf((*_github_com_456vv_vweb_v2_server_config_Pluginer)(nil)),
 	}
-}
-
-// _github_com_456vv_vweb_v2_server_config_Pluginer is an interface wrapper for Pluginer type
-type _github_com_456vv_vweb_v2_server_config_Pluginer struct {
-	IValue interface{}
-	WHTTP  func(name string) (vweb.PluginHTTP, error)
-	WRPC   func(name string) (vweb.PluginRPC, error)
-}
-
-func (W _github_com_456vv_vweb_v2_server_config_Pluginer) HTTP(name string) (vweb.PluginHTTP, error) {
-	return W.WHTTP(name)
-}
-func (W _github_com_456vv_vweb_v2_server_config_Pluginer) RPC(name string) (vweb.PluginRPC, error) {
-	return W.WRPC(name)
 }
