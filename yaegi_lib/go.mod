@@ -12,7 +12,7 @@ require (
 	github.com/456vv/vforward v1.0.8
 	github.com/456vv/viot/v2 v2.3.6
 	github.com/456vv/vmap/v2 v2.3.2
-	github.com/456vv/vweb/v2 v2.1.1-0.20220308160824-4e361a02872e
+	github.com/456vv/vweb/v2 v2.4.13
 	github.com/456vv/x/db v0.0.0-20220306095811-062e982a7bdf
 	github.com/456vv/x/smtp v0.0.0-20220306095811-062e982a7bdf
 	github.com/456vv/x/sqltable v0.0.0-20220306095811-062e982a7bdf
