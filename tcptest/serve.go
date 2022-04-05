@@ -54,7 +54,7 @@ func C2L(addr string, server func(l net.Listener), client func(c net.Conn)) {
 	server(l)
 }
 
-func D2S(addr string, server func(c net.Conn), client func(laddr net.Addr)) {
+func D2S(addr string, server func(c net.Conn), client func(raddr net.Addr)) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
@@ -78,7 +78,7 @@ func D2S(addr string, server func(c net.Conn), client func(laddr net.Addr)) {
 	}
 }
 
-func D2L(addr string, server func(l net.Listener), client func(c net.Addr)) {
+func D2L(addr string, server func(l net.Listener), client func(raddr net.Addr)) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
