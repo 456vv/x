@@ -25,7 +25,6 @@ import(
 
 	_ "github.com/456vv/x/gossa_lib/github.com/tidwall/gjson"
 	_ "github.com/456vv/x/gossa_lib/github.com/tidwall/sjson"
-	_ "github.com/456vv/x/gossa_lib/github.com/bep/golibsass/libsass"
 	_ "github.com/456vv/x/gossa_lib/gopkg.in/yaml.v2"
 	_ "github.com/456vv/x/gossa_lib/github.com/pelletier/go-toml"
 	_ "github.com/456vv/x/gossa_lib/github.com/88250/lute"
