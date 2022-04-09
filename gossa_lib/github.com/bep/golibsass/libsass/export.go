@@ -1,7 +1,7 @@
 // export by github.com/goplus/gossa/cmd/qexp
 
-//go:build gossa_lib && libsass
-// +build gossa_lib,libsass
+//go:build gossa_lib
+// +build gossa_lib
 
 package libsass
 
