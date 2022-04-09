@@ -12,6 +12,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 	"github.com/goplus/gossa"
 	_ "github.com/goplus/gossa/pkg" //加入默认包
+	_ "github.com/456vv/x/gossa_lib"
 )
 
 var ssaOnce sync.Once
