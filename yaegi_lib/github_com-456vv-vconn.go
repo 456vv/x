@@ -13,6 +13,7 @@ import (
 func init() {
 	Symbols["github.com/456vv/vconn/vconn"] = map[string]reflect.Value{
 		// function, constant and variable definitions
+		"New":     reflect.ValueOf(vconn.New),
 		"NewConn": reflect.ValueOf(vconn.NewConn),
 
 		// type definitions

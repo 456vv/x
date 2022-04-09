@@ -52,6 +52,7 @@ func init() {
 		"ReadRequest":           reflect.ValueOf(viot.ReadRequest),
 		"ReadResponse":          reflect.ValueOf(viot.ReadResponse),
 		"ServerContextKey":      reflect.ValueOf(&viot.ServerContextKey).Elem(),
+		"SiteContextKey":        reflect.ValueOf(&viot.SiteContextKey).Elem(),
 		"StateActive":           reflect.ValueOf(viot.StateActive),
 		"StateClosed":           reflect.ValueOf(viot.StateClosed),
 		"StateHijacked":         reflect.ValueOf(viot.StateHijacked),

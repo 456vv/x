@@ -1,7 +1,7 @@
 @echo off
 
 go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,https://proxy.golang.org,direct
-go mod tidy
+go mod tidy -compat=1.17
 
 if "%1" == "" goto input
 
