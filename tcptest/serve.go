@@ -92,3 +92,26 @@ func D2L(addr string, server func(l net.Listener), client func(raddr net.Addr)) 
 
 	server(l)
 }
+
+func SL(addr string, server func(c net.Conn)) net.Listener {
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		defer l.Close()
+		for {
+			netConn, err := l.Accept()
+			if err != nil {
+				if !strings.Contains(err.Error(), "use of closed network connection") {
+					panic(err)
+				}
+				return
+			}
+			go server(netConn)
+		}
+	}()
+
+	return l
+}
