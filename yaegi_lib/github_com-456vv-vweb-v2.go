@@ -21,6 +21,7 @@ func init() {
 	Symbols["github.com/456vv/vweb/v2/vweb"] = map[string]reflect.Value{
 		// function, constant and variable definitions
 		"AddSalt":              reflect.ValueOf(vweb.AddSalt),
+		"ConnContextKey":       reflect.ValueOf(&vweb.ConnContextKey).Elem(),
 		"CopyStruct":           reflect.ValueOf(vweb.CopyStruct),
 		"CopyStructDeep":       reflect.ValueOf(vweb.CopyStructDeep),
 		"DefaultSitePool":      reflect.ValueOf(&vweb.DefaultSitePool).Elem(),
@@ -32,11 +33,13 @@ func init() {
 		"GenerateRandomId":     reflect.ValueOf(vweb.GenerateRandomId),
 		"GenerateRandomString": reflect.ValueOf(vweb.GenerateRandomString),
 		"InDirect":             reflect.ValueOf(vweb.InDirect),
+		"ListenerContextKey":   reflect.ValueOf(&vweb.ListenerContextKey).Elem(),
 		"NewSitePool":          reflect.ValueOf(vweb.NewSitePool),
 		"PagePath":             reflect.ValueOf(vweb.PagePath),
+		"PluginContextKey":     reflect.ValueOf(&vweb.PluginContextKey).Elem(),
 		"PluginTypeHTTP":       reflect.ValueOf(vweb.PluginTypeHTTP),
 		"PluginTypeRPC":        reflect.ValueOf(vweb.PluginTypeRPC),
-		"Version":              reflect.ValueOf(vweb.Version),
+		"SiteContextKey":       reflect.ValueOf(&vweb.SiteContextKey).Elem(),
 
 		// type definitions
 		"Cookie":               reflect.ValueOf((*vweb.Cookie)(nil)),

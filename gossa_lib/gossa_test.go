@@ -23,6 +23,7 @@ import(
 	_ "github.com/tidwall/gjson"
 	_ "github.com/tidwall/sjson"
 	_ "github.com/bep/golibsass/libsass"
+	_ "github.com/mattn/go-sqlite3"
 	_ "gopkg.in/yaml.v2"
 	_ "github.com/pelletier/go-toml"
 	_ "github.com/88250/lute"
