@@ -87,7 +87,11 @@ func init() {
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{
-			"DefaultSitePool": reflect.ValueOf(&q.DefaultSitePool),
+			"ConnContextKey":     reflect.ValueOf(&q.ConnContextKey),
+			"DefaultSitePool":    reflect.ValueOf(&q.DefaultSitePool),
+			"ListenerContextKey": reflect.ValueOf(&q.ListenerContextKey),
+			"PluginContextKey":   reflect.ValueOf(&q.PluginContextKey),
+			"SiteContextKey":     reflect.ValueOf(&q.SiteContextKey),
 		},
 		Funcs: map[string]reflect.Value{
 			"AddSalt":              reflect.ValueOf(q.AddSalt),
@@ -107,7 +111,6 @@ func init() {
 		TypedConsts: map[string]gossa.TypedConst{
 			"PluginTypeHTTP": {reflect.TypeOf(q.PluginTypeHTTP), constant.MakeInt64(int64(q.PluginTypeHTTP))},
 			"PluginTypeRPC":  {reflect.TypeOf(q.PluginTypeRPC), constant.MakeInt64(int64(q.PluginTypeRPC))},
-			"Version":        {reflect.TypeOf(q.Version), constant.MakeString(string(q.Version))},
 		},
 		UntypedConsts: map[string]gossa.UntypedConst{},
 	})
