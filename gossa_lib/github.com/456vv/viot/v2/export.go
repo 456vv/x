@@ -95,6 +95,7 @@ func init() {
 			"SiteMan":   reflect.TypeOf((*q.SiteMan)(nil)).Elem(),
 		},
 		Vars: map[string]reflect.Value{
+			"ConnContextKey":      reflect.ValueOf(&q.ConnContextKey),
 			"DefaultSitePool":     reflect.ValueOf(&q.DefaultSitePool),
 			"ErrAbortHandler":     reflect.ValueOf(&q.ErrAbortHandler),
 			"ErrBodyNotAllowed":   reflect.ValueOf(&q.ErrBodyNotAllowed),
@@ -111,6 +112,7 @@ func init() {
 			"ErrRwaControl":       reflect.ValueOf(&q.ErrRwaControl),
 			"ErrServerClosed":     reflect.ValueOf(&q.ErrServerClosed),
 			"ErrURIInvalid":       reflect.ValueOf(&q.ErrURIInvalid),
+			"ListenerContextKey":  reflect.ValueOf(&q.ListenerContextKey),
 			"LocalAddrContextKey": reflect.ValueOf(&q.LocalAddrContextKey),
 			"ServerContextKey":    reflect.ValueOf(&q.ServerContextKey),
 			"SiteContextKey":      reflect.ValueOf(&q.SiteContextKey),

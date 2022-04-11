@@ -22,6 +22,7 @@ import (
 func init() {
 	Symbols["github.com/456vv/viot/v2/viot"] = map[string]reflect.Value{
 		// function, constant and variable definitions
+		"ConnContextKey":        reflect.ValueOf(&viot.ConnContextKey).Elem(),
 		"DefaultLineBytes":      reflect.ValueOf(constant.MakeFromLiteral("1048576", token.INT, 0)),
 		"DefaultSitePool":       reflect.ValueOf(&viot.DefaultSitePool).Elem(),
 		"ErrAbortHandler":       reflect.ValueOf(&viot.ErrAbortHandler).Elem(),
@@ -40,6 +41,7 @@ func init() {
 		"ErrServerClosed":       reflect.ValueOf(&viot.ErrServerClosed).Elem(),
 		"ErrURIInvalid":         reflect.ValueOf(&viot.ErrURIInvalid).Elem(),
 		"Error":                 reflect.ValueOf(viot.Error),
+		"ListenerContextKey":    reflect.ValueOf(&viot.ListenerContextKey).Elem(),
 		"LocalAddrContextKey":   reflect.ValueOf(&viot.LocalAddrContextKey).Elem(),
 		"LogDebug":              reflect.ValueOf(viot.LogDebug),
 		"LogErr":                reflect.ValueOf(viot.LogErr),
