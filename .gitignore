@@ -1,3 +1,6 @@
 smtp/smtp_test.go
 db/db_test.go
 vweb_dynamic/.vscode/
+tcptest/.vscode/
+vweb_lib/.vscode/
+yaegi_lib/.vscode/

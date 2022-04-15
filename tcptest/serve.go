@@ -1,8 +1,10 @@
 package tcptest
+
 import (
 	"net"
 	"strings"
 )
+
 func C2S(addr string, server func(c net.Conn), client func(c net.Conn)) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -74,7 +76,7 @@ func D2S(addr string, server func(c net.Conn), client func(raddr net.Addr)) {
 			}
 			return
 		}
-		server(netConn)
+		go server(netConn)
 	}
 }
 
