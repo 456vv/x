@@ -9,18 +9,18 @@ require (
 	github.com/456vv/vconnpool/v2 v2.1.6
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.0.9
-	github.com/456vv/viot/v2 v2.4.5
+	github.com/456vv/viot/v2 v2.4.6
 	github.com/456vv/vmap/v2 v2.3.2
 	github.com/456vv/vweb/v2 v2.5.1
-	github.com/456vv/x/db v0.0.0-20220415033350-9db03c63c560
-	github.com/456vv/x/smtp v0.0.0-20220415033350-9db03c63c560
-	github.com/456vv/x/sqltable v0.0.0-20220415033350-9db03c63c560
-	github.com/456vv/x/ticker v0.0.0-20220415033350-9db03c63c560
-	github.com/456vv/x/watch v0.0.0-20220415033350-9db03c63c560
+	github.com/456vv/x/db v0.0.0-20220417133834-6fc5979ca188
+	github.com/456vv/x/smtp v0.0.0-20220417133834-6fc5979ca188
+	github.com/456vv/x/sqltable v0.0.0-20220417133834-6fc5979ca188
+	github.com/456vv/x/ticker v0.0.0-20220417133834-6fc5979ca188
+	github.com/456vv/x/watch v0.0.0-20220417133834-6fc5979ca188
 	github.com/88250/lute v1.7.3
 	github.com/bep/golibsass v1.0.0
 	github.com/goplus/gossa v0.3.18
-	github.com/goplus/reflectx v0.8.9
+	github.com/goplus/reflectx v0.8.10
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/pelletier/go-toml v1.9.4
 	github.com/tidwall/gjson v1.14.0

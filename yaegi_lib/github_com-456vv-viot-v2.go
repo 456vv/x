@@ -36,6 +36,7 @@ func init() {
 		"ErrMethodInvalid":      reflect.ValueOf(&viot.ErrMethodInvalid).Elem(),
 		"ErrProtoInvalid":       reflect.ValueOf(&viot.ErrProtoInvalid).Elem(),
 		"ErrReqUnavailable":     reflect.ValueOf(&viot.ErrReqUnavailable).Elem(),
+		"ErrRespNonce":          reflect.ValueOf(&viot.ErrRespNonce).Elem(),
 		"ErrRespUnavailable":    reflect.ValueOf(&viot.ErrRespUnavailable).Elem(),
 		"ErrRwaControl":         reflect.ValueOf(&viot.ErrRwaControl).Elem(),
 		"ErrServerClosed":       reflect.ValueOf(&viot.ErrServerClosed).Elem(),

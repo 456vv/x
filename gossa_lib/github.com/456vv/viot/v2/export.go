@@ -108,6 +108,7 @@ func init() {
 			"ErrMethodInvalid":    reflect.ValueOf(&q.ErrMethodInvalid),
 			"ErrProtoInvalid":     reflect.ValueOf(&q.ErrProtoInvalid),
 			"ErrReqUnavailable":   reflect.ValueOf(&q.ErrReqUnavailable),
+			"ErrRespNonce":        reflect.ValueOf(&q.ErrRespNonce),
 			"ErrRespUnavailable":  reflect.ValueOf(&q.ErrRespUnavailable),
 			"ErrRwaControl":       reflect.ValueOf(&q.ErrRwaControl),
 			"ErrServerClosed":     reflect.ValueOf(&q.ErrServerClosed),
