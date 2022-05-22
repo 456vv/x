@@ -21,7 +21,6 @@ func init() {
 		"ParseOutputStyle": reflect.ValueOf(libsass.ParseOutputStyle),
 
 		// type definitions
-		"Error":            reflect.ValueOf((*libsass.Error)(nil)),
 		"Options":          reflect.ValueOf((*libsass.Options)(nil)),
 		"OutputStyle":      reflect.ValueOf((*libsass.OutputStyle)(nil)),
 		"Result":           reflect.ValueOf((*libsass.Result)(nil)),

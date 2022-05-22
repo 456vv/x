@@ -19,9 +19,8 @@ func init() {
 		Name: "libsass",
 		Path: "github.com/bep/golibsass/libsass",
 		Deps: map[string]string{
-			"encoding/json": "json",
-			"fmt":           "fmt",
-			"github.com/bep/golibsass/internal/libsass": "libsass",
+			"github.com/bep/golibsass/internal/libsass":      "libsass",
+			"github.com/bep/golibsass/libsass/libsasserrors": "libsasserrors",
 			"os":      "os",
 			"strings": "strings",
 		},
@@ -29,7 +28,6 @@ func init() {
 			"Transpiler": reflect.TypeOf((*q.Transpiler)(nil)).Elem(),
 		},
 		NamedTypes: map[string]gossa.NamedType{
-			"Error":            {reflect.TypeOf((*q.Error)(nil)).Elem(), "Error", ""},
 			"Options":          {reflect.TypeOf((*q.Options)(nil)).Elem(), "", ""},
 			"OutputStyle":      {reflect.TypeOf((*q.OutputStyle)(nil)).Elem(), "", ""},
 			"Result":           {reflect.TypeOf((*q.Result)(nil)).Elem(), "", ""},
