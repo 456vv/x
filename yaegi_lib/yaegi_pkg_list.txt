@@ -9,7 +9,6 @@ github.com/456vv/viot/v2
 github.com/456vv/vweb/v2
 github.com/456vv/vweb/v2/builtin
 github.com/456vv/vweb/v2/server/config
-github.com/goplus/reflectx
 github.com/456vv/x/sqltable
 github.com/456vv/x/smtp
 github.com/456vv/x/db
