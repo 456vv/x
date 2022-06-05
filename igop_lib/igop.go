@@ -1,1 +1,1 @@
-package gossa_lib
+package igop_lib
