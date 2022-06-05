@@ -8,11 +8,11 @@ import (
 	"github.com/issue9/assert/v2"
 )
 
-func Test_gossa(t *testing.T) {
+func Test_igop(t *testing.T) {
 	as := assert.New(t, true)
-	ssa := &Gossa{}
+	ssa := &Igop{}
 
-	pRoot := "./test/wwwroot/gossa"
+	pRoot := "./test/wwwroot/igop"
 	pPath := "pkg1.go"
 	ssa.SetPath(pRoot, pPath)
 

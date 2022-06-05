@@ -14,43 +14,43 @@ import (
 	"reflect"
 	"sync"
 
-	_ "github.com/456vv/x/gossa_lib"
-	"github.com/goplus/gossa"
-	_ "github.com/goplus/gossa/pkg" // 加入默认包
+	_ "github.com/456vv/x/igop_lib"
+	"github.com/goplus/igop"
+	_ "github.com/goplus/igop/pkg" // 加入默认包
 	"golang.org/x/tools/go/ssa"
 )
 
-var ssaOnce sync.Once
+var igopOnce sync.Once
 
-type Gossa struct {
+type Igop struct {
 	rootPath string // 文件目录
 	pagePath string // 文件名称
 	name     string
 	inited   bool
 
-	c       *gossa.Context
+	c       *igop.Context
 	mainPkg *ssa.Package
 }
 
-func (T *Gossa) init() {
+func (T *Igop) init() {
 	if T.inited {
 		return
 	}
-	ssaOnce.Do(func() {
+	igopOnce.Do(func() {
 		// 增加内置函数
 		for name, fn := range TemplateFunc {
-			gossa.RegisterExternal(name, fn)
+			igop.RegisterExternal(name, fn)
 		}
 	})
 	T.inited = true
 }
 
-func (T *Gossa) ParseText(name, content string) error {
+func (T *Igop) ParseText(name, content string) error {
 	T.name = name
 	return T.parse(content)
 }
 
-func (T *Gossa) ParseFile(path string) error {
+func (T *Igop) ParseFile(path string) error {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
@@ -60,13 +60,13 @@ func (T *Gossa) ParseFile(path string) error {
 	return T.parse(script)
 }
 
-func (T *Gossa) SetPath(root, page string) {
+func (T *Igop) SetPath(root, page string) {
 	T.rootPath = root
 	T.pagePath = page
 	T.name = filepath.Base(page)
 }
 
-func (T *Gossa) Parse(r io.Reader) (err error) {
+func (T *Igop) Parse(r io.Reader) (err error) {
 	contact, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -76,10 +76,10 @@ func (T *Gossa) Parse(r io.Reader) (err error) {
 	return T.parse(script)
 }
 
-func (T *Gossa) parse(script string) error {
+func (T *Igop) parse(script string) error {
 	T.init()
 
-	ctx := gossa.NewContext(0)
+	ctx := igop.NewContext(0)
 	fset := token.NewFileSet()
 
 	// 加载main文件
@@ -96,9 +96,9 @@ func (T *Gossa) parse(script string) error {
 	return nil
 }
 
-func (T *Gossa) loadAstFile(ctx *gossa.Context, fset *token.FileSet, file *ast.File) (*ssa.Package, error) {
+func (T *Igop) loadAstFile(ctx *igop.Context, fset *token.FileSet, file *ast.File) (*ssa.Package, error) {
 	pkg := types.NewPackage(file.Name.Name, "")
-	gp := &gossaPackage{
+	gp := &igopPackage{
 		p:        T,
 		ctx:      ctx,
 		fset:     fset,
@@ -114,7 +114,7 @@ func (T *Gossa) loadAstFile(ctx *gossa.Context, fset *token.FileSet, file *ast.F
 	return ssapkg, nil
 }
 
-func (T *gossaPackage) buildPackage(pkg *types.Package, files []*ast.File) (*ssa.Package, error) {
+func (T *igopPackage) buildPackage(pkg *types.Package, files []*ast.File) (*ssa.Package, error) {
 	if pkg.Path() == "" {
 		return nil, errors.New("package has no import path")
 	}
@@ -129,7 +129,7 @@ func (T *gossaPackage) buildPackage(pkg *types.Package, files []*ast.File) (*ssa
 		Selections: make(map[*ast.SelectorExpr]*types.Selection),
 	}
 	tc := &types.Config{
-		Importer: gossa.NewImporter(T.ctx.Loader, T),
+		Importer: igop.NewImporter(T.ctx.Loader, T),
 		Sizes:    T.ctx.Sizes,
 	}
 	if err := types.NewChecker(tc, T.fset, pkg, info).Files(files); err != nil {
@@ -168,7 +168,7 @@ func (T *gossaPackage) buildPackage(pkg *types.Package, files []*ast.File) (*ssa
 	return ssapkg, nil
 }
 
-func (T *Gossa) Execute(out io.Writer, in interface{}) (err error) {
+func (T *Igop) Execute(out io.Writer, in interface{}) (err error) {
 	if T.mainPkg == nil {
 		return errors.New("the template has not been parsed and is not available")
 	}
@@ -189,27 +189,27 @@ func (T *Gossa) Execute(out io.Writer, in interface{}) (err error) {
 		out.Write(rv)
 	default:
 		// 暂时不显示无法识别类型
-		log.Printf("goass url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
+		log.Printf("igop url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
 	}
 
 	return nil
 }
 
-type gossaPackage struct {
-	p        *Gossa
+type igopPackage struct {
+	p        *Igop
 	fset     *token.FileSet
-	ctx      *gossa.Context
+	ctx      *igop.Context
 	packages map[string]*types.Package
 	prog     *ssa.Program
 }
 
-func (T *gossaPackage) imports(imports []*ast.ImportSpec) ([]*types.Package, error) {
+func (T *igopPackage) imports(imports []*ast.ImportSpec) ([]*types.Package, error) {
 	var tPackages []*types.Package
 	for _, spec := range imports {
 		p := spec.Path.Value
 		p = p[1 : len(p)-1]
 		// 先读取内置模块，再生成新模块
-		tPackage, err := gossa.NewImporter(T.ctx.Loader, T).Import(p)
+		tPackage, err := igop.NewImporter(T.ctx.Loader, T).Import(p)
 		if err != nil {
 			return nil, err
 		}
@@ -218,7 +218,7 @@ func (T *gossaPackage) imports(imports []*ast.ImportSpec) ([]*types.Package, err
 	return tPackages, nil
 }
 
-func (T *gossaPackage) Import(path string) (*types.Package, error) {
+func (T *igopPackage) Import(path string) (*types.Package, error) {
 	// types.NewChecker 调用会检查模块
 	if tPackage, ok := T.packages[path]; ok {
 		return tPackage, nil
