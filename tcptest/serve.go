@@ -31,7 +31,7 @@ func C2S(addr string, server func(c net.Conn), client func(c net.Conn)) {
 			}
 			return
 		}
-		server(netConn)
+		go server(netConn)
 	}
 }
 
