@@ -77,6 +77,7 @@ func init() {
 		"Hijacker":             reflect.ValueOf((*viot.Hijacker)(nil)),
 		"Launcher":             reflect.ValueOf((*viot.Launcher)(nil)),
 		"LogLevel":             reflect.ValueOf((*viot.LogLevel)(nil)),
+		"Parser":               reflect.ValueOf((*viot.Parser)(nil)),
 		"RawControler":         reflect.ValueOf((*viot.RawControler)(nil)),
 		"Request":              reflect.ValueOf((*viot.Request)(nil)),
 		"RequestConfig":        reflect.ValueOf((*viot.RequestConfig)(nil)),
@@ -90,6 +91,7 @@ func init() {
 		"Session":              reflect.ValueOf((*viot.Session)(nil)),
 		"Sessioner":            reflect.ValueOf((*viot.Sessioner)(nil)),
 		"Sessions":             reflect.ValueOf((*viot.Sessions)(nil)),
+		"SetParser":            reflect.ValueOf((*viot.SetParser)(nil)),
 		"Site":                 reflect.ValueOf((*viot.Site)(nil)),
 		"SiteMan":              reflect.ValueOf((*viot.SiteMan)(nil)),
 		"SitePool":             reflect.ValueOf((*viot.SitePool)(nil)),
@@ -105,10 +107,12 @@ func init() {
 		"_Handler":          reflect.ValueOf((*_github_com_456vv_viot_v2_Handler)(nil)),
 		"_Hijacker":         reflect.ValueOf((*_github_com_456vv_viot_v2_Hijacker)(nil)),
 		"_Launcher":         reflect.ValueOf((*_github_com_456vv_viot_v2_Launcher)(nil)),
+		"_Parser":           reflect.ValueOf((*_github_com_456vv_viot_v2_Parser)(nil)),
 		"_RawControler":     reflect.ValueOf((*_github_com_456vv_viot_v2_RawControler)(nil)),
 		"_ResponseWriter":   reflect.ValueOf((*_github_com_456vv_viot_v2_ResponseWriter)(nil)),
 		"_RoundTripper":     reflect.ValueOf((*_github_com_456vv_viot_v2_RoundTripper)(nil)),
 		"_Sessioner":        reflect.ValueOf((*_github_com_456vv_viot_v2_Sessioner)(nil)),
+		"_SetParser":        reflect.ValueOf((*_github_com_456vv_viot_v2_SetParser)(nil)),
 		"_TemplateDoter":    reflect.ValueOf((*_github_com_456vv_viot_v2_TemplateDoter)(nil)),
 	}
 }
@@ -229,14 +233,36 @@ func (W _github_com_456vv_viot_v2_Launcher) Launch() viot.RoundTripper {
 	return W.WLaunch()
 }
 
+// _github_com_456vv_viot_v2_Parser is an interface wrapper for Parser type
+type _github_com_456vv_viot_v2_Parser struct {
+	IValue      interface{}
+	WRequest    func(a0 []byte) (*viot.Request, error)
+	WResponse   func(a0 []byte) (*viot.Response, error)
+	WUnrequest  func(a0 *viot.Request) ([]byte, error)
+	WUnresponse func(a0 *viot.Response) ([]byte, error)
+}
+
+func (W _github_com_456vv_viot_v2_Parser) Request(a0 []byte) (*viot.Request, error) {
+	return W.WRequest(a0)
+}
+func (W _github_com_456vv_viot_v2_Parser) Response(a0 []byte) (*viot.Response, error) {
+	return W.WResponse(a0)
+}
+func (W _github_com_456vv_viot_v2_Parser) Unrequest(a0 *viot.Request) ([]byte, error) {
+	return W.WUnrequest(a0)
+}
+func (W _github_com_456vv_viot_v2_Parser) Unresponse(a0 *viot.Response) ([]byte, error) {
+	return W.WUnresponse(a0)
+}
+
 // _github_com_456vv_viot_v2_RawControler is an interface wrapper for RawControler type
 type _github_com_456vv_viot_v2_RawControler struct {
 	IValue      interface{}
-	WRawControl func(f func(net.Conn, *bufio.Reader) error)
+	WRawControl func(a0 func(c net.Conn, r *bufio.Reader) error)
 }
 
-func (W _github_com_456vv_viot_v2_RawControler) RawControl(f func(net.Conn, *bufio.Reader) error) {
-	W.WRawControl(f)
+func (W _github_com_456vv_viot_v2_RawControler) RawControl(a0 func(c net.Conn, r *bufio.Reader) error) {
+	W.WRawControl(a0)
 }
 
 // _github_com_456vv_viot_v2_ResponseWriter is an interface wrapper for ResponseWriter type
@@ -319,6 +345,16 @@ func (W _github_com_456vv_viot_v2_Sessioner) SetExpiredCall(key interface{}, d t
 }
 func (W _github_com_456vv_viot_v2_Sessioner) Token() string {
 	return W.WToken()
+}
+
+// _github_com_456vv_viot_v2_SetParser is an interface wrapper for SetParser type
+type _github_com_456vv_viot_v2_SetParser struct {
+	IValue    interface{}
+	WSetParse func(p viot.Parser)
+}
+
+func (W _github_com_456vv_viot_v2_SetParser) SetParse(p viot.Parser) {
+	W.WSetParse(p)
 }
 
 // _github_com_456vv_viot_v2_TemplateDoter is an interface wrapper for TemplateDoter type
