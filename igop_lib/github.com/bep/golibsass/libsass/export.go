@@ -27,11 +27,11 @@ func init() {
 		Interfaces: map[string]reflect.Type{
 			"Transpiler": reflect.TypeOf((*q.Transpiler)(nil)).Elem(),
 		},
-		NamedTypes: map[string]igop.NamedType{
-			"Options":          {reflect.TypeOf((*q.Options)(nil)).Elem(), "", ""},
-			"OutputStyle":      {reflect.TypeOf((*q.OutputStyle)(nil)).Elem(), "", ""},
-			"Result":           {reflect.TypeOf((*q.Result)(nil)).Elem(), "", ""},
-			"SourceMapOptions": {reflect.TypeOf((*q.SourceMapOptions)(nil)).Elem(), "", ""},
+		NamedTypes: map[string]reflect.Type{
+			"Options":          reflect.TypeOf((*q.Options)(nil)).Elem(),
+			"OutputStyle":      reflect.TypeOf((*q.OutputStyle)(nil)).Elem(),
+			"Result":           reflect.TypeOf((*q.Result)(nil)).Elem(),
+			"SourceMapOptions": reflect.TypeOf((*q.SourceMapOptions)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

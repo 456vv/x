@@ -31,8 +31,8 @@ func init() {
 			"Conn":   reflect.TypeOf((*q.Conn)(nil)).Elem(),
 			"Dialer": reflect.TypeOf((*q.Dialer)(nil)).Elem(),
 		},
-		NamedTypes: map[string]igop.NamedType{
-			"ConnPool": {reflect.TypeOf((*q.ConnPool)(nil)).Elem(), "", "Add,Close,CloseIdleConnections,ConnNum,ConnNumIde,Dial,DialContext,Get,Put,clearPoolConn,dialCtx,getConn,getPoolConn,getPoolConnCount,init,putPoolConn"},
+		NamedTypes: map[string]reflect.Type{
+			"ConnPool": reflect.TypeOf((*q.ConnPool)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

@@ -18,11 +18,10 @@ github.com/456vv/x/ticker
 github.com/tidwall/gjson
 github.com/tidwall/sjson
 gopkg.in/yaml.v2
-github.com/pelletier/go-toml
+github.com/pelletier/go-toml/v2
 github.com/88250/lute
 
 github.com/bep/golibsass/libsass
-github.com/mattn/go-sqlite3
 
 container/list
 archive/zip

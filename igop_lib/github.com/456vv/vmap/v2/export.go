@@ -25,8 +25,8 @@ func init() {
 			"time":          "time",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Map": {reflect.TypeOf((*q.Map)(nil)).Elem(), "", "Copy,Del,Dels,Get,GetHas,GetNewMap,GetNewMaps,GetOrDefault,Has,Index,IndexHas,Keys,Len,MarshalJSON,New,Range,ReadAll,ReadFrom,Reset,Set,SetExpired,SetExpiredCall,String,UnmarshalJSON,Values,WriteTo,afterFunc,marshalJSON,readFrom,unmarshalJSON,writeTo"},
+		NamedTypes: map[string]reflect.Type{
+			"Map": reflect.TypeOf((*q.Map)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

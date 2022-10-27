@@ -21,8 +21,8 @@ func init() {
 			"time": "time",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Ticker": {reflect.TypeOf((*q.Ticker)(nil)).Elem(), "", "Func,Reset,Stop"},
+		NamedTypes: map[string]reflect.Type{
+			"Ticker": reflect.TypeOf((*q.Ticker)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

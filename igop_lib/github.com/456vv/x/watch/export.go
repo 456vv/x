@@ -25,9 +25,9 @@ func init() {
 			"time":                         "time",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Watch":         {reflect.TypeOf((*q.Watch)(nil)).Elem(), "", "Close,Monitor,Remove,event"},
-			"WatchEventFun": {reflect.TypeOf((*q.WatchEventFun)(nil)).Elem(), "", ""},
+		NamedTypes: map[string]reflect.Type{
+			"Watch":         reflect.TypeOf((*q.Watch)(nil)).Elem(),
+			"WatchEventFun": reflect.TypeOf((*q.WatchEventFun)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

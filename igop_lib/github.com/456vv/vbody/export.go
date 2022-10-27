@@ -29,10 +29,10 @@ func init() {
 			"text/template": "template",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Change": {reflect.TypeOf((*q.Change)(nil)).Elem(), "", "Delete,Set,Update"},
-			"Reader": {reflect.TypeOf((*q.Reader)(nil)).Elem(), "", "Array,Bool,BoolAnyEqual,Change,Err,Float64,Float64AnyEqual,Has,Index,IndexArray,IndexFloat64,IndexInt64,IndexString,Int64,Int64AnyEqual,Interface,IsNil,MarshalJSON,NewArray,NewIndex,NewIndexArray,NewInterface,NewSlice,NoZero,ReadFrom,Reset,Slice,String,StringAnyEqual,UnmarshalJSON,has,isNil"},
-			"Writer": {reflect.TypeOf((*q.Writer)(nil)).Elem(), "", "Message,Messagef,Result,SetResult,Status,String,WriteTo,ready"},
+		NamedTypes: map[string]reflect.Type{
+			"Change": reflect.TypeOf((*q.Change)(nil)).Elem(),
+			"Reader": reflect.TypeOf((*q.Reader)(nil)).Elem(),
+			"Writer": reflect.TypeOf((*q.Writer)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

@@ -24,8 +24,8 @@ func init() {
 			"strings": "strings",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"SQLTable": {reflect.TypeOf((*q.SQLTable)(nil)).Elem(), "", "And,Ands,Args,ColumnMark,Excluded,ExtArgs,Or,Ors,Prepare,SQL,Set,SetValues,Sets,ToTypes,Value,ValueValues,Values,Where,addColumnMark,assemble,assembleStatement,excluded,more,pairArgs,progress,set,values,where"},
+		NamedTypes: map[string]reflect.Type{
+			"SQLTable": reflect.TypeOf((*q.SQLTable)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

@@ -2,7 +2,7 @@
 
 set GOEXPERIMENT=noregabi
 go env -w GOPROXY=https://goproxy.cn,direct
-go mod tidy -compat=1.17
+go mod tidy
 
 if "%1" == "" goto input
 

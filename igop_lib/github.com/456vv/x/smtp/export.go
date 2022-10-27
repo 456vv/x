@@ -31,9 +31,9 @@ func init() {
 			"sync/atomic":            "atomic",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Info": {reflect.TypeOf((*q.Info)(nil)).Elem(), "", ""},
-			"Smtp": {reflect.TypeOf((*q.Smtp)(nil)).Elem(), "", "Close,OpenConfig,Send,connection,notifyConn,reconnection"},
+		NamedTypes: map[string]reflect.Type{
+			"Info": reflect.TypeOf((*q.Info)(nil)).Elem(),
+			"Smtp": reflect.TypeOf((*q.Smtp)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

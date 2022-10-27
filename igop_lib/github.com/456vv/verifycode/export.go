@@ -37,12 +37,12 @@ func init() {
 			"strings":                             "strings",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Color":      {reflect.TypeOf((*q.Color)(nil)).Elem(), "", "AddHEX,AddRGBA,Random"},
-			"Font":       {reflect.TypeOf((*q.Font)(nil)).Elem(), "", "AddFile,Random"},
-			"Glyph":      {reflect.TypeOf((*q.Glyph)(nil)).Elem(), "", "FontGlyph"},
-			"Style":      {reflect.TypeOf((*q.Style)(nil)).Elem(), "", ""},
-			"VerifyCode": {reflect.TypeOf((*q.VerifyCode)(nil)).Elem(), "", "Draw,GIF,JPEG,PNG,Style"},
+		NamedTypes: map[string]reflect.Type{
+			"Color":      reflect.TypeOf((*q.Color)(nil)).Elem(),
+			"Font":       reflect.TypeOf((*q.Font)(nil)).Elem(),
+			"Glyph":      reflect.TypeOf((*q.Glyph)(nil)).Elem(),
+			"Style":      reflect.TypeOf((*q.Style)(nil)).Elem(),
+			"VerifyCode": reflect.TypeOf((*q.VerifyCode)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

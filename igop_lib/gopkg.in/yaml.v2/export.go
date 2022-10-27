@@ -40,12 +40,12 @@ func init() {
 			"Marshaler":   reflect.TypeOf((*q.Marshaler)(nil)).Elem(),
 			"Unmarshaler": reflect.TypeOf((*q.Unmarshaler)(nil)).Elem(),
 		},
-		NamedTypes: map[string]igop.NamedType{
-			"Decoder":   {reflect.TypeOf((*q.Decoder)(nil)).Elem(), "", "Decode,SetStrict"},
-			"Encoder":   {reflect.TypeOf((*q.Encoder)(nil)).Elem(), "", "Close,Encode"},
-			"MapItem":   {reflect.TypeOf((*q.MapItem)(nil)).Elem(), "", ""},
-			"MapSlice":  {reflect.TypeOf((*q.MapSlice)(nil)).Elem(), "", ""},
-			"TypeError": {reflect.TypeOf((*q.TypeError)(nil)).Elem(), "", "Error"},
+		NamedTypes: map[string]reflect.Type{
+			"Decoder":   reflect.TypeOf((*q.Decoder)(nil)).Elem(),
+			"Encoder":   reflect.TypeOf((*q.Encoder)(nil)).Elem(),
+			"MapItem":   reflect.TypeOf((*q.MapItem)(nil)).Elem(),
+			"MapSlice":  reflect.TypeOf((*q.MapSlice)(nil)).Elem(),
+			"TypeError": reflect.TypeOf((*q.TypeError)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

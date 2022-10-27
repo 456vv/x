@@ -32,8 +32,8 @@ func init() {
 		Interfaces: map[string]reflect.Type{
 			"Rower": reflect.TypeOf((*q.Rower)(nil)).Elem(),
 		},
-		NamedTypes: map[string]igop.NamedType{
-			"DB": {reflect.TypeOf((*q.DB)(nil)).Elem(), "", "Close,Exec,ExecContext,Has,HasContext,Open,Pexec,PexecContext,Query,QueryContext,QueryRow,QueryRowContext,debugFormat,debugPrint,logf,txCommit"},
+		NamedTypes: map[string]reflect.Type{
+			"DB": reflect.TypeOf((*q.DB)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{

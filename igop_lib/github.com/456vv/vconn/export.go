@@ -31,8 +31,8 @@ func init() {
 		Interfaces: map[string]reflect.Type{
 			"CloseNotifier": reflect.TypeOf((*q.CloseNotifier)(nil)).Elem(),
 		},
-		NamedTypes: map[string]igop.NamedType{
-			"Conn": {reflect.TypeOf((*q.Conn)(nil)).Elem(), "", "Close,CloseNotify,DisableBackgroundRead,LocalAddr,RawConn,Read,RemoteAddr,SetBackgroundReadDiscard,SetDeadline,SetReadDeadline,SetReadLimit,SetWriteDeadline,Write,close,closeNotify"},
+		NamedTypes: map[string]reflect.Type{
+			"Conn": reflect.TypeOf((*q.Conn)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},

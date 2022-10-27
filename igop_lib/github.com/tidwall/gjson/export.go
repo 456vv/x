@@ -29,9 +29,9 @@ func init() {
 			"unsafe":                    "unsafe",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Result": {reflect.TypeOf((*q.Result)(nil)).Elem(), "Array,Bool,Exists,Float,ForEach,Get,Int,IsArray,IsBool,IsObject,Less,Map,Path,Paths,String,Time,Uint,Value,arrayOrMap", ""},
-			"Type":   {reflect.TypeOf((*q.Type)(nil)).Elem(), "String", ""},
+		NamedTypes: map[string]reflect.Type{
+			"Result": reflect.TypeOf((*q.Result)(nil)).Elem(),
+			"Type":   reflect.TypeOf((*q.Type)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{

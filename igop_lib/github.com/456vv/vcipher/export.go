@@ -24,8 +24,8 @@ func init() {
 			"crypto/rand":   "rand",
 		},
 		Interfaces: map[string]reflect.Type{},
-		NamedTypes: map[string]igop.NamedType{
-			"Cipher": {reflect.TypeOf((*q.Cipher)(nil)).Elem(), "", "BlockSize,CBCDecrypt,CBCEncrypt,CFBDecrypt,CFBEncrypt,CTR,Decrypt,Encrypt,OFB,Padding,Unpadding"},
+		NamedTypes: map[string]reflect.Type{
+			"Cipher": reflect.TypeOf((*q.Cipher)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},
