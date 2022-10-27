@@ -22,7 +22,6 @@ github.com/pelletier/go-toml
 github.com/88250/lute
 
 github.com/bep/golibsass/libsass
-github.com/mattn/go-sqlite3
 
 container/list
 archive/zip

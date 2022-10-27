@@ -15,10 +15,10 @@ import (
 func init() {
 	Symbols["github.com/88250/lute/lute"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"FormatNode":         reflect.ValueOf(lute.FormatNode),
+		"FormatNodeSync":     reflect.ValueOf(lute.FormatNodeSync),
 		"New":                reflect.ValueOf(lute.New),
 		"RenderNodeBlockDOM": reflect.ValueOf(lute.RenderNodeBlockDOM),
-		"Version":            reflect.ValueOf(constant.MakeFromLiteral("\"1.7.2\"", token.STRING, 0)),
+		"Version":            reflect.ValueOf(constant.MakeFromLiteral("\"1.7.4\"", token.STRING, 0)),
 
 		// type definitions
 		"Lute":        reflect.ValueOf((*lute.Lute)(nil)),

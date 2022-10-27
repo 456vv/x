@@ -14,6 +14,7 @@ func init() {
 	Symbols["github.com/tidwall/gjson/gjson"] = map[string]reflect.Value{
 		// function, constant and variable definitions
 		"AddModifier":      reflect.ValueOf(gjson.AddModifier),
+		"AppendJSONString": reflect.ValueOf(gjson.AppendJSONString),
 		"DisableModifiers": reflect.ValueOf(&gjson.DisableModifiers).Elem(),
 		"False":            reflect.ValueOf(gjson.False),
 		"ForEachLine":      reflect.ValueOf(gjson.ForEachLine),
