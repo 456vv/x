@@ -151,6 +151,7 @@ Symbols = map[string]template.FuncMap{
 		"Unwrap":errors.Unwrap,
 	},
 	"sync":{
+		"Pool":func(a ...interface{}) (retn *sync.Pool) {newInit(&retn, a...);return retn},
 		"Map":func(a ...interface{}) (retn *sync.Map) {newInit(&retn, a...);return retn},
 	},
 	"sync/atomic":{
@@ -225,6 +226,9 @@ Symbols = map[string]template.FuncMap{
 		"Sprint":fmt.Sprint,
 		"Sprintf":fmt.Sprintf,
 		"Sprintln":fmt.Sprintln,
+		"Append":fmt.Append,
+		"Appendf":fmt.Appendf,
+		"Appendln":fmt.Appendln,
 	},
     "reflect":{
         "Copy":reflect.Copy,
@@ -253,6 +257,7 @@ Symbols = map[string]template.FuncMap{
         "Float64":reflect.Float64,
         "Complex64":reflect.Complex64,
         "Complex128":reflect.Complex128,
+        "Pointer":reflect.Pointer,
         "Array":reflect.Array,
         "Chan":reflect.Chan,
         "Func":reflect.Func,
@@ -278,6 +283,7 @@ Symbols = map[string]template.FuncMap{
         "FuncOf":reflect.FuncOf,
         "MapOf":reflect.MapOf,
         "PtrTo":reflect.PtrTo,
+       	"PointerTo":reflect.PointerTo,
         "SliceOf":reflect.SliceOf,
         "StructOf":reflect.StructOf,
         "TypeOf":reflect.TypeOf,
@@ -659,6 +665,7 @@ Symbols = map[string]template.FuncMap{
 		"NewScanner":bufio.NewScanner,
 	},
 	"url":{
+		"JoinPath":URL.JoinPath,
 		"PathEscape":url.PathEscape,
 		"PathUnescape":url.PathUnescape,
 		"QueryEscape":url.QueryEscape,
@@ -673,6 +680,8 @@ Symbols = map[string]template.FuncMap{
 		"ParseQuery":url.ParseQuery,
 	},
     "strings":{
+    	"Clone":strings.Clone,
+    	"Cut":strings.Cut,
     	"ReplaceAll":strings.ReplaceAll,
     	"Compare":strings.Compare,
         "Contains":strings.Contains,
@@ -725,6 +734,7 @@ Symbols = map[string]template.FuncMap{
         "Builder":func(a ...interface{}) (retn *strings.Builder) {newInit(&retn, a...);return retn},
     },
     "bytes":{
+    	"Cut":bytes.Cut,
     	"ReplaceAll":bytes.ReplaceAll,
         "Compare":bytes.Compare,
         "Contains":bytes.Contains,
@@ -893,6 +903,7 @@ Symbols = map[string]template.FuncMap{
         "ToUpper":unicode.ToUpper,
     },
     "unicode/utf8":{
+    	"AppendRune":utf8.AppendRune,
         "DecodeLastRune":utf8.DecodeLastRune,
         "DecodeLastRuneInString":utf8.DecodeLastRuneInString,
         "DecodeRune":utf8.DecodeRune,
