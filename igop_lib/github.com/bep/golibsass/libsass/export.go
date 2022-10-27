@@ -1,7 +1,7 @@
 // export by github.com/goplus/igop/cmd/qexp
 
-//go:build igop_lib
-// +build igop_lib
+//go:build igop_lib&&libsass
+// +build igop_lib,libsass
 
 package libsass
 
