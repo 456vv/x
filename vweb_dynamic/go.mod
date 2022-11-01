@@ -1,3 +1,3 @@
 module github.com/456vv/x/vweb_dynamic
 
-go 1.17
+go 1.19

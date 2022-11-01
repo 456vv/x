@@ -1,11 +1,9 @@
 package vweb_dynamic
-	
-import(
-	"testing"
+
+import (
 	"bytes"
+	"testing"
 )
-
-
 
 func Test_TemplateSeparation1(t *testing.T) {
 	buf := bytes.NewBufferString("//file=a1.v\n//file=b1.v\n\r\n111111")
@@ -20,6 +18,7 @@ func Test_TemplateSeparation1(t *testing.T) {
 		t.Fatalf("内容长度不正确")
 	}
 }
+
 func Test_TemplateSeparation2(t *testing.T) {
 	buf := bytes.NewBufferString("\r\n111111")
 	fh, content, err := TemplateSeparation(buf)
@@ -34,14 +33,14 @@ func Test_TemplateSeparation2(t *testing.T) {
 	}
 }
 
-func Test_TemplateHeader_OpenFile(t *testing.T){
+func Test_TemplateHeader_OpenFile(t *testing.T) {
 	th := &TemplateHeader{
-		File:[]string{
+		File: []string{
 			"a1.v",
 			"b1.v",
 		},
 	}
-	fbs, err := th.OpenFile("./test/wwwroot", "/template/index.v")
+	fbs, err := th.OpenFile("./testdata/wwwroot", "/template/index.v")
 	if err != nil {
 		t.Fatal(err)
 	}

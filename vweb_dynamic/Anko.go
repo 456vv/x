@@ -1,42 +1,45 @@
 package vweb_dynamic
 
 import (
-	"sync"
+	"errors"
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"errors"
-	"github.com/mattn/anko/env"
-	"github.com/mattn/anko/parser"
-	"github.com/mattn/anko/vm"
+	"sync"
+
+	"github.com/456vv/vweb/v2"
 	"github.com/mattn/anko/ast"
 	"github.com/mattn/anko/core"
-	"github.com/456vv/vweb/v2"
-	_ "github.com/mattn/anko/packages" //加入默认包
+	"github.com/mattn/anko/env"
+	_ "github.com/mattn/anko/packages" // 加入默认包
+	"github.com/mattn/anko/parser"
+	"github.com/mattn/anko/vm"
 )
 
-var anko_env *env.Env
-var ankoOnce sync.Once
+var (
+	anko_env *env.Env
+	ankoOnce sync.Once
+)
 
-type Anko struct{
-	rootPath			string																// 文件目录
-	pagePath			string																// 文件名称
- 	name				string
- 	stmt				ast.Stmt
- 	inited				bool
+type Anko struct {
+	rootPath string // 文件目录
+	pagePath string // 文件名称
+	name     string
+	stmt     ast.Stmt
+	inited   bool
 }
 
-func (T *Anko) init(){
+func (T *Anko) init() {
 	if T.inited {
 		return
 	}
-	ankoOnce.Do(func (){
-		//增加anko 模块包
-		parser.EnableErrorVerbose()	//解析错误详细信息
+	ankoOnce.Do(func() {
+		// 增加anko 模块包
+		parser.EnableErrorVerbose() // 解析错误详细信息
 		anko_env = env.NewEnv()
-		core.Import(anko_env) 		//加载内置的一些函数
-		
-		//增加内置函数
+		core.Import(anko_env) // 加载内置的一些函数
+
+		// 增加内置函数
 		for name, fn := range TemplateFunc {
 			anko_env.Define(name, fn)
 		}
@@ -59,10 +62,10 @@ func (T *Anko) ParseFile(path string) error {
 	return T.parse(script)
 }
 
-func (T *Anko) SetPath(root, page string){
+func (T *Anko) SetPath(root, page string) {
 	T.rootPath = root
 	T.pagePath = page
-    T.name = filepath.Base(page)
+	T.name = filepath.Base(page)
 }
 
 func (T *Anko) Parse(r io.Reader) (err error) {
@@ -70,7 +73,7 @@ func (T *Anko) Parse(r io.Reader) (err error) {
 	if err != nil {
 		return err
 	}
-	
+
 	script := string(contact)
 	return T.parse(script)
 }
@@ -90,21 +93,21 @@ func (T *Anko) parse(script string) error {
 
 func (T *Anko) Execute(out io.Writer, in interface{}) (err error) {
 	if T.stmt == nil {
-		return errors.New("The template has not been parsed and is not available!")
+		return errors.New("the template has not been parsed and is not available")
 	}
-	
+
 	env := anko_env.NewEnv()
 	env.Define("T", in)
 
 	var retn interface{}
-    if tdot, ok := in.(vweb.DotContexter); ok {
+	if tdot, ok := in.(vweb.DotContexter); ok {
 		retn, err = vm.RunContext(tdot.Context(), env, nil, T.stmt)
-    }else{
-    	retn, err = vm.Run(env, nil, T.stmt)
-    }
+	} else {
+		retn, err = vm.Run(env, nil, T.stmt)
+	}
 	if err != nil {
-		//排除中断的错误
-		//可能用户关闭连接
+		// 排除中断的错误
+		// 可能用户关闭连接
 		if err.Error() == vm.ErrInterrupt.Error() {
 			return nil
 		}
@@ -112,13 +115,14 @@ func (T *Anko) Execute(out io.Writer, in interface{}) (err error) {
 	}
 	if out != nil && retn != nil {
 		switch rv := retn.(type) {
-		case string:io.WriteString(out, rv)
-		case []byte:out.Write(rv)
+		case string:
+			io.WriteString(out, rv)
+		case []byte:
+			out.Write(rv)
 		default:
-			//暂时不显示无法识别类型
-			//log.Printf("anko url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
+			// 暂时不显示无法识别类型
+			// log.Printf("anko url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(&rv).Elem().Elem().Type().String())
 		}
 	}
 	return nil
 }
-
