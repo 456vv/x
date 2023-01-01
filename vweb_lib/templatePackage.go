@@ -23,7 +23,7 @@ import(
     "github.com/456vv/vconnpool/v2"
     "github.com/456vv/vforward"
     "github.com/456vv/vconn"
-    "github.com/456vv/vbody"
+    "github.com/456vv/vbody/v2"
     "github.com/456vv/vcipher"
     "github.com/456vv/vweb/v2"
     "github.com/456vv/verifycode"
