@@ -7,18 +7,16 @@ import(
 	pkg "github.com/foo/pkg"
 )
 
-var i int
 func Main(a interface{}) string {
-	pkg.NewSample()()
-	fmt.Println(this.IsNil(nil))
-	
-	if i == 0 {
-		i++
-		time.Sleep(time.Second)
+	b := pkg.NewSample()()
+	if b != "root Fromage Cheese" {
+		panic("error")
 	}
-	fmt.Printf("%#v %v\n",a, a)
-	
-	
-	return "789\n"
+	if !this.IsNil(nil) {
+		panic("error")
+	}
+
+	time.Sleep(time.Millisecond)
+	return fmt.Sprint(a)
 }
 

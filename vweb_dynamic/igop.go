@@ -1,7 +1,6 @@
 package vweb_dynamic
 
 import (
-	"errors"
 	"io"
 	"log"
 	"os"
@@ -82,7 +81,7 @@ func (T *Igop) lookup(root, path string) (dir string, found bool) {
 
 func (T *Igop) Execute(out io.Writer, in interface{}) (err error) {
 	if T.mainPkg == nil {
-		return errors.New("the template has not been parsed and is not available")
+		return errTemplateNotParse
 	}
 
 	// 调用Main函数

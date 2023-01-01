@@ -1,7 +1,6 @@
 package vweb_dynamic
 
 import (
-	"errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -26,8 +25,7 @@ type Yaegi struct {
 	inited   bool
 
 	options interp.Options
-	pool    sync.Pool
-	src     string
+	mainFunc reflect.Value
 }
 
 func (T *Yaegi) init() {
@@ -71,14 +69,10 @@ func (T *Yaegi) Parse(r io.Reader) (err error) {
 		return err
 	}
 
-	script := string(contact)
-	return T.parse(script)
+	return T.parse(string(contact))
 }
 
-func (T *Yaegi) newInterpre() (*interp.Interpreter, error) {
-	if T.src == "" {
-		return nil, errors.New("the template has not been parsed and is not available")
-	}
+func (T *Yaegi) newInterpre(src string) (*interp.Interpreter, error) {
 	i := interp.New(T.options)
 	// 内置标准库
 	if err := i.Use(stdlib.Symbols); err != nil {
@@ -103,34 +97,31 @@ func (T *Yaegi) newInterpre() (*interp.Interpreter, error) {
 
 	i.ImportUsed()
 
-	_, err := i.Eval(T.src)
+	_, err := i.Eval(src)
 	return i, err
 }
 
-func (T *Yaegi) parse(script string) error {
-	T.src = script
-	return nil
-}
-
-func (T *Yaegi) Execute(out io.Writer, in interface{}) (err error) {
+func (T *Yaegi) parse(src string) error {
 	T.init()
 
-	interpre, ok := T.pool.Get().(*interp.Interpreter)
-	if !ok {
-		// 新建一个
-		interpre, err = T.newInterpre()
-		if err != nil {
-			return err
-		}
-	}
-	defer T.pool.Put(interpre)
-
-	var res reflect.Value
-	res, err = interpre.Eval("Main")
+	interpre, err := T.newInterpre(src)
 	if err != nil {
 		return err
 	}
 
+	T.mainFunc, err = interpre.Eval("Main")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (T *Yaegi) Execute(out io.Writer, in interface{}) (err error) {
+	if !T.mainFunc.IsValid() {
+		return errTemplateNotParse
+	}
+
+	res := T.mainFunc
 	if res.Kind() == reflect.Func {
 		rt := res.Type()
 		if rt.NumIn() == 1 {

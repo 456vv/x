@@ -14,7 +14,6 @@ import (
 	"github.com/456vv/vweb/v2"
 )
 
-var errTemplateNotParse = errors.New("the template has not been parsed yet")
 
 // Template 模本-处理动态页面文件
 type Template struct {

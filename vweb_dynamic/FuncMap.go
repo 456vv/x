@@ -150,14 +150,6 @@ func (T *pkgTypedConsts) get() any {
 	return constant.Val(T.tc.Value)
 }
 
-type UntypedConsts struct {
-	tc igop.UntypedConst
-}
-
-func (T *UntypedConsts) get() any {
-	return constant.Val(T.tc.Value)
-}
-
 func importPkg(name string) template.FuncMap {
 	if fm, ok := dotPackage[name]; ok {
 		return fm
