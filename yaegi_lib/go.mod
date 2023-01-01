@@ -3,14 +3,14 @@ module github.com/456vv/x/yaegi_lib
 go 1.19
 
 require (
-	github.com/456vv/vbody v1.2.5
+	github.com/456vv/vbody/v2 v2.0.2
 	github.com/456vv/vcipher v1.0.0
 	github.com/456vv/vconn v1.2.0
 	github.com/456vv/vconnpool/v2 v2.1.6
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.0.9
 	github.com/456vv/viot/v2 v2.5.4
-	github.com/456vv/vmap/v2 v2.3.2
+	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.5.2
 	github.com/456vv/x/db v0.0.0-20220609025828-e2324a83cc03
 	github.com/456vv/x/smtp v0.0.0-20220609025828-e2324a83cc03
