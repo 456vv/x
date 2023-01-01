@@ -9,7 +9,7 @@ import(
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vconnpool/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vforward"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vconn"
-	_ "github.com/456vv/x/igop_lib/github.com/456vv/vbody"
+	_ "github.com/456vv/x/igop_lib/github.com/456vv/vbody/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vcipher"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/viot/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vweb/v2"

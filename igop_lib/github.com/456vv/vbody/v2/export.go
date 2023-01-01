@@ -6,7 +6,7 @@
 package vbody
 
 import (
-	q "github.com/456vv/vbody"
+	q "github.com/456vv/vbody/v2"
 
 	"reflect"
 
@@ -16,7 +16,7 @@ import (
 func init() {
 	igop.RegisterPackage(&igop.Package{
 		Name: "vbody",
-		Path: "github.com/456vv/vbody",
+		Path: "github.com/456vv/vbody/v2",
 		Deps: map[string]string{
 			"bytes":         "bytes",
 			"encoding/json": "json",
