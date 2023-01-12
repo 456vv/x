@@ -665,7 +665,7 @@ Symbols = map[string]template.FuncMap{
 		"NewScanner":bufio.NewScanner,
 	},
 	"url":{
-		"JoinPath":URL.JoinPath,
+		"JoinPath":url.JoinPath,
 		"PathEscape":url.PathEscape,
 		"PathUnescape":url.PathUnescape,
 		"QueryEscape":url.QueryEscape,
