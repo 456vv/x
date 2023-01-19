@@ -6,7 +6,7 @@ require (
 	github.com/456vv/vbody/v2 v2.0.2
 	github.com/456vv/vcipher v1.0.0
 	github.com/456vv/vconn v1.2.0
-	github.com/456vv/vconnpool/v2 v2.1.6
+	github.com/456vv/vconnpool/v2 v2.1.9
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.1.1
 	github.com/456vv/viot/v2 v2.5.4
@@ -28,7 +28,7 @@ require (
 
 require (
 	github.com/456vv/verror v1.1.0 // indirect
-	github.com/456vv/x/tcptest v0.0.0-20221027014622-2d1f03b27000 // indirect
+	github.com/456vv/x/tcptest v0.0.0-20230112132255-ae4fc374f4db // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect

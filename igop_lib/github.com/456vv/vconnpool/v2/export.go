@@ -20,6 +20,7 @@ func init() {
 		Deps: map[string]string{
 			"context":                "context",
 			"errors":                 "errors",
+			"fmt":                    "fmt",
 			"github.com/456vv/vconn": "vconn",
 			"io":                     "io",
 			"net":                    "net",
@@ -35,9 +36,14 @@ func init() {
 			"ConnPool": reflect.TypeOf((*q.ConnPool)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
-		Vars:       map[string]reflect.Value{},
+		Vars: map[string]reflect.Value{
+			"ErrConnNotAvailable": reflect.ValueOf(&q.ErrConnNotAvailable),
+			"ErrConnPoolMax":      reflect.ValueOf(&q.ErrConnPoolMax),
+			"ErrPoolFull":         reflect.ValueOf(&q.ErrPoolFull),
+			"PriorityContextKey":  reflect.ValueOf(&q.PriorityContextKey),
+		},
 		Funcs: map[string]reflect.Value{
-			"ParseAddr": reflect.ValueOf(q.ParseAddr),
+			"ResolveAddr": reflect.ValueOf(q.ResolveAddr),
 		},
 		TypedConsts:   map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{},
