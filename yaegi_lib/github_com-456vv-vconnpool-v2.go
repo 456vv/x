@@ -16,7 +16,11 @@ import (
 func init() {
 	Symbols["github.com/456vv/vconnpool/v2/vconnpool"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"ParseAddr": reflect.ValueOf(vconnpool.ParseAddr),
+		"ErrConnNotAvailable": reflect.ValueOf(&vconnpool.ErrConnNotAvailable).Elem(),
+		"ErrConnPoolMax":      reflect.ValueOf(&vconnpool.ErrConnPoolMax).Elem(),
+		"ErrPoolFull":         reflect.ValueOf(&vconnpool.ErrPoolFull).Elem(),
+		"PriorityContextKey":  reflect.ValueOf(&vconnpool.PriorityContextKey).Elem(),
+		"ResolveAddr":         reflect.ValueOf(vconnpool.ResolveAddr),
 
 		// type definitions
 		"Conn":     reflect.ValueOf((*vconnpool.Conn)(nil)),
