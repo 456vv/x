@@ -298,7 +298,7 @@ var TemplateFunc = template.FuncMap{
 	"EQ":             builtin.EQ,        // EQ returns a == b
 	"NE":             builtin.NE,        // NE returns a != b
 	"TrySend":        builtin.TrySend,   // TrySend(*Chan, value)	不阻塞
-	"TryRecv":        builtin.TryRecv,   // TryRecv(*Chan, value)	不阻塞
+	"TryRecv":        builtin.TryRecv,   // value = TryRecv(*Chan)	不阻塞
 	"Send":           builtin.Send,      // Send(*Chan, value)
 	"Recv":           builtin.Recv,      // Recv(*Chan)
 	"Close":          builtin.Close,     // Close(*Chan)
