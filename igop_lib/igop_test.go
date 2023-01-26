@@ -11,6 +11,7 @@ import(
 	_ "github.com/456vv/viot/v2"
 	_ "github.com/456vv/vweb/v2"
 	_ "github.com/456vv/vweb/v2/builtin"
+	_ "github.com/456vv/vweb/v2/server"
 	_ "github.com/456vv/vweb/v2/server/config"
 
 	_ "github.com/456vv/x/sqltable"
