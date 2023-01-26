@@ -11,7 +11,7 @@ require (
 	github.com/456vv/vforward v1.1.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
-	github.com/456vv/vweb/v2 v2.5.2
+	github.com/456vv/vweb/v2 v2.6.0
 	github.com/456vv/x/db v0.0.0-20220609025828-e2324a83cc03
 	github.com/456vv/x/smtp v0.0.0-20220609025828-e2324a83cc03
 	github.com/456vv/x/sqltable v0.0.0-20220609025828-e2324a83cc03
@@ -28,7 +28,6 @@ require (
 
 require (
 	github.com/456vv/verror v1.1.0 // indirect
-	github.com/456vv/vsocks5 v1.0.6 // indirect
 	github.com/456vv/x/tcptest v0.0.0-20230112132255-ae4fc374f4db // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
