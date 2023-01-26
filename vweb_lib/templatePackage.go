@@ -28,6 +28,7 @@ import(
     "github.com/456vv/vweb/v2"
     "github.com/456vv/verifycode"
     "github.com/456vv/vweb/v2/builtin"
+    "github.com/456vv/vweb/v2/server"
     "github.com/456vv/vweb/v2/server/config"
     "regexp"
     "unicode"
@@ -107,8 +108,11 @@ Symbols = map[string]template.FuncMap{
 		"NewSitePool":vweb.NewSitePool,
 		"TemplateDot":func(a ...interface{}) (retn *vweb.TemplateDot) {newInit(&retn, a...);return retn},
 	},
+	"vweb/server":{
+		"ServerContextKey":server.ServerContextKey,
+	},
 	"vweb/server/config":{
-		"ConfigSitePlugin":func(a ...interface{}) (retn *config.ConfigSitePlugin) {newInit(&retn, a...);return retn},
+		"SitePlugin":func(a ...interface{}) (retn *config.SitePlugin) {newInit(&retn, a...);return retn},
 	},
 	"vconnpool":{
 		"ConnPool":func(a ...interface{}) (retn *vconnpool.ConnPool) {newInit(&retn, a...);return retn},
