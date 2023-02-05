@@ -6,12 +6,12 @@ require (
 	github.com/456vv/vbody/v2 v2.0.2
 	github.com/456vv/vcipher v1.0.0
 	github.com/456vv/vconn v1.2.0
-	github.com/456vv/vconnpool/v2 v2.1.10
+	github.com/456vv/vconnpool/v2 v2.1.11
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.1.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
-	github.com/456vv/vweb/v2 v2.6.0
+	github.com/456vv/vweb/v2 v2.6.1
 	github.com/456vv/x/db v0.0.0-20220609025828-e2324a83cc03
 	github.com/456vv/x/smtp v0.0.0-20220609025828-e2324a83cc03
 	github.com/456vv/x/sqltable v0.0.0-20220609025828-e2324a83cc03
@@ -33,6 +33,7 @@ require (
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/issue9/assert/v2 v2.3.2 // indirect
 	github.com/lib/pq v1.10.7 // indirect
@@ -41,7 +42,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	golang.org/x/image v0.1.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 )
