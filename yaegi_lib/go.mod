@@ -3,7 +3,7 @@ module github.com/456vv/x/yaegi_lib
 go 1.19
 
 require (
-	github.com/456vv/vbody/v2 v2.0.2
+	github.com/456vv/vbody/v2 v2.1.0
 	github.com/456vv/vcipher v1.0.0
 	github.com/456vv/vconn v1.2.0
 	github.com/456vv/vconnpool/v2 v2.1.11
@@ -12,16 +12,16 @@ require (
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.6.1
-	github.com/456vv/x/db v0.0.0-20220609025828-e2324a83cc03
-	github.com/456vv/x/smtp v0.0.0-20220609025828-e2324a83cc03
-	github.com/456vv/x/sqltable v0.0.0-20220609025828-e2324a83cc03
-	github.com/456vv/x/ticker v0.0.0-20220609025828-e2324a83cc03
-	github.com/456vv/x/watch v0.0.0-20220609025828-e2324a83cc03
-	github.com/88250/lute v1.7.4
+	github.com/456vv/x/db v0.0.0-20230207035500-0b225cf17dcd
+	github.com/456vv/x/smtp v0.0.0-20230207035500-0b225cf17dcd
+	github.com/456vv/x/sqltable v0.0.0-20230207035500-0b225cf17dcd
+	github.com/456vv/x/ticker v0.0.0-20230207035500-0b225cf17dcd
+	github.com/456vv/x/watch v0.0.0-20230207035500-0b225cf17dcd
+	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.0
 	github.com/goplus/reflectx v0.8.10
-	github.com/pelletier/go-toml/v2 v2.0.5
-	github.com/tidwall/gjson v1.14.3
+	github.com/pelletier/go-toml/v2 v2.0.6
+	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -30,7 +30,7 @@ require (
 	github.com/456vv/verror v1.1.0 // indirect
 	github.com/456vv/x/tcptest v0.0.0-20230112132255-ae4fc374f4db // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
-	github.com/dlclark/regexp2 v1.7.0 // indirect
+	github.com/dlclark/regexp2 v1.8.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
@@ -41,8 +41,8 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	golang.org/x/image v0.1.0 // indirect
-	golang.org/x/net v0.5.0 // indirect
-	golang.org/x/sys v0.4.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/image v0.4.0 // indirect
+	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 )
