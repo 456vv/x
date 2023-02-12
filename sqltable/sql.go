@@ -30,8 +30,8 @@ import (
 
 
 type SQLTable struct{
-	ssql		string								//未处理的sql语句
-	rsqlt		string								//最终sql语句
+	source		string								//未处理的sql语句
+	result		string								//最终sql语句
 	swhere		[]*sqlTableWhere
 	sexcluded 	[]string
 	count		int
@@ -44,11 +44,21 @@ type SQLTable struct{
 	setVals	   []interface{}
 	types		map[string]string
 }
-func NewSQLTable() *SQLTable{
-	return &SQLTable{types:make(map[string]string)}
-}
+
 func Prepare(s string) *SQLTable {
-	return NewSQLTable().Prepare(s)
+	st := &SQLTable{
+		types:make(map[string]string),
+	}
+
+	for i:=1;true;i++ {
+		dollar := fmt.Sprint("$",i)
+		if !strings.Contains(s, dollar) {
+			break
+		}
+		s = strings.ReplaceAll(s, dollar, fmt.Sprint("@",i))
+	}
+	st.source = s
+	return st
 }
 
 func (T *SQLTable) progress(val interface{}) string {
@@ -249,6 +259,7 @@ func (T *SQLTable) set(s string) string {
 	return s
 }
 
+//读取所有值
 func (T *SQLTable) SetValues(v ...interface{}) []interface{} {
 	vals := append(T.setVals, v ...)
 	return quoteValue(vals)
@@ -273,56 +284,43 @@ func (T *SQLTable) excluded(s string) string {
 	}
 	return s
 }
+
 type sqlTableWhere struct {
 	symbol	string
 	key		string
 	val		interface{}
 }
 
-//解析sql语句
-//	s string 待解析的sql句子
-func (T *SQLTable) Prepare(s string) *SQLTable {
-	for i:=1;true;i++ {
-		dollar := fmt.Sprint("$",i)
-		if !strings.Contains(s, dollar) {
-			break
-		}
-		s = strings.ReplaceAll(s, dollar, fmt.Sprint("@",i))
-	}
-	T.ssql = s
-	return T
+func (T *SQLTable) assemble(source string) string {
+	source = T.where(source)
+	source = T.values(source)
+	source = T.set(source)
+	source = T.excluded(source)
+	return source
 }
 
-func (T *SQLTable) assemble(ssql string) string {
-	ssql = T.where(ssql)
-	ssql = T.values(ssql)
-	ssql = T.set(ssql)
-	ssql = T.excluded(ssql)
-	return ssql
-}
-
-func (T *SQLTable) assembleStatement() {
-	if T.rsqlt != ""{
-		return
+func (T *SQLTable) assembleStatement() string {
+	if T.result != ""{
+		return  T.result
 	}
-	ssql := T.ssql
-	for index,arg := range T.extArgs {
+	source := T.source
+	for index, arg := range T.extArgs {
 		dollar := T.progress(arg)
 		essential := fmt.Sprint("@", index+1)
-		if strings.Contains(ssql, essential) {
-			ssql = strings.Replace(ssql, essential, dollar, -1)
+		if strings.Contains(source, essential) {
+			source = strings.Replace(source, essential, dollar, -1)
 			continue
 		}
-		ssql = strings.Replace(ssql, "?", dollar, 1)
+		source = strings.Replace(source, "?", dollar, 1)
 	}
-	T.rsqlt = T.assemble(ssql)
+	T.result = T.assemble(source)
+	return T.result
 }
 
 //返回sql语句，需要先调用.Args方法再调用该方法
 //	string 格式后的SQL句子
 func (T *SQLTable) SQL() string {
-	T.assembleStatement()
-	return T.rsqlt
+	return T.assembleStatement()
 }
 
 //扩展参数
@@ -340,3 +338,4 @@ func (T *SQLTable) Args(args ...interface{}) []interface{}{
 	T.assembleStatement()
 	return T.args
 }
+
