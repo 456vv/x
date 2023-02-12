@@ -30,8 +30,7 @@ func init() {
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},
 		Funcs: map[string]reflect.Value{
-			"NewSQLTable": reflect.ValueOf(q.NewSQLTable),
-			"Prepare":     reflect.ValueOf(q.Prepare),
+			"Prepare": reflect.ValueOf(q.Prepare),
 		},
 		TypedConsts:   map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{},

@@ -13,8 +13,7 @@ import (
 func init() {
 	Symbols["github.com/456vv/x/sqltable/sqltable"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"NewSQLTable": reflect.ValueOf(sqltable.NewSQLTable),
-		"Prepare":     reflect.ValueOf(sqltable.Prepare),
+		"Prepare": reflect.ValueOf(sqltable.Prepare),
 
 		// type definitions
 		"SQLTable": reflect.ValueOf((*sqltable.SQLTable)(nil)),
