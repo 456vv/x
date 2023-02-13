@@ -12,10 +12,6 @@ import (
 
 func init() {
 	Symbols["github.com/456vv/x/db/db"] = map[string]reflect.Value{
-		// function, constant and variable definitions
-		"ErrNoRows": reflect.ValueOf(&db.ErrNoRows).Elem(),
-		"ErrRows":   reflect.ValueOf(&db.ErrRows).Elem(),
-
 		// type definitions
 		"DB":    reflect.ValueOf((*db.DB)(nil)),
 		"Rower": reflect.ValueOf((*db.Rower)(nil)),

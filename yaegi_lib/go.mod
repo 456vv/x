@@ -12,11 +12,11 @@ require (
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.6.1
-	github.com/456vv/x/db v0.0.0-20230212072116-42766b87f7ef
-	github.com/456vv/x/smtp v0.0.0-20230212072116-42766b87f7ef
-	github.com/456vv/x/sqltable v0.0.0-20230212072116-42766b87f7ef
-	github.com/456vv/x/ticker v0.0.0-20230212072116-42766b87f7ef
-	github.com/456vv/x/watch v0.0.0-20230212072116-42766b87f7ef
+	github.com/456vv/x/db v0.0.0-20230213135959-576accf1f4a5
+	github.com/456vv/x/smtp v0.0.0-20230213135959-576accf1f4a5
+	github.com/456vv/x/sqltable v0.0.0-20230213135959-576accf1f4a5
+	github.com/456vv/x/ticker v0.0.0-20230213135959-576accf1f4a5
+	github.com/456vv/x/watch v0.0.0-20230213135959-576accf1f4a5
 	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.0
 	github.com/goplus/reflectx v0.8.10
@@ -28,7 +28,7 @@ require (
 
 require (
 	github.com/456vv/verror v1.1.0 // indirect
-	github.com/456vv/x/tcptest v0.0.0-20230212072116-42766b87f7ef // indirect
+	github.com/456vv/x/tcptest v0.0.0-20230213135959-576accf1f4a5 // indirect
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/dlclark/regexp2 v1.8.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
