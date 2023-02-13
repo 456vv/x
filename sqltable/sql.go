@@ -7,15 +7,14 @@ import (
 )
 //使用方法：
 //
-//NewSQLTable().ColumnMark(`"`).Prepare(`select "A1" from "A" $Where$ order by "ID" limit 10`).And("A1=?", value)
-//NewSQLTable().ColumnMark(`"`).Prepare(`insert into "A"$Values$ $Where$`).Values("A1",value).And("A1=?", value)
-//NewSQLTable().ColumnMark(`"`).Prepare(`update "A" $Set$ $Where$`).Set("A1",value).And("A1=?", value)
-//NewSQLTable().ColumnMark(`"`).Prepare(`delete from "A" $Where$`).And("A1=?", value)
-//NewSQLTable().ColumnMark(`"`).Prepare(`insert into "A"$Values$ on conflict("ID") do update set $Excluded$  $Where$`).Values("A1",value).And("A1=?", value)
+//Prepare(`select "A1" from "A" $Where$ order by "ID" limit 10`).And("A1=?", value)
+//Prepare(`insert into "A"$Values$ $Where$`).Values("A1",value).And("A1=?", value)
+//Prepare(`update "A" $Set$ $Where$`).Set("A1",value).And("A1=?", value)
+//Prepare(`delete from "A" $Where$`).And("A1=?", value)
+//Prepare(`insert into "A"$Values$ on conflict("ID") do update set $Excluded$  $Where$`).Values("A1",value).And("A1=?", value)
 //
 //Args(args ...interface{}) []interface{}
 //SQL() string
-//Prepare(s string) *SQLTable
 //Excluded(a ...string) *SQLTable
 //Sets(a ...interface{}) *SQLTable
 //Set(column string, value interface{}) *SQLTable

@@ -1,6 +1,5 @@
 package	db
 import(
-	"github.com/456vv/vweb/v2"
 	"database/sql"
 	_ "github.com/lib/pq"
 	"context"
@@ -22,18 +21,11 @@ import(
 	DB.QueryRowContext(tx *sql.Tx, ctx context.Context,	sqlstr string, args	...interface{})	sqlRower
 	DB.Query(tx	*sql.Tx, sqlstr	string,	args ...interface{}) (data []map[string]interface{}, err error)
 	DB.QueryContext(tx *sql.Tx,	ctx	context.Context, sqlstr	string,	args ...interface{}) (data []map[string]interface{}, err error)
-	DB.QueryReader(tx *sql.Tx, id string, sqlstr string, args ...interface{}) (line	map[interface{}]*vbody.Reader, err error)
-	DB.QueryReaderContext(tx *sql.Tx, ctx context.Context, id string, sqlstr string, args ...interface{}) (line	map[interface{}]*vbody.Reader, err error)
 	DB.Has(sqlstr string, args ...interface{}) error
 	DB.HasDataContext(ctx context.Context, sqlstr string, args ...interface{}) error
 */
 
-//支持于HasContext支持
-var	ErrRows	= errors.New("sql: have	rows in	result set")
-//支持于 HasContext，QueryReaderContext，QueryRowContext，PexecContext
-var ErrNoRows = sql.ErrNoRows
-	
-var errDebugResult = errors.New("The debug result type does not match the returned result type")
+var errDebugResult = errors.New("the debug result type does not match the returned result type")
 
 type Rower interface{
 	Scan(dest ...interface{}) error
@@ -131,14 +123,14 @@ func (T *DB) debugPrint(sqlStr string, args interface{}){
 		if rv.Kind() == reflect.Slice {
 			for i:=0;i<rv.Len();i++ {
 				srv := rv.Index(i)
-				argsStr = append(argsStr, fmt.Sprintf("'%v'",vweb.InDirect(srv)))
+				argsStr = append(argsStr, fmt.Sprintf("'%v'",inDirect(srv)))
 			}
 		}
-		T.logf("\nprepare test as %s;\nexecute test(%v);\ndeallocate test;\n", sqlStr, strings.Join(argsStr,","))
+		T.logf("\nprepare test as %s;\nexecute test(%s);\ndeallocate test;\n", sqlStr, strings.Join(argsStr,","))
 	}
 }
 
-//支持写入(postgresql)，支持返回错误：error, ErrNoRows
+//支持写入(postgresql)，支持返回错误：error, nil, ErrNoRows
 func (T	*DB) Pexec(tx *sql.Tx,	sqlstr string, args	...interface{})	error {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
@@ -159,7 +151,7 @@ func (T	*DB) PexecContext(tx *sql.Tx, ctx context.Context,	sqlstr string, args	.
 		return 
 	}
 	if affected	== 0 {
-		return ErrNoRows
+		return sql.ErrNoRows
 	}
 	return
 }
@@ -197,7 +189,7 @@ func (T	*DB) ExecContext(tx	*sql.Tx, ctx context.Context, sqlstr string, args ..
 	return
 }
 
-//支持读取/写入，支持返回错误：error, ErrNoRows
+//支持读取/写入，支持返回错误：error, nil, ErrNoRows
 func (T	*DB) QueryRow(tx *sql.Tx, sqlstr string, args ...interface{}) Rower {
 	ctx	:= context.Background()
 	return T.QueryRowContext(tx, ctx, sqlstr, args...)
@@ -234,16 +226,14 @@ func (T	*DB) QueryRowContext(tx	*sql.Tx, ctx context.Context, sqlstr string, arg
 	var cancel context.CancelFunc = func(){}
 	if T.Timeout !=	0 {
 		//这个上下文没有设置超时
-		_, ok := ctx.Deadline()
-		if !ok {
+		if _, ok := ctx.Deadline(); !ok {
 			ctx, cancel	= context.WithTimeout(ctx, T.Timeout)
 		}
 	}
-	sqlRow := tx.QueryRowContext(ctx, sqlstr, args...)
-	return &dbRow{tx:sqlTx,	r:sqlRow, cancel:cancel}
+	return &dbRow{tx:sqlTx,	r:tx.QueryRowContext(ctx, sqlstr, args...), cancel:cancel}
 }
 
-//支持读取/写入，支持返回错误：error, ErrNoRows
+//支持读取/写入，支持返回错误：error, nil, ErrNoRows
 func (T	*DB) Query(tx *sql.Tx, sqlstr string, args ...interface{}) (data []map[string]interface{}, err error) {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
@@ -344,7 +334,7 @@ func (T	*DB) QueryContext(tx *sql.Tx, ctx context.Context, sqlstr string, args .
 	return
 }
 
-//判断数据存在，支持返回错误：error, ErrRows, ErrNoRows
+//判断数据存在，支持返回错误：error, nil, ErrNoRows
 func (T	*DB) Has(sqlstr	string,	args ...interface{}) error {
 	ctx	:= context.Background()
 	var	cancel context.CancelFunc
@@ -372,8 +362,8 @@ func (T	*DB) HasContext(ctx	context.Context, sqlstr	string,	args ...interface{})
 		return err
 	}
 	defer rows.Close()
-	if rows.Next() {
-		return ErrRows
+	if !rows.Next() {
+		return sql.ErrNoRows
 	}
-	return ErrNoRows
+	return nil
 }

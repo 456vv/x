@@ -1,6 +1,7 @@
 ﻿package db
 import(
     "strings"
+    "reflect"
 )
 //map键转小写
 func keyToLower(key string) string {
@@ -26,4 +27,10 @@ func keyToLower(key string) string {
 		nkey = string(bkey)
 	}
 	return nkey
+}
+
+func inDirect(v reflect.Value) reflect.Value {
+	for ; v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface; v = v.Elem() {
+	}
+	return v
 }
