@@ -12,6 +12,13 @@ import (
 
 func init() {
 	Symbols["github.com/456vv/x/db/db"] = map[string]reflect.Value{
+		// function, constant and variable definitions
+		"ColumnArray":      reflect.ValueOf(db.ColumnArray),
+		"ColumnArrayNil":   reflect.ValueOf(db.ColumnArrayNil),
+		"ColumnFilter":     reflect.ValueOf(db.ColumnFilter),
+		"DataToContextKey": reflect.ValueOf(&db.DataToContextKey).Elem(),
+		"TypeToContextKey": reflect.ValueOf(&db.TypeToContextKey).Elem(),
+
 		// type definitions
 		"DB":    reflect.ValueOf((*db.DB)(nil)),
 		"Rower": reflect.ValueOf((*db.Rower)(nil)),

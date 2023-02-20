@@ -34,9 +34,16 @@ func init() {
 		NamedTypes: map[string]reflect.Type{
 			"DB": reflect.TypeOf((*q.DB)(nil)).Elem(),
 		},
-		AliasTypes:    map[string]reflect.Type{},
-		Vars:          map[string]reflect.Value{},
-		Funcs:         map[string]reflect.Value{},
+		AliasTypes: map[string]reflect.Type{},
+		Vars: map[string]reflect.Value{
+			"DataToContextKey": reflect.ValueOf(&q.DataToContextKey),
+			"TypeToContextKey": reflect.ValueOf(&q.TypeToContextKey),
+		},
+		Funcs: map[string]reflect.Value{
+			"ColumnArray":    reflect.ValueOf(q.ColumnArray),
+			"ColumnArrayNil": reflect.ValueOf(q.ColumnArrayNil),
+			"ColumnFilter":   reflect.ValueOf(q.ColumnFilter),
+		},
 		TypedConsts:   map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{},
 	})
