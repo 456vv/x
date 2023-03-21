@@ -11,15 +11,15 @@ require (
 	github.com/456vv/vforward v1.1.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
-	github.com/456vv/vweb/v2 v2.6.1
-	github.com/456vv/x/db v0.0.0-20230312032400-3b2698c34e84
-	github.com/456vv/x/smtp v0.0.0-20230312032400-3b2698c34e84
-	github.com/456vv/x/sqltable v0.0.0-20230312032400-3b2698c34e84
-	github.com/456vv/x/ticker v0.0.0-20230312032400-3b2698c34e84
-	github.com/456vv/x/watch v0.0.0-20230312032400-3b2698c34e84
+	github.com/456vv/vweb/v2 v2.6.2
+	github.com/456vv/x/db v0.0.0-20230312032748-875358ea893a
+	github.com/456vv/x/smtp v0.0.0-20230312032748-875358ea893a
+	github.com/456vv/x/sqltable v0.0.0-20230312032748-875358ea893a
+	github.com/456vv/x/ticker v0.0.0-20230312032748-875358ea893a
+	github.com/456vv/x/watch v0.0.0-20230312032748-875358ea893a
 	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.0
-	github.com/goplus/igop v0.9.10
+	github.com/goplus/igop v0.9.11
 	github.com/pelletier/go-toml/v2 v2.0.7
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
@@ -46,7 +46,7 @@ require (
 	github.com/visualfc/funcval v0.1.3 // indirect
 	github.com/visualfc/goembed v0.3.3 // indirect
 	github.com/visualfc/goid v0.2.0 // indirect
-	github.com/visualfc/xtype v0.1.2 // indirect
+	github.com/visualfc/xtype v0.2.0 // indirect
 	golang.org/x/image v0.6.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
