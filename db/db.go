@@ -9,8 +9,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
-	_ "github.com/lib/pq"
 )
 
 /*
@@ -137,33 +135,6 @@ func (T *DB) debugPrint(sqlStr string, args interface{}) {
 	}
 }
 
-// 支持写入(postgresql)，支持返回错误：error, nil, ErrNoRows
-func (T *DB) Pexec(tx *sql.Tx, sqlstr string, args ...interface{}) error {
-	ctx := context.Background()
-	var cancel context.CancelFunc
-	if T.Timeout != 0 {
-		ctx, cancel = context.WithTimeout(ctx, T.Timeout)
-		defer cancel()
-	}
-	return T.PexecContext(ctx, tx, sqlstr, args...)
-}
-
-func (T *DB) PexecContext(ctx context.Context, tx *sql.Tx, sqlstr string, args ...interface{}) (err error) {
-	result, err := T.ExecContext(ctx, tx, sqlstr, args...)
-	if err != nil {
-		return
-	}
-
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return
-	}
-	if affected == 0 {
-		return sql.ErrNoRows
-	}
-	return
-}
-
 // 支持写入
 func (T *DB) Exec(tx *sql.Tx, sqlstr string, args ...interface{}) (result sql.Result, err error) {
 	ctx := context.Background()
@@ -194,7 +165,21 @@ func (T *DB) ExecContext(ctx context.Context, tx *sql.Tx, sqlstr string, args ..
 		}
 		defer T.txCommit(tx, &err)
 	}
+
 	result, err = tx.ExecContext(ctx, sqlstr, args...)
+	if err != nil {
+		return
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		// 不支持rowsAffected，原样返回
+		return result, nil
+	}
+
+	if affected == 0 {
+		return result, sql.ErrNoRows
+	}
 	return
 }
 
@@ -277,7 +262,8 @@ func (T *DB) QueryContext(ctx context.Context, tx *sql.Tx, sqlstr string, args .
 		}
 	} else if !strings.Contains(sqlstrTL, "returning") {
 		// 插入或更新，没有返回
-		return nil, T.PexecContext(ctx, tx, sqlstr, args...)
+		_, err = T.ExecContext(ctx, tx, sqlstr, args...)
+		return nil, err
 	} else {
 		// 插入或更新，有返回
 		if tx == nil {
