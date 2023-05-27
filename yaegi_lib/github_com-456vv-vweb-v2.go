@@ -127,12 +127,12 @@ func (W _github_com_456vv_vweb_v2_DotContexter) WithContext(ctx context.Context)
 // _github_com_456vv_vweb_v2_DynamicTemplater is an interface wrapper for DynamicTemplater type
 type _github_com_456vv_vweb_v2_DynamicTemplater struct {
 	IValue   interface{}
-	WExecute func(out io.Writer, dot interface{}) error
+	WExecute func(out io.Writer, dot any) error
 	WParse   func(r io.Reader) (err error)
 	WSetPath func(rootPath string, pagePath string)
 }
 
-func (W _github_com_456vv_vweb_v2_DynamicTemplater) Execute(out io.Writer, dot interface{}) error {
+func (W _github_com_456vv_vweb_v2_DynamicTemplater) Execute(out io.Writer, dot any) error {
 	return W.WExecute(out, dot)
 }
 func (W _github_com_456vv_vweb_v2_DynamicTemplater) Parse(r io.Reader) (err error) {
@@ -145,34 +145,34 @@ func (W _github_com_456vv_vweb_v2_DynamicTemplater) SetPath(rootPath string, pag
 // _github_com_456vv_vweb_v2_Globaler is an interface wrapper for Globaler type
 type _github_com_456vv_vweb_v2_Globaler struct {
 	IValue          interface{}
-	WDel            func(key interface{})
-	WGet            func(key interface{}) interface{}
-	WHas            func(key interface{}) bool
+	WDel            func(key any)
+	WGet            func(key any) any
+	WHas            func(key any) bool
 	WReset          func()
-	WSet            func(key interface{}, val interface{})
-	WSetExpired     func(key interface{}, d time.Duration)
-	WSetExpiredCall func(key interface{}, d time.Duration, f func(interface{}))
+	WSet            func(key any, val any)
+	WSetExpired     func(key any, d time.Duration)
+	WSetExpiredCall func(key any, d time.Duration, f func(any))
 }
 
-func (W _github_com_456vv_vweb_v2_Globaler) Del(key interface{}) {
+func (W _github_com_456vv_vweb_v2_Globaler) Del(key any) {
 	W.WDel(key)
 }
-func (W _github_com_456vv_vweb_v2_Globaler) Get(key interface{}) interface{} {
+func (W _github_com_456vv_vweb_v2_Globaler) Get(key any) any {
 	return W.WGet(key)
 }
-func (W _github_com_456vv_vweb_v2_Globaler) Has(key interface{}) bool {
+func (W _github_com_456vv_vweb_v2_Globaler) Has(key any) bool {
 	return W.WHas(key)
 }
 func (W _github_com_456vv_vweb_v2_Globaler) Reset() {
 	W.WReset()
 }
-func (W _github_com_456vv_vweb_v2_Globaler) Set(key interface{}, val interface{}) {
+func (W _github_com_456vv_vweb_v2_Globaler) Set(key any, val any) {
 	W.WSet(key, val)
 }
-func (W _github_com_456vv_vweb_v2_Globaler) SetExpired(key interface{}, d time.Duration) {
+func (W _github_com_456vv_vweb_v2_Globaler) SetExpired(key any, d time.Duration) {
 	W.WSetExpired(key, d)
 }
-func (W _github_com_456vv_vweb_v2_Globaler) SetExpiredCall(key interface{}, d time.Duration, f func(interface{})) {
+func (W _github_com_456vv_vweb_v2_Globaler) SetExpiredCall(key any, d time.Duration, f func(any)) {
 	W.WSetExpiredCall(key, d, f)
 }
 
@@ -209,14 +209,14 @@ func (W _github_com_456vv_vweb_v2_PluginHTTP) Type() vweb.PluginType {
 // _github_com_456vv_vweb_v2_PluginRPC is an interface wrapper for PluginRPC type
 type _github_com_456vv_vweb_v2_PluginRPC struct {
 	IValue    interface{}
-	WCall     func(name string, arg interface{}) (interface{}, error)
+	WCall     func(name string, arg any) (any, error)
 	WClose    func() error
 	WDiscard  func() error
-	WRegister func(value interface{})
+	WRegister func(value any)
 	WType     func() vweb.PluginType
 }
 
-func (W _github_com_456vv_vweb_v2_PluginRPC) Call(name string, arg interface{}) (interface{}, error) {
+func (W _github_com_456vv_vweb_v2_PluginRPC) Call(name string, arg any) (any, error) {
 	return W.WCall(name, arg)
 }
 func (W _github_com_456vv_vweb_v2_PluginRPC) Close() error {
@@ -225,7 +225,7 @@ func (W _github_com_456vv_vweb_v2_PluginRPC) Close() error {
 func (W _github_com_456vv_vweb_v2_PluginRPC) Discard() error {
 	return W.WDiscard()
 }
-func (W _github_com_456vv_vweb_v2_PluginRPC) Register(value interface{}) {
+func (W _github_com_456vv_vweb_v2_PluginRPC) Register(value any) {
 	W.WRegister(value)
 }
 func (W _github_com_456vv_vweb_v2_PluginRPC) Type() vweb.PluginType {
@@ -291,47 +291,47 @@ func (W _github_com_456vv_vweb_v2_Responser) WriteString(a0 string) (int, error)
 // _github_com_456vv_vweb_v2_Sessioner is an interface wrapper for Sessioner type
 type _github_com_456vv_vweb_v2_Sessioner struct {
 	IValue          interface{}
-	WDefer          func(call interface{}, args ...interface{}) error
-	WDel            func(key interface{})
+	WDefer          func(call any, args ...any) error
+	WDel            func(key any)
 	WFree           func()
-	WGet            func(key interface{}) interface{}
-	WGetHas         func(key interface{}) (val interface{}, ok bool)
-	WHas            func(key interface{}) bool
+	WGet            func(key any) any
+	WGetHas         func(key any) (val any, ok bool)
+	WHas            func(key any) bool
 	WReset          func()
-	WSet            func(key interface{}, val interface{})
-	WSetExpired     func(key interface{}, d time.Duration)
-	WSetExpiredCall func(key interface{}, d time.Duration, f func(interface{}))
+	WSet            func(key any, val any)
+	WSetExpired     func(key any, d time.Duration)
+	WSetExpiredCall func(key any, d time.Duration, f func(any))
 	WToken          func() string
 }
 
-func (W _github_com_456vv_vweb_v2_Sessioner) Defer(call interface{}, args ...interface{}) error {
+func (W _github_com_456vv_vweb_v2_Sessioner) Defer(call any, args ...any) error {
 	return W.WDefer(call, args...)
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) Del(key interface{}) {
+func (W _github_com_456vv_vweb_v2_Sessioner) Del(key any) {
 	W.WDel(key)
 }
 func (W _github_com_456vv_vweb_v2_Sessioner) Free() {
 	W.WFree()
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) Get(key interface{}) interface{} {
+func (W _github_com_456vv_vweb_v2_Sessioner) Get(key any) any {
 	return W.WGet(key)
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) GetHas(key interface{}) (val interface{}, ok bool) {
+func (W _github_com_456vv_vweb_v2_Sessioner) GetHas(key any) (val any, ok bool) {
 	return W.WGetHas(key)
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) Has(key interface{}) bool {
+func (W _github_com_456vv_vweb_v2_Sessioner) Has(key any) bool {
 	return W.WHas(key)
 }
 func (W _github_com_456vv_vweb_v2_Sessioner) Reset() {
 	W.WReset()
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) Set(key interface{}, val interface{}) {
+func (W _github_com_456vv_vweb_v2_Sessioner) Set(key any, val any) {
 	W.WSet(key, val)
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) SetExpired(key interface{}, d time.Duration) {
+func (W _github_com_456vv_vweb_v2_Sessioner) SetExpired(key any, d time.Duration) {
 	W.WSetExpired(key, d)
 }
-func (W _github_com_456vv_vweb_v2_Sessioner) SetExpiredCall(key interface{}, d time.Duration, f func(interface{})) {
+func (W _github_com_456vv_vweb_v2_Sessioner) SetExpiredCall(key any, d time.Duration, f func(any)) {
 	W.WSetExpiredCall(key, d, f)
 }
 func (W _github_com_456vv_vweb_v2_Sessioner) Token() string {
@@ -343,7 +343,7 @@ type _github_com_456vv_vweb_v2_TemplateDoter struct {
 	IValue            interface{}
 	WContext          func() context.Context
 	WCookie           func() vweb.Cookier
-	WDefer            func(call interface{}, args ...interface{}) error
+	WDefer            func(call any, args ...any) error
 	WGlobal           func() vweb.Globaler
 	WHeader           func() http.Header
 	WRequest          func() *http.Request
@@ -362,7 +362,7 @@ func (W _github_com_456vv_vweb_v2_TemplateDoter) Context() context.Context {
 func (W _github_com_456vv_vweb_v2_TemplateDoter) Cookie() vweb.Cookier {
 	return W.WCookie()
 }
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Defer(call interface{}, args ...interface{}) error {
+func (W _github_com_456vv_vweb_v2_TemplateDoter) Defer(call any, args ...any) error {
 	return W.WDefer(call, args...)
 }
 func (W _github_com_456vv_vweb_v2_TemplateDoter) Global() vweb.Globaler {

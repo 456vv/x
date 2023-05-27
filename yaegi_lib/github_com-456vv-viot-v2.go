@@ -172,34 +172,34 @@ func (W _github_com_456vv_viot_v2_Flusher) Flush() {
 // _github_com_456vv_viot_v2_Globaler is an interface wrapper for Globaler type
 type _github_com_456vv_viot_v2_Globaler struct {
 	IValue          interface{}
-	WDel            func(key interface{})
-	WGet            func(key interface{}) interface{}
-	WHas            func(key interface{}) bool
+	WDel            func(key any)
+	WGet            func(key any) any
+	WHas            func(key any) bool
 	WReset          func()
-	WSet            func(key interface{}, val interface{})
-	WSetExpired     func(key interface{}, d time.Duration)
-	WSetExpiredCall func(key interface{}, d time.Duration, f func(interface{}))
+	WSet            func(key any, val any)
+	WSetExpired     func(key any, d time.Duration)
+	WSetExpiredCall func(key any, d time.Duration, f func(any))
 }
 
-func (W _github_com_456vv_viot_v2_Globaler) Del(key interface{}) {
+func (W _github_com_456vv_viot_v2_Globaler) Del(key any) {
 	W.WDel(key)
 }
-func (W _github_com_456vv_viot_v2_Globaler) Get(key interface{}) interface{} {
+func (W _github_com_456vv_viot_v2_Globaler) Get(key any) any {
 	return W.WGet(key)
 }
-func (W _github_com_456vv_viot_v2_Globaler) Has(key interface{}) bool {
+func (W _github_com_456vv_viot_v2_Globaler) Has(key any) bool {
 	return W.WHas(key)
 }
 func (W _github_com_456vv_viot_v2_Globaler) Reset() {
 	W.WReset()
 }
-func (W _github_com_456vv_viot_v2_Globaler) Set(key interface{}, val interface{}) {
+func (W _github_com_456vv_viot_v2_Globaler) Set(key any, val any) {
 	W.WSet(key, val)
 }
-func (W _github_com_456vv_viot_v2_Globaler) SetExpired(key interface{}, d time.Duration) {
+func (W _github_com_456vv_viot_v2_Globaler) SetExpired(key any, d time.Duration) {
 	W.WSetExpired(key, d)
 }
-func (W _github_com_456vv_viot_v2_Globaler) SetExpiredCall(key interface{}, d time.Duration, f func(interface{})) {
+func (W _github_com_456vv_viot_v2_Globaler) SetExpiredCall(key any, d time.Duration, f func(any)) {
 	W.WSetExpiredCall(key, d, f)
 }
 
@@ -300,47 +300,47 @@ func (W _github_com_456vv_viot_v2_RoundTripper) RoundTripContext(ctx context.Con
 // _github_com_456vv_viot_v2_Sessioner is an interface wrapper for Sessioner type
 type _github_com_456vv_viot_v2_Sessioner struct {
 	IValue          interface{}
-	WDefer          func(call interface{}, args ...interface{}) error
-	WDel            func(key interface{})
+	WDefer          func(call any, args ...any) error
+	WDel            func(key any)
 	WFree           func()
-	WGet            func(key interface{}) interface{}
-	WGetHas         func(key interface{}) (val interface{}, ok bool)
-	WHas            func(key interface{}) bool
+	WGet            func(key any) any
+	WGetHas         func(key any) (val any, ok bool)
+	WHas            func(key any) bool
 	WReset          func()
-	WSet            func(key interface{}, val interface{})
-	WSetExpired     func(key interface{}, d time.Duration)
-	WSetExpiredCall func(key interface{}, d time.Duration, f func(interface{}))
+	WSet            func(key any, val any)
+	WSetExpired     func(key any, d time.Duration)
+	WSetExpiredCall func(key any, d time.Duration, f func(any))
 	WToken          func() string
 }
 
-func (W _github_com_456vv_viot_v2_Sessioner) Defer(call interface{}, args ...interface{}) error {
+func (W _github_com_456vv_viot_v2_Sessioner) Defer(call any, args ...any) error {
 	return W.WDefer(call, args...)
 }
-func (W _github_com_456vv_viot_v2_Sessioner) Del(key interface{}) {
+func (W _github_com_456vv_viot_v2_Sessioner) Del(key any) {
 	W.WDel(key)
 }
 func (W _github_com_456vv_viot_v2_Sessioner) Free() {
 	W.WFree()
 }
-func (W _github_com_456vv_viot_v2_Sessioner) Get(key interface{}) interface{} {
+func (W _github_com_456vv_viot_v2_Sessioner) Get(key any) any {
 	return W.WGet(key)
 }
-func (W _github_com_456vv_viot_v2_Sessioner) GetHas(key interface{}) (val interface{}, ok bool) {
+func (W _github_com_456vv_viot_v2_Sessioner) GetHas(key any) (val any, ok bool) {
 	return W.WGetHas(key)
 }
-func (W _github_com_456vv_viot_v2_Sessioner) Has(key interface{}) bool {
+func (W _github_com_456vv_viot_v2_Sessioner) Has(key any) bool {
 	return W.WHas(key)
 }
 func (W _github_com_456vv_viot_v2_Sessioner) Reset() {
 	W.WReset()
 }
-func (W _github_com_456vv_viot_v2_Sessioner) Set(key interface{}, val interface{}) {
+func (W _github_com_456vv_viot_v2_Sessioner) Set(key any, val any) {
 	W.WSet(key, val)
 }
-func (W _github_com_456vv_viot_v2_Sessioner) SetExpired(key interface{}, d time.Duration) {
+func (W _github_com_456vv_viot_v2_Sessioner) SetExpired(key any, d time.Duration) {
 	W.WSetExpired(key, d)
 }
-func (W _github_com_456vv_viot_v2_Sessioner) SetExpiredCall(key interface{}, d time.Duration, f func(interface{})) {
+func (W _github_com_456vv_viot_v2_Sessioner) SetExpiredCall(key any, d time.Duration, f func(any)) {
 	W.WSetExpiredCall(key, d, f)
 }
 func (W _github_com_456vv_viot_v2_Sessioner) Token() string {
