@@ -53,7 +53,7 @@ func (T *Igop) Parse(r io.Reader) (err error) {
 func (T *Igop) parse(filename string, src interface{}) error {
 	T.init()
 
-	ctx := igop.NewContext(igop.ExperimentalSupportGC)
+	ctx := igop.NewContext(igop.SupportMultipleInterp)
 	// 加载外部模块
 	ctx.Lookup = T.lookup
 
