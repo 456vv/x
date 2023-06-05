@@ -1,6 +1,6 @@
 module github.com/456vv/x/igop_lib
 
-go 1.19
+go 1.20
 
 require (
 	github.com/456vv/vbody/v2 v2.2.1
@@ -11,12 +11,12 @@ require (
 	github.com/456vv/vforward v1.1.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
-	github.com/456vv/vweb/v2 v2.6.2
-	github.com/456vv/x/db v0.0.0-20230326094412-0fd3f6840750
-	github.com/456vv/x/smtp v0.0.0-20230326094412-0fd3f6840750
-	github.com/456vv/x/sqltable v0.0.0-20230326094412-0fd3f6840750
-	github.com/456vv/x/ticker v0.0.0-20230326094412-0fd3f6840750
-	github.com/456vv/x/watch v0.0.0-20230326094412-0fd3f6840750
+	github.com/456vv/vweb/v2 v2.6.3
+	github.com/456vv/x/db v0.0.0-20230527110259-846931beba35
+	github.com/456vv/x/smtp v0.0.0-20230527110259-846931beba35
+	github.com/456vv/x/sqltable v0.0.0-20230527110259-846931beba35
+	github.com/456vv/x/ticker v0.0.0-20230527110259-846931beba35
+	github.com/456vv/x/watch v0.0.0-20230527110259-846931beba35
 	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.1
 	github.com/goplus/igop v0.14.2
@@ -39,7 +39,7 @@ require (
 	github.com/goplus/reflectx v1.1.1 // indirect
 	github.com/issue9/assert/v2 v2.3.2 // indirect
 	github.com/libp2p/go-reuseport v0.3.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.16 // indirect
+	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/visualfc/funcval v0.1.3 // indirect
@@ -51,5 +51,5 @@ require (
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
-	golang.org/x/tools v0.9.1 // indirect
+	golang.org/x/tools v0.9.3 // indirect
 )
