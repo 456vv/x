@@ -5,21 +5,21 @@ go 1.20
 require (
 	github.com/456vv/vbody/v2 v2.2.1
 	github.com/456vv/vcipher v1.0.0
-	github.com/456vv/vconn v1.2.0
+	github.com/456vv/vconn v1.2.1
 	github.com/456vv/vconnpool/v2 v2.1.11
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.1.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.6.3
-	github.com/456vv/x/db v0.0.0-20230527110259-846931beba35
-	github.com/456vv/x/smtp v0.0.0-20230527110259-846931beba35
-	github.com/456vv/x/sqltable v0.0.0-20230527110259-846931beba35
-	github.com/456vv/x/ticker v0.0.0-20230527110259-846931beba35
-	github.com/456vv/x/watch v0.0.0-20230527110259-846931beba35
+	github.com/456vv/x/db v0.0.0-20230605015332-e7e28511d59d
+	github.com/456vv/x/smtp v0.0.0-20230605015332-e7e28511d59d
+	github.com/456vv/x/sqltable v0.0.0-20230605015332-e7e28511d59d
+	github.com/456vv/x/ticker v0.0.0-20230605015332-e7e28511d59d
+	github.com/456vv/x/watch v0.0.0-20230605015332-e7e28511d59d
 	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.1
-	github.com/goplus/igop v0.14.2
+	github.com/goplus/igop v0.15.0
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
