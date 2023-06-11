@@ -225,11 +225,7 @@ Symbols = map[string]template.FuncMap{
 		"SplitList":filepath.SplitList,
 		"ToSlash":filepath.ToSlash,
 		"VolumeName":filepath.VolumeName,
-<<<<<<< HEAD
-		"IsLocal":filepath.LsLocal,
-=======
 		"IsLocal":filepath.IsLocal,
->>>>>>> ea38074 (vweb_lib)
 	},
 	"fmt":{
 		"Errorf":fmt.Errorf,
