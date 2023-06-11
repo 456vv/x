@@ -35,7 +35,6 @@ import(
     "unicode/utf8"
     "os"
     "io"
-    "io/ioutil"
     "context"
     "time"
     "crypto"
@@ -107,6 +106,10 @@ Symbols = map[string]template.FuncMap{
 		"SitePool":func(a ...interface{}) (retn *vweb.SitePool) {newInit(&retn, a...);return retn},
 		"NewSitePool":vweb.NewSitePool,
 		"TemplateDot":func(a ...interface{}) (retn *vweb.TemplateDot) {newInit(&retn, a...);return retn},
+		"SiteContextKey":vweb.SiteContextKey,
+		"ListenerContextKey":vweb.ListenerContextKey,
+		"ConnContextKey":vweb.ConnContextKey,
+		"PluginContextKey":vweb.PluginContextKey,
 	},
 	"vweb/server":{
 		"ServerContextKey":server.ServerContextKey,
@@ -153,6 +156,7 @@ Symbols = map[string]template.FuncMap{
 		"Is":errors.Is,
 		"New":errors.New,
 		"Unwrap":errors.Unwrap,
+		"Join":errors.Join,
 	},
 	"sync":{
 		"Pool":func(a ...interface{}) (retn *sync.Pool) {newInit(&retn, a...);return retn},
@@ -221,6 +225,7 @@ Symbols = map[string]template.FuncMap{
 		"SplitList":filepath.SplitList,
 		"ToSlash":filepath.ToSlash,
 		"VolumeName":filepath.VolumeName,
+		"IsLocal":filepath.LsLocal,
 	},
 	"fmt":{
 		"Errorf":fmt.Errorf,
@@ -335,6 +340,9 @@ Symbols = map[string]template.FuncMap{
 		"RFC3339Nano":time.RFC3339Nano,
 		"Kitchen":time.Kitchen,
 		"Stamp":time.Stamp,
+	    "DateTime":time.DateTime,
+	    "DateOnly":time.DateOnly,
+	    "TimeOnly":time.TimeOnly,
 		"StampMilli":time.StampMilli,
 		"StampMicro":time.StampMicro,
 		"StampNano":time.StampNano,
@@ -685,6 +693,8 @@ Symbols = map[string]template.FuncMap{
 	},
     "strings":{
     	"Clone":strings.Clone,
+    	"CutPrefix":strings.CutPrefix,
+    	"CutSuffix":strings.CutSuffix,
     	"Cut":strings.Cut,
     	"ReplaceAll":strings.ReplaceAll,
     	"Compare":strings.Compare,
@@ -738,6 +748,9 @@ Symbols = map[string]template.FuncMap{
         "Builder":func(a ...interface{}) (retn *strings.Builder) {newInit(&retn, a...);return retn},
     },
     "bytes":{
+    	"CutPrefix":bytes.CutPrefix,
+    	"CutSuffix":bytes.CutSuffix,
+    	"Clone":bytes.Clone,
     	"Cut":bytes.Cut,
     	"ReplaceAll":bytes.ReplaceAll,
         "Compare":bytes.Compare,
@@ -940,13 +953,6 @@ Symbols = map[string]template.FuncMap{
 		"TeeReader":io.TeeReader,
 		"NewSectionReader":io.NewSectionReader,
 		"MultiWriter":io.MultiWriter,
-    },
-    "io/ioutil":{
-    	"Discard":ioutil.Discard,
-    	"NopCloser":ioutil.NopCloser,
-        "ReadAll":ioutil.ReadAll,
-        "ReadFile":ioutil.ReadFile,
-        "WriteFile":ioutil.WriteFile,
     },
     "os":{
     	"WriteFile":os.WriteFile,
