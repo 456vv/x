@@ -251,6 +251,7 @@ type _github_com_456vv_vweb_v2_Responser struct {
 	IValue       interface{}
 	WError       func(a0 string, a1 int)
 	WFlush       func()
+	WHeader      func() http.Header
 	WHijack      func() (net.Conn, *bufio.ReadWriter, error)
 	WPush        func(target string, opts *http.PushOptions) error
 	WReadFrom    func(a0 io.Reader) (int64, error)
@@ -265,6 +266,9 @@ func (W _github_com_456vv_vweb_v2_Responser) Error(a0 string, a1 int) {
 }
 func (W _github_com_456vv_vweb_v2_Responser) Flush() {
 	W.WFlush()
+}
+func (W _github_com_456vv_vweb_v2_Responser) Header() http.Header {
+	return W.WHeader()
 }
 func (W _github_com_456vv_vweb_v2_Responser) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return W.WHijack()
@@ -351,6 +355,7 @@ type _github_com_456vv_vweb_v2_TemplateDoter struct {
 	WResponse         func() vweb.Responser
 	WResponseWriter   func() http.ResponseWriter
 	WRootDir          func(path string) string
+	WSaveStatic       func(path string)
 	WSession          func() vweb.Sessioner
 	WSwap             func() *vmap.Map
 	WWithContext      func(ctx context.Context)
@@ -385,6 +390,9 @@ func (W _github_com_456vv_vweb_v2_TemplateDoter) ResponseWriter() http.ResponseW
 }
 func (W _github_com_456vv_vweb_v2_TemplateDoter) RootDir(path string) string {
 	return W.WRootDir(path)
+}
+func (W _github_com_456vv_vweb_v2_TemplateDoter) SaveStatic(path string) {
+	W.WSaveStatic(path)
 }
 func (W _github_com_456vv_vweb_v2_TemplateDoter) Session() vweb.Sessioner {
 	return W.WSession()

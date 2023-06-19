@@ -95,6 +95,8 @@ func (T *Igop) Execute(out io.Writer, in interface{}) (err error) {
 		io.WriteString(out, rv)
 	case []byte:
 		out.Write(rv)
+	case io.Reader:
+		io.Copy(out, rv)
 	default:
 		// 暂时不显示无法识别类型
 		log.Printf("igop url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(rv).Elem().Type().String())
