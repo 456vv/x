@@ -12,14 +12,14 @@ require (
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.7.0
-	github.com/456vv/x/db v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/smtp v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/sqltable v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/ticker v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/watch v0.0.0-20230611014252-8350bdf5c2a7
+	github.com/456vv/x/db v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/smtp v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/sqltable v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/ticker v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/watch v0.0.0-20230622142315-da8e01c8ca76
 	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.1
-	github.com/goplus/igop v0.16.1
+	github.com/goplus/igop v0.17.0
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
@@ -29,7 +29,7 @@ require (
 
 require (
 	github.com/456vv/verror v1.1.0 // indirect
-	github.com/456vv/x/tcptest v0.0.0-20230220042903-020cd3c0a9f3 // indirect
+	github.com/456vv/x/tcptest v0.0.0-20230622142315-da8e01c8ca76
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect

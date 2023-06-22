@@ -12,11 +12,11 @@ require (
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.7.0
-	github.com/456vv/x/db v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/smtp v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/sqltable v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/ticker v0.0.0-20230611014252-8350bdf5c2a7
-	github.com/456vv/x/watch v0.0.0-20230611014252-8350bdf5c2a7
+	github.com/456vv/x/db v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/smtp v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/sqltable v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/ticker v0.0.0-20230622142315-da8e01c8ca76
+	github.com/456vv/x/watch v0.0.0-20230622142315-da8e01c8ca76
 	github.com/88250/lute v1.7.5
 	github.com/bep/golibsass v1.1.1
 	github.com/goplus/reflectx v1.1.1
