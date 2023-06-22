@@ -65,6 +65,7 @@ func (T *SQLTable) progress(val interface{}) string {
 		statement.count += T.count
 		s := "("+statement.SQL()+")"
 		T.count = statement.count
+		statement.count = 0
 		T.args = append(T.args, statement.args...)
 		return s
 	}
