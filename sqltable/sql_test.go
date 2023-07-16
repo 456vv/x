@@ -56,3 +56,20 @@ func Test_NewSQLTable_progress(t *testing.T) {
 
 	as.Equal(t3.Args(), []interface{}{1, 2, 1, 3, 5}).Equal(t3.SQL(), "select * from t3 where a=(inster into t2 (a,b) values((select id from t1 where a=$1 and b=$2),(select id from t1 where a=$3 and b=$4))) and b=$5")
 }
+
+func Test_NewSQLTable_Copy(t *testing.T) {
+	as := assert.New(t, true)
+	t1 := Prepare(`select id from t1 $Where$ limit ?`)
+	t1.And("a=?", 2)
+	t1.Args(1)
+
+	t11 := t1.Copy()
+	t11.And("b=?", 3)
+	t11.Args(4)
+
+	as.Length(t1.swhere, 1)
+	as.Length(t1.args, 2)
+
+	as.Length(t11.swhere, 2)
+	as.Length(t11.args, 3)
+}

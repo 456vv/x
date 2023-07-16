@@ -42,11 +42,13 @@ type SQLTable struct {
 	setKeys    []string
 	setVals    []interface{}
 	types      map[string]string
+	funcs      map[string]string
 }
 
 func Prepare(s string) *SQLTable {
 	st := &SQLTable{
 		types: make(map[string]string),
+		funcs: make(map[string]string),
 	}
 
 	for i := 1; true; i++ {
@@ -88,6 +90,24 @@ func (T *SQLTable) ToTypes(a ...interface{}) *SQLTable {
 		}
 		keyName := T.addColumnMark(key)
 		T.types[keyName] = val
+		return false
+	}, a...)
+	return T
+}
+
+// 支持设置函数转转
+func (T *SQLTable) ToFuncs(a ...interface{}) *SQLTable {
+	T.pairArgs(func(i int, k, v interface{}) bool {
+		key, ok := k.(string)
+		if !ok {
+			panic(fmt.Sprintf("SQLTable.ToFuncs in %d, 键名是%#v, 不是字符串!", i, k))
+		}
+		val, ok := v.(string)
+		if !ok {
+			panic(fmt.Sprintf("SQLTable.ToFuncs in %d, 键值是%#v, 不是字符串!", i, v))
+		}
+		keyName := T.addColumnMark(key)
+		T.funcs[keyName] = val
 		return false
 	}, a...)
 	return T
@@ -150,6 +170,9 @@ func (T *SQLTable) values(s string) string {
 		keyVal := T.progress(val)
 		if typ, ok := T.types[keyName]; ok {
 			keyVal += "::" + typ
+		}
+		if funcs, ok := T.funcs[keyName]; ok {
+			keyVal = strings.ReplaceAll(funcs, "?", keyVal)
 		}
 		values = append(values, keyVal)
 	}
@@ -250,6 +273,9 @@ func (T *SQLTable) set(s string) string {
 		if typ, ok := T.types[keyName]; ok {
 			keyVal += "::" + typ
 		}
+		if funcs, ok := T.funcs[keyName]; ok {
+			keyVal = strings.ReplaceAll(funcs, "?", keyVal)
+		}
 		sets = append(sets, fmt.Sprintf(`%s=%s`, keyName, keyVal))
 		setsSerial = append(setsSerial, keyVal)
 	}
@@ -336,8 +362,12 @@ func (T *SQLTable) clone() *SQLTable {
 	*t = *T
 	t.result = ""
 	t.count = 0
-	t.args = t.args[:0]
+	t.args = nil
 	return t
+}
+
+func (T *SQLTable) Copy() *SQLTable {
+	return T.clone()
 }
 
 // 扩展参数

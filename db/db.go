@@ -93,18 +93,18 @@ func (T *DB) Close() error {
 	return err
 }
 
-func (T *DB) txCommit(tx *sql.Tx, e *error) {
+func (T *DB) TxCommit(tx *sql.Tx, e *error) {
 	if *e != nil {
 		if err := tx.Rollback(); err != nil {
-			T.logf(err.Error())
+			T.Logf(err.Error())
 		}
 	} else if err := tx.Commit(); err != nil {
-		T.logf(err.Error())
+		T.Logf(err.Error())
 	}
 }
 
 // 日志
-func (T *DB) logf(format string, a ...interface{}) {
+func (T *DB) Logf(format string, a ...interface{}) {
 	if T.ErrorLog != nil {
 		T.ErrorLog.Output(2, fmt.Sprintf(format+"\n", a...))
 	}
@@ -131,7 +131,7 @@ func (T *DB) debugPrint(sqlStr string, args interface{}) {
 				argsStr = append(argsStr, fmt.Sprintf("'%v'", inDirect(srv)))
 			}
 		}
-		T.logf("\nprepare test as %s;\nexecute test(%s);\ndeallocate test;\n", sqlStr, strings.Join(argsStr, ","))
+		T.Logf("\nprepare test as %s;\nexecute test(%s);\ndeallocate test;\n", sqlStr, strings.Join(argsStr, ","))
 	}
 }
 
@@ -163,7 +163,7 @@ func (T *DB) ExecContext(ctx context.Context, tx *sql.Tx, sqlstr string, args ..
 		if err != nil {
 			return nil, err
 		}
-		defer T.txCommit(tx, &err)
+		defer T.TxCommit(tx, &err)
 	}
 
 	result, err = tx.ExecContext(ctx, sqlstr, args...)
@@ -271,7 +271,7 @@ func (T *DB) QueryContext(ctx context.Context, tx *sql.Tx, sqlstr string, args .
 			if err != nil {
 				return nil, err
 			}
-			defer T.txCommit(tx, &err)
+			defer T.TxCommit(tx, &err)
 		}
 
 		rows, err = tx.QueryContext(ctx, sqlstr, args...)
@@ -282,10 +282,10 @@ func (T *DB) QueryContext(ctx context.Context, tx *sql.Tx, sqlstr string, args .
 	}
 
 	// 类型转换
-	typeToFunc, ok := ctx.Value(TypeToContextKey).(func(*sql.ColumnType) reflect.Type)
+	typeToFunc, ok1 := ctx.Value(TypeToContextKey).(func(*sql.ColumnType) reflect.Type)
 	typeTo := func(ct *sql.ColumnType) reflect.Type {
 		var t reflect.Type
-		if ok {
+		if ok1 {
 			t = typeToFunc(ct)
 		}
 		if t == nil && T.TypeTo != nil {
@@ -295,9 +295,9 @@ func (T *DB) QueryContext(ctx context.Context, tx *sql.Tx, sqlstr string, args .
 	}
 
 	// 数据转换
-	dataToFunc, ok := ctx.Value(DataToContextKey).(func(string, interface{}) interface{})
+	dataToFunc, ok2 := ctx.Value(DataToContextKey).(func(string, interface{}) interface{})
 	dataTo := func(s string, inf interface{}) interface{} {
-		if ok {
+		if ok2 {
 			inf = dataToFunc(s, inf)
 		}
 		if T.DataTo != nil {
