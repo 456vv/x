@@ -20,7 +20,6 @@ require (
 	github.com/88250/lute v1.7.6
 	github.com/bep/golibsass v1.1.1
 	github.com/goplus/igop v0.21.2
-	github.com/goplus/reflectx v1.2.2
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/tidwall/gjson v1.17.0
 	github.com/tidwall/sjson v1.2.5
@@ -37,6 +36,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
+	github.com/goplus/reflectx v1.2.2 // indirect
 	github.com/issue9/assert/v2 v2.3.2 // indirect
 	github.com/libp2p/go-reuseport v0.4.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect

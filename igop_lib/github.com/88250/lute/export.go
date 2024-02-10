@@ -21,6 +21,7 @@ func init() {
 		Deps: map[string]string{
 			"bytes":                           "bytes",
 			"errors":                          "errors",
+			"fmt":                             "fmt",
 			"github.com/88250/lute/ast":       "ast",
 			"github.com/88250/lute/editor":    "editor",
 			"github.com/88250/lute/html":      "html",
@@ -46,7 +47,6 @@ func init() {
 			"FormatNodeSync":          reflect.ValueOf(q.FormatNodeSync),
 			"New":                     reflect.ValueOf(q.New),
 			"ProtyleExportMdNodeSync": reflect.ValueOf(q.ProtyleExportMdNodeSync),
-			"RenderNodeBlockDOM":      reflect.ValueOf(q.RenderNodeBlockDOM),
 		},
 		TypedConsts: map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{

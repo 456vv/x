@@ -18,8 +18,7 @@ func init() {
 		"FormatNodeSync":          reflect.ValueOf(lute.FormatNodeSync),
 		"New":                     reflect.ValueOf(lute.New),
 		"ProtyleExportMdNodeSync": reflect.ValueOf(lute.ProtyleExportMdNodeSync),
-		"RenderNodeBlockDOM":      reflect.ValueOf(lute.RenderNodeBlockDOM),
-		"Version":                 reflect.ValueOf(constant.MakeFromLiteral("\"1.7.5\"", token.STRING, 0)),
+		"Version":                 reflect.ValueOf(constant.MakeFromLiteral("\"1.7.6\"", token.STRING, 0)),
 
 		// type definitions
 		"Lute":        reflect.ValueOf((*lute.Lute)(nil)),
