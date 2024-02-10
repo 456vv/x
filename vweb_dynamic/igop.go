@@ -11,6 +11,7 @@ import (
 	_ "github.com/456vv/x/igop_lib"
 	"github.com/goplus/igop"
 	_ "github.com/goplus/igop/pkg" // 加入默认包
+	_ "github.com/goplus/reflectx/icall/icall2048" //内置
 	"golang.org/x/tools/go/ssa"
 )
 
