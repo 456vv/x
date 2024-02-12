@@ -93,6 +93,13 @@ func (T *DB) Close() error {
 	return err
 }
 
+func (T *DB) TxBegin() (tx *sql.Tx, commit func(*error), err error) {
+	tx, err = T.DB.Begin()
+	return tx, func(e *error) {
+		T.TxCommit(tx, e)
+	}, err
+}
+
 func (T *DB) TxCommit(tx *sql.Tx, e *error) {
 	if *e != nil {
 		if err := tx.Rollback(); err != nil {
