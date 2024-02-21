@@ -147,6 +147,13 @@ func (T *SQLTable) addColumnMark(col string) string {
 // 他会替换语句中的 $Values$ 符号
 func (T *SQLTable) Value(column string, value interface{}) *SQLTable {
 	keyName := T.addColumnMark(column)
+	for i, v := range T.valuesKeys {
+		if v == keyName {
+			T.valuesKeys[i] = keyName
+			T.valuesVals[i] = value
+			return T
+		}
+	}
 	T.valuesKeys = append(T.valuesKeys, keyName)
 	T.valuesVals = append(T.valuesVals, value)
 	return T
@@ -236,6 +243,13 @@ func (T *SQLTable) where(s string) string {
 // 他会替换语句中的 $Set$ 符号
 func (T *SQLTable) Set(column string, value interface{}) *SQLTable {
 	keyName := T.addColumnMark(column)
+	for i, v := range T.setKeys {
+		if v == keyName {
+			T.setKeys[i] = keyName
+			T.setVals[i] = value
+			return T
+		}
+	}
 	T.setKeys = append(T.setKeys, keyName)
 	T.setVals = append(T.setVals, value)
 	return T

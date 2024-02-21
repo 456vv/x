@@ -28,6 +28,8 @@ import (
 
 var errDebugResult = errors.New("the debug result type does not match the returned result type")
 
+var debugCount int
+
 type Rower interface {
 	Scan(dest ...interface{}) error
 	Err() error
@@ -114,6 +116,7 @@ func (T *DB) TxCommit(tx *sql.Tx, e *error) {
 func (T *DB) Logf(format string, a ...interface{}) {
 	if T.ErrorLog != nil {
 		T.ErrorLog.Output(2, fmt.Sprintf(format+"\n", a...))
+		return
 	}
 	log.Printf(format+"\n", a...)
 }
@@ -138,7 +141,8 @@ func (T *DB) debugPrint(sqlStr string, args interface{}) {
 				argsStr = append(argsStr, fmt.Sprintf("'%v'", inDirect(srv)))
 			}
 		}
-		T.Logf("\nprepare test as %s;\nexecute test(%s);\ndeallocate test;\n", sqlStr, strings.Join(argsStr, ","))
+		T.Logf("\nprepare test%[1]d as %[2]s;\nexecute test%[1]d(%[3]s);\ndeallocate test%[1]d;\n", debugCount, sqlStr, strings.Join(argsStr, ","))
+		debugCount++
 	}
 }
 
