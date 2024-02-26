@@ -16,6 +16,7 @@ func init() {
 		"AddModifier":      reflect.ValueOf(gjson.AddModifier),
 		"AppendJSONString": reflect.ValueOf(gjson.AppendJSONString),
 		"DisableModifiers": reflect.ValueOf(&gjson.DisableModifiers).Elem(),
+		"Escape":           reflect.ValueOf(gjson.Escape),
 		"False":            reflect.ValueOf(gjson.False),
 		"ForEachLine":      reflect.ValueOf(gjson.ForEachLine),
 		"Get":              reflect.ValueOf(gjson.Get),

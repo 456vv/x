@@ -40,6 +40,7 @@ func init() {
 		Funcs: map[string]reflect.Value{
 			"AddModifier":      reflect.ValueOf(q.AddModifier),
 			"AppendJSONString": reflect.ValueOf(q.AppendJSONString),
+			"Escape":           reflect.ValueOf(q.Escape),
 			"ForEachLine":      reflect.ValueOf(q.ForEachLine),
 			"Get":              reflect.ValueOf(q.Get),
 			"GetBytes":         reflect.ValueOf(q.GetBytes),
