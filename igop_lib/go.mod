@@ -8,22 +8,22 @@ require (
 	github.com/456vv/vconn v1.2.1
 	github.com/456vv/vconnpool/v2 v2.1.12
 	github.com/456vv/verifycode v1.0.3
-	github.com/456vv/vforward v1.2.0
+	github.com/456vv/vforward v1.2.1
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.7.0
-	github.com/456vv/x/db v0.0.0-20240221113131-0cdcfed49113
-	github.com/456vv/x/smtp v0.0.0-20240221113131-0cdcfed49113
-	github.com/456vv/x/sqltable v0.0.0-20240221113131-0cdcfed49113
-	github.com/456vv/x/ticker v0.0.0-20240221113131-0cdcfed49113
-	github.com/456vv/x/watch v0.0.0-20240221113131-0cdcfed49113
+	github.com/456vv/x/db v0.0.0-20240226125735-5beb72bc123d
+	github.com/456vv/x/smtp v0.0.0-20240226125735-5beb72bc123d
+	github.com/456vv/x/sqltable v0.0.0-20240226125735-5beb72bc123d
+	github.com/456vv/x/ticker v0.0.0-20240226125735-5beb72bc123d
+	github.com/456vv/x/watch v0.0.0-20240226125735-5beb72bc123d
 	github.com/88250/lute v1.7.6
 	github.com/bep/golibsass v1.1.1
 	github.com/goplus/igop v0.22.0
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/tidwall/gjson v1.17.1
 	github.com/tidwall/sjson v1.2.5
-	golang.org/x/crypto v0.19.0
+	golang.org/x/crypto v0.20.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
