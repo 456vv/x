@@ -8,7 +8,6 @@ import (
 
 	"github.com/456vv/vweb/v2"
 	"github.com/456vv/vweb/v2/builtin"
-	"github.com/456vv/x/vweb_lib"
 	"github.com/goplus/igop"
 )
 
@@ -155,10 +154,6 @@ func importPkg(name string) template.FuncMap {
 		return fm
 	}
 
-	if fm, ok := vweb_lib.Symbols[name]; ok {
-		return fm
-	}
-
 	fm := make(template.FuncMap)
 	if pkg, ok := igop.LookupPackage(name); ok {
 		// 接口，用处不大
@@ -218,7 +213,7 @@ var TemplateFunc = template.FuncMap{
 	"NotNil":         func(inf any) bool { return inf != nil },
 	"IsNil":          func(inf any) bool { return inf == nil },
 	"Bytes":          builtin.Bytes,
-	"Runes":          builtin.Runs,
+	"Runes":          builtin.Runes,
 	"Pointer":        builtin.Pointer,
 	"Append":         builtin.Append, // Append([]T, value...)
 	"Uintptr":        builtin.Uintptr,

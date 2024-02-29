@@ -10,7 +10,6 @@ import(
 	_ "github.com/456vv/vcipher"
 	_ "github.com/456vv/viot/v2"
 	_ "github.com/456vv/vweb/v2"
-	_ "github.com/456vv/vweb/v2/builtin"
 	_ "github.com/456vv/vweb/v2/server"
 	_ "github.com/456vv/vweb/v2/server/config"
 	_ "github.com/goplus/reflectx"
@@ -27,5 +26,4 @@ import(
 	_ "github.com/tidwall/sjson"
 	_ "gopkg.in/yaml.v2"
 	_ "github.com/pelletier/go-toml/v2"
-	_ "github.com/88250/lute"
 )

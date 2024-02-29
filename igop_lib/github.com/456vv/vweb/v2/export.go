@@ -33,7 +33,6 @@ func init() {
 			"github.com/456vv/vweb/v2/builtin": "builtin",
 			"golang.org/x/net/http/httpguts":   "httpguts",
 			"io":                               "io",
-			"io/ioutil":                        "ioutil",
 			"log":                              "log",
 			"math/rand":                        "rand",
 			"mime/multipart":                   "multipart",

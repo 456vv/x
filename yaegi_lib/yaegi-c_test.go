@@ -3,6 +3,3 @@
 
 package yaegi_lib
 
-import (
-	_ "github.com/bep/golibsass/libsass"
-)

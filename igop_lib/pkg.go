@@ -13,7 +13,6 @@ import(
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vcipher"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/viot/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vweb/v2"
-	_ "github.com/456vv/x/igop_lib/github.com/456vv/vweb/v2/builtin"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vweb/v2/server"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vweb/v2/server/config"
 
@@ -29,5 +28,4 @@ import(
 	_ "github.com/456vv/x/igop_lib/github.com/tidwall/sjson"
 	_ "github.com/456vv/x/igop_lib/gopkg.in/yaml.v2"
 	_ "github.com/456vv/x/igop_lib/github.com/pelletier/go-toml/v2"
-	_ "github.com/456vv/x/igop_lib/github.com/88250/lute"
 )

@@ -355,7 +355,7 @@ type _github_com_456vv_vweb_v2_TemplateDoter struct {
 	WResponse         func() vweb.Responser
 	WResponseWriter   func() http.ResponseWriter
 	WRootDir          func(path string) string
-	WSaveStatic       func(path string)
+	WSaveStatic       func(path string) error
 	WSession          func() vweb.Sessioner
 	WSwap             func() *vmap.Map
 	WWithContext      func(ctx context.Context)
@@ -391,8 +391,8 @@ func (W _github_com_456vv_vweb_v2_TemplateDoter) ResponseWriter() http.ResponseW
 func (W _github_com_456vv_vweb_v2_TemplateDoter) RootDir(path string) string {
 	return W.WRootDir(path)
 }
-func (W _github_com_456vv_vweb_v2_TemplateDoter) SaveStatic(path string) {
-	W.WSaveStatic(path)
+func (W _github_com_456vv_vweb_v2_TemplateDoter) SaveStatic(path string) error {
+	return W.WSaveStatic(path)
 }
 func (W _github_com_456vv_vweb_v2_TemplateDoter) Session() vweb.Sessioner {
 	return W.WSession()
