@@ -11,18 +11,18 @@ require (
 	github.com/456vv/vforward v1.2.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
-	github.com/456vv/vweb/v2 v2.7.1
-	github.com/456vv/x/db v0.0.0-20240227165435-fb062c08862a
-	github.com/456vv/x/smtp v0.0.0-20240227165435-fb062c08862a
-	github.com/456vv/x/sqltable v0.0.0-20240227165435-fb062c08862a
-	github.com/456vv/x/ticker v0.0.0-20240227165435-fb062c08862a
-	github.com/456vv/x/watch v0.0.0-20240227165435-fb062c08862a
+	github.com/456vv/vweb/v2 v2.8.0
+	github.com/456vv/x/db v0.0.0-20240229140938-803b0f4adcbf
+	github.com/456vv/x/smtp v0.0.0-20240229140938-803b0f4adcbf
+	github.com/456vv/x/sqltable v0.0.0-20240229140938-803b0f4adcbf
+	github.com/456vv/x/ticker v0.0.0-20240327140741-2555b5536021
+	github.com/456vv/x/watch v0.0.0-20240229140938-803b0f4adcbf
 	github.com/goplus/reflectx v1.1.1
 	github.com/pelletier/go-toml v1.9.5
-	github.com/pelletier/go-toml/v2 v2.1.1
+	github.com/pelletier/go-toml/v2 v2.2.0
 	github.com/tidwall/gjson v1.17.1
 	github.com/tidwall/sjson v1.2.5
-	golang.org/x/crypto v0.20.0
+	golang.org/x/crypto v0.21.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -38,7 +38,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	golang.org/x/image v0.15.0 // indirect
-	golang.org/x/net v0.21.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
