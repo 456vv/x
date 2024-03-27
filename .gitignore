@@ -1,4 +1,4 @@
 smtp/smtp_test.go
 db/db_test.go
-*/.vscode/
-*/.history/
+.vscode
+.history

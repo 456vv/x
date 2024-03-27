@@ -2,8 +2,8 @@ package vweb_dynamic
 
 import (
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
 	"sync"
 
@@ -21,10 +21,10 @@ var (
 
 type Yaegi struct {
 	rootPath string // 文件目录
-	pagePath string // 文件名称
+	pagePath string // 文件路径
 	inited   bool
 
-	options interp.Options
+	options  interp.Options
 	mainFunc reflect.Value
 }
 
@@ -47,11 +47,12 @@ func (T *Yaegi) init() {
 }
 
 func (T *Yaegi) ParseText(name, content string) error {
+	T.pagePath = name
 	return T.parse(content)
 }
 
-func (T *Yaegi) ParseFile(path string) error {
-	b, err := ioutil.ReadFile(path)
+func (T *Yaegi) ParseFile(p string) error {
+	b, err := os.ReadFile(p)
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func (T *Yaegi) SetPath(root, page string) {
 }
 
 func (T *Yaegi) Parse(r io.Reader) (err error) {
-	contact, err := ioutil.ReadAll(r)
+	contact, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,8 @@ func (T *Yaegi) parse(src string) error {
 		return err
 	}
 
-	T.mainFunc, err = interpre.Eval("Main")
+	name := entryname(T.pagePath)
+	T.mainFunc, err = interpre.Eval(name)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,8 @@ package vweb_dynamic
 import (
 	"reflect"
 	"testing"
+
+	"github.com/issue9/assert/v2"
 )
 
 func Test_pkgTypes_new(t *testing.T) {
@@ -63,5 +65,34 @@ func Test_pkgInterface_to(t *testing.T) {
 		if tt.result(gotval) {
 			t.Errorf("pkgInterface.to() = %v", got)
 		}
+	}
+}
+
+func Test_entryname(t *testing.T) {
+	at := assert.New(t, true)
+
+	tests := []struct {
+		name   string
+		result string
+	}{
+		{
+			name:   "index.html",
+			result: "Main",
+		}, {
+			name:   "default.go",
+			result: "Default",
+		}, {
+			name:   "",
+			result: "Main",
+		}, {
+			name:   "/",
+			result: "Main",
+		}, {
+			name:   ".",
+			result: "Main",
+		},
+	}
+	for _, tt := range tests {
+		at.Equal(tt.result, entryname(tt.name))
 	}
 }

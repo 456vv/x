@@ -3,12 +3,16 @@ package vweb_dynamic
 import (
 	"fmt"
 	"go/constant"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"text/template"
 
 	"github.com/456vv/vweb/v2"
 	"github.com/456vv/vweb/v2/builtin"
 	"github.com/goplus/igop"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 /*
@@ -307,4 +311,17 @@ var TemplateFunc = template.FuncMap{
 	"NotError": func(v any) bool {
 		return templateFuncMapError(v) == nil
 	},
+}
+
+func entryname(name string) string {
+	base := filepath.Base(name)
+	pos := strings.IndexAny(base, ".")
+	if pos != -1 {
+		base = base[:pos]
+	}
+	base = cases.Title(language.English).String(base) // strings.Title(base)
+	if base == "\\" || base == "Index" || base == "" {
+		base = "Main"
+	}
+	return base
 }

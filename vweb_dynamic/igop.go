@@ -10,8 +10,8 @@ import (
 
 	_ "github.com/456vv/x/igop_lib"
 	"github.com/goplus/igop"
-	_ "github.com/goplus/igop/pkg" // 加入默认包
-	_ "github.com/goplus/reflectx/icall/icall2048" //内置
+	_ "github.com/goplus/igop/pkg"                 // 加入默认包
+	_ "github.com/goplus/reflectx/icall/icall2048" // 内置
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -40,7 +40,7 @@ func (T *Igop) SetPath(root, page string) {
 }
 
 func (T *Igop) ParseText(name, content string) error {
-	return T.parse("", content)
+	return T.parse(name, content)
 }
 
 func (T *Igop) ParseFile(path string) error {
@@ -54,7 +54,7 @@ func (T *Igop) Parse(r io.Reader) (err error) {
 func (T *Igop) parse(filename string, src interface{}) error {
 	T.init()
 
-	ctx := igop.NewContext(igop.SupportMultipleInterp)
+	ctx := igop.NewContext(igop.EnableNoStrict)
 	// 加载外部模块
 	ctx.Lookup = T.lookup
 
@@ -73,7 +73,7 @@ func (T *Igop) parse(filename string, src interface{}) error {
 }
 
 func (T *Igop) lookup(root, path string) (dir string, found bool) {
-	dir = filepath.Join(T.rootPath, "vendor", path)
+	dir = filepath.Join(T.rootPath, "src", path)
 	if info, err := os.Stat(dir); err == nil && info.IsDir() {
 		found = true
 	}
@@ -86,7 +86,8 @@ func (T *Igop) Execute(out io.Writer, in interface{}) (err error) {
 	}
 
 	// 调用Main函数
-	retn, err := T.ctx.RunFunc(T.mainPkg, "Main", in)
+	name := entryname(T.pagePath)
+	retn, err := T.ctx.RunFunc(T.mainPkg, name, in)
 	if err != nil {
 		return err
 	}

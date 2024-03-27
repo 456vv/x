@@ -197,7 +197,7 @@ func Test_TemplateExtend_NewFunc(t *testing.T) {
 		t.Fatal(err)
 	}
 	buf := bytes.NewBuffer(nil)
-	in := new(vweb.TemplateDot)
+	in := new(vweb.Dot)
 
 	err = shdt.Execute(buf, in)
 	if err != nil {
@@ -219,7 +219,7 @@ func Test_TemplateExtend_Call(t *testing.T) {
 		t.Fatal(err)
 	}
 	buf := bytes.NewBuffer(nil)
-	in := new(vweb.TemplateDot)
+	in := new(vweb.Dot)
 
 	if err := shdt.Execute(buf, in); err != nil {
 		t.Fatal(err)
