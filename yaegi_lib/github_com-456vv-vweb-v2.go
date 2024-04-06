@@ -44,13 +44,16 @@ func init() {
 		// type definitions
 		"Cookie":               reflect.ValueOf((*vweb.Cookie)(nil)),
 		"Cookier":              reflect.ValueOf((*vweb.Cookier)(nil)),
+		"Dot":                  reflect.ValueOf((*vweb.Dot)(nil)),
 		"DotContexter":         reflect.ValueOf((*vweb.DotContexter)(nil)),
+		"Doter":                reflect.ValueOf((*vweb.Doter)(nil)),
 		"DynamicTemplateFunc":  reflect.ValueOf((*vweb.DynamicTemplateFunc)(nil)),
 		"DynamicTemplater":     reflect.ValueOf((*vweb.DynamicTemplater)(nil)),
 		"ExecCall":             reflect.ValueOf((*vweb.ExecCall)(nil)),
 		"ExitCall":             reflect.ValueOf((*vweb.ExitCall)(nil)),
 		"Forward":              reflect.ValueOf((*vweb.Forward)(nil)),
 		"Globaler":             reflect.ValueOf((*vweb.Globaler)(nil)),
+		"HandleFunc":           reflect.ValueOf((*vweb.HandleFunc)(nil)),
 		"PluginHTTP":           reflect.ValueOf((*vweb.PluginHTTP)(nil)),
 		"PluginHTTPClient":     reflect.ValueOf((*vweb.PluginHTTPClient)(nil)),
 		"PluginRPC":            reflect.ValueOf((*vweb.PluginRPC)(nil)),
@@ -67,12 +70,11 @@ func init() {
 		"Site":                 reflect.ValueOf((*vweb.Site)(nil)),
 		"SiteMan":              reflect.ValueOf((*vweb.SiteMan)(nil)),
 		"SitePool":             reflect.ValueOf((*vweb.SitePool)(nil)),
-		"TemplateDot":          reflect.ValueOf((*vweb.TemplateDot)(nil)),
-		"TemplateDoter":        reflect.ValueOf((*vweb.TemplateDoter)(nil)),
 
 		// interface wrapper definitions
 		"_Cookier":          reflect.ValueOf((*_github_com_456vv_vweb_v2_Cookier)(nil)),
 		"_DotContexter":     reflect.ValueOf((*_github_com_456vv_vweb_v2_DotContexter)(nil)),
+		"_Doter":            reflect.ValueOf((*_github_com_456vv_vweb_v2_Doter)(nil)),
 		"_DynamicTemplater": reflect.ValueOf((*_github_com_456vv_vweb_v2_DynamicTemplater)(nil)),
 		"_Globaler":         reflect.ValueOf((*_github_com_456vv_vweb_v2_Globaler)(nil)),
 		"_PluginHTTP":       reflect.ValueOf((*_github_com_456vv_vweb_v2_PluginHTTP)(nil)),
@@ -80,7 +82,6 @@ func init() {
 		"_Pluginer":         reflect.ValueOf((*_github_com_456vv_vweb_v2_Pluginer)(nil)),
 		"_Responser":        reflect.ValueOf((*_github_com_456vv_vweb_v2_Responser)(nil)),
 		"_Sessioner":        reflect.ValueOf((*_github_com_456vv_vweb_v2_Sessioner)(nil)),
-		"_TemplateDoter":    reflect.ValueOf((*_github_com_456vv_vweb_v2_TemplateDoter)(nil)),
 	}
 }
 
@@ -121,6 +122,64 @@ func (W _github_com_456vv_vweb_v2_DotContexter) Context() context.Context {
 	return W.WContext()
 }
 func (W _github_com_456vv_vweb_v2_DotContexter) WithContext(ctx context.Context) {
+	W.WWithContext(ctx)
+}
+
+// _github_com_456vv_vweb_v2_Doter is an interface wrapper for Doter type
+type _github_com_456vv_vweb_v2_Doter struct {
+	IValue            interface{}
+	WContext          func() context.Context
+	WCookie           func() vweb.Cookier
+	WDefer            func(call any, args ...any) error
+	WGlobal           func() vweb.Globaler
+	WHeader           func() http.Header
+	WRequest          func() *http.Request
+	WRequestLimitSize func(l int64) *http.Request
+	WResponse         func() vweb.Responser
+	WRootDir          func(path string) string
+	WSaveStatic       func(path string) error
+	WSession          func() vweb.Sessioner
+	WSwap             func() *vmap.Map
+	WWithContext      func(ctx context.Context)
+}
+
+func (W _github_com_456vv_vweb_v2_Doter) Context() context.Context {
+	return W.WContext()
+}
+func (W _github_com_456vv_vweb_v2_Doter) Cookie() vweb.Cookier {
+	return W.WCookie()
+}
+func (W _github_com_456vv_vweb_v2_Doter) Defer(call any, args ...any) error {
+	return W.WDefer(call, args...)
+}
+func (W _github_com_456vv_vweb_v2_Doter) Global() vweb.Globaler {
+	return W.WGlobal()
+}
+func (W _github_com_456vv_vweb_v2_Doter) Header() http.Header {
+	return W.WHeader()
+}
+func (W _github_com_456vv_vweb_v2_Doter) Request() *http.Request {
+	return W.WRequest()
+}
+func (W _github_com_456vv_vweb_v2_Doter) RequestLimitSize(l int64) *http.Request {
+	return W.WRequestLimitSize(l)
+}
+func (W _github_com_456vv_vweb_v2_Doter) Response() vweb.Responser {
+	return W.WResponse()
+}
+func (W _github_com_456vv_vweb_v2_Doter) RootDir(path string) string {
+	return W.WRootDir(path)
+}
+func (W _github_com_456vv_vweb_v2_Doter) SaveStatic(path string) error {
+	return W.WSaveStatic(path)
+}
+func (W _github_com_456vv_vweb_v2_Doter) Session() vweb.Sessioner {
+	return W.WSession()
+}
+func (W _github_com_456vv_vweb_v2_Doter) Swap() *vmap.Map {
+	return W.WSwap()
+}
+func (W _github_com_456vv_vweb_v2_Doter) WithContext(ctx context.Context) {
 	W.WWithContext(ctx)
 }
 
@@ -340,66 +399,4 @@ func (W _github_com_456vv_vweb_v2_Sessioner) SetExpiredCall(key any, d time.Dura
 }
 func (W _github_com_456vv_vweb_v2_Sessioner) Token() string {
 	return W.WToken()
-}
-
-// _github_com_456vv_vweb_v2_TemplateDoter is an interface wrapper for TemplateDoter type
-type _github_com_456vv_vweb_v2_TemplateDoter struct {
-	IValue            interface{}
-	WContext          func() context.Context
-	WCookie           func() vweb.Cookier
-	WDefer            func(call any, args ...any) error
-	WGlobal           func() vweb.Globaler
-	WHeader           func() http.Header
-	WRequest          func() *http.Request
-	WRequestLimitSize func(l int64) *http.Request
-	WResponse         func() vweb.Responser
-	WResponseWriter   func() http.ResponseWriter
-	WRootDir          func(path string) string
-	WSaveStatic       func(path string) error
-	WSession          func() vweb.Sessioner
-	WSwap             func() *vmap.Map
-	WWithContext      func(ctx context.Context)
-}
-
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Context() context.Context {
-	return W.WContext()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Cookie() vweb.Cookier {
-	return W.WCookie()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Defer(call any, args ...any) error {
-	return W.WDefer(call, args...)
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Global() vweb.Globaler {
-	return W.WGlobal()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Header() http.Header {
-	return W.WHeader()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Request() *http.Request {
-	return W.WRequest()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) RequestLimitSize(l int64) *http.Request {
-	return W.WRequestLimitSize(l)
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Response() vweb.Responser {
-	return W.WResponse()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) ResponseWriter() http.ResponseWriter {
-	return W.WResponseWriter()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) RootDir(path string) string {
-	return W.WRootDir(path)
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) SaveStatic(path string) error {
-	return W.WSaveStatic(path)
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Session() vweb.Sessioner {
-	return W.WSession()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) Swap() *vmap.Map {
-	return W.WSwap()
-}
-func (W _github_com_456vv_vweb_v2_TemplateDoter) WithContext(ctx context.Context) {
-	W.WWithContext(ctx)
 }

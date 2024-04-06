@@ -57,6 +57,7 @@ func init() {
 		Interfaces: map[string]reflect.Type{
 			"Cookier":          reflect.TypeOf((*q.Cookier)(nil)).Elem(),
 			"DotContexter":     reflect.TypeOf((*q.DotContexter)(nil)).Elem(),
+			"Doter":            reflect.TypeOf((*q.Doter)(nil)).Elem(),
 			"DynamicTemplater": reflect.TypeOf((*q.DynamicTemplater)(nil)).Elem(),
 			"Globaler":         reflect.TypeOf((*q.Globaler)(nil)).Elem(),
 			"PluginHTTP":       reflect.TypeOf((*q.PluginHTTP)(nil)).Elem(),
@@ -64,14 +65,15 @@ func init() {
 			"Pluginer":         reflect.TypeOf((*q.Pluginer)(nil)).Elem(),
 			"Responser":        reflect.TypeOf((*q.Responser)(nil)).Elem(),
 			"Sessioner":        reflect.TypeOf((*q.Sessioner)(nil)).Elem(),
-			"TemplateDoter":    reflect.TypeOf((*q.TemplateDoter)(nil)).Elem(),
 		},
 		NamedTypes: map[string]reflect.Type{
 			"Cookie":               reflect.TypeOf((*q.Cookie)(nil)).Elem(),
+			"Dot":                  reflect.TypeOf((*q.Dot)(nil)).Elem(),
 			"DynamicTemplateFunc":  reflect.TypeOf((*q.DynamicTemplateFunc)(nil)).Elem(),
 			"ExecCall":             reflect.TypeOf((*q.ExecCall)(nil)).Elem(),
 			"ExitCall":             reflect.TypeOf((*q.ExitCall)(nil)).Elem(),
 			"Forward":              reflect.TypeOf((*q.Forward)(nil)).Elem(),
+			"HandleFunc":           reflect.TypeOf((*q.HandleFunc)(nil)).Elem(),
 			"PluginHTTPClient":     reflect.TypeOf((*q.PluginHTTPClient)(nil)).Elem(),
 			"PluginRPCClient":      reflect.TypeOf((*q.PluginRPCClient)(nil)).Elem(),
 			"PluginType":           reflect.TypeOf((*q.PluginType)(nil)).Elem(),
@@ -83,7 +85,6 @@ func init() {
 			"Site":                 reflect.TypeOf((*q.Site)(nil)).Elem(),
 			"SiteMan":              reflect.TypeOf((*q.SiteMan)(nil)).Elem(),
 			"SitePool":             reflect.TypeOf((*q.SitePool)(nil)).Elem(),
-			"TemplateDot":          reflect.TypeOf((*q.TemplateDot)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{
