@@ -90,6 +90,15 @@ func Test_entryname(t *testing.T) {
 		}, {
 			name:   ".",
 			result: "Main",
+		}, {
+			name:   "_a",
+			result: "Main",
+		}, {
+			name:   "@a",
+			result: "Main",
+		}, {
+			name:   "a",
+			result: "A",
 		},
 	}
 	for _, tt := range tests {
