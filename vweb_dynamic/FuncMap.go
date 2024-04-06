@@ -319,8 +319,9 @@ func entryname(name string) string {
 	if pos != -1 {
 		base = base[:pos]
 	}
+	base = strings.TrimSpace(base)
 	base = cases.Title(language.English).String(base) // strings.Title(base)
-	if base == "\\" || base == "Index" || base == "" {
+	if base == "\\" || base == "Index" || base == "" || base[0] < 'A' && base[0] > 'Z' {
 		base = "Main"
 	}
 	return base
