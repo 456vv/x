@@ -11,8 +11,6 @@ import (
 	"github.com/456vv/vweb/v2"
 	"github.com/456vv/vweb/v2/builtin"
 	"github.com/goplus/igop"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 /*
@@ -319,10 +317,13 @@ func entryname(name string) string {
 	if pos != -1 {
 		base = base[:pos]
 	}
-	base = strings.TrimSpace(base)
-	base = cases.Title(language.English).String(base) // strings.Title(base)
-	if base == "\\" || base == "Index" || base == "" || base[0] < 'A' || base[0] > 'Z' {
-		base = "Main"
+	if base == "index" || base == "" || base[0] < 'A' || base[0] > 'Z' {
+		return "Main"
+	}
+	for _, v := range base {
+		if v < '0' || (v > '9' && v < 'A') || (v > 'Z' && v < 'a') || v > 'z' {
+			return "Main"
+		}
 	}
 	return base
 }

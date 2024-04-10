@@ -79,9 +79,6 @@ func Test_entryname(t *testing.T) {
 			name:   "index.html",
 			result: "Main",
 		}, {
-			name:   "default.go",
-			result: "Default",
-		}, {
 			name:   "",
 			result: "Main",
 		}, {
@@ -97,8 +94,14 @@ func Test_entryname(t *testing.T) {
 			name:   "@a",
 			result: "Main",
 		}, {
-			name:   "a",
+			name:   "A",
 			result: "A",
+		}, {
+			name:   "a",
+			result: "Main",
+		}, {
+			name:   "A_",
+			result: "Main",
 		},
 	}
 	for _, tt := range tests {
