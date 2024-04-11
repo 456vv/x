@@ -1,6 +1,7 @@
 package vweb_dynamic
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"os"
@@ -69,6 +70,13 @@ func (T *Yaegi) SetEntryName(name string) {
 	T.entryName = name
 }
 
+func (T *Yaegi) setHeaderLine(l []string) {
+	hm := headerMap(l)
+	if T.entryName == "" && len(hm["entryname"]) > 0 {
+		T.entryName = hm["entryname"][0]
+	}
+}
+
 func (T *Yaegi) Parse(r io.Reader) (err error) {
 	contact, err := io.ReadAll(r)
 	if err != nil {
@@ -110,7 +118,11 @@ func (T *Yaegi) newInterpre(src string) (*interp.Interpreter, error) {
 func (T *Yaegi) parse(src string) error {
 	T.init()
 
-	interpre, err := T.newInterpre(src)
+	buf := bytes.NewBufferString(src)
+	l := fileHeaderLine(buf)
+	T.setHeaderLine(l)
+
+	interpre, err := T.newInterpre(buf.String())
 	if err != nil {
 		return err
 	}

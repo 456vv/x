@@ -1,3 +1,5 @@
+// igop
+// entryname=abc
 package main
 
 import (
@@ -5,11 +7,11 @@ import (
 	"fmt"
 )
 
-func Main(in interface{}) string {
-	return a.Sprint("test pkg")
+func abc(in interface{}) string {
+	return a.Sprint("test pkg-abc")
 }
 
 func main() {
-	s := a.Sprint("test pkg")
+	s := a.Sprint("test pkg-main")
 	fmt.Println(s)
 }

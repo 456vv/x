@@ -9,78 +9,30 @@ import (
 	"github.com/456vv/vweb/v2"
 )
 
-func Test_Template_separation(t *testing.T) {
+func Test_templateHeader(t *testing.T) {
 	tests := []struct {
-		content []byte
-		err     bool
+		content []string
+		length  int
 	}{
 		{
-			content: []byte("//file=./2.tmpl\r\n" +
-				"//file=./3.tmpl\r\n" +
-				"//file=/5.tmpl\r\n" +
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n" +
-				"\r\n" +
-				"1234567890"),
+			length: 3, content: []string{"file=./2.tmpl", "file=./3.tmpl", "file=/5.tmpl"},
 		}, {
-			err: true, content: []byte("//file=./2.tmpl\r\n" +
-				"//file:./3.tmpl\r\n" + // 不正确
-				"//file=/5.tmpl\r\n" +
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n" +
-				"\r\n" +
-				"1234567890"),
+			length: 2, content: []string{"file=./2.tmpl", "file=/5.tmpl", "//File=./3.tmpl"},
 		}, {
-			content: []byte("//file=./2.tmpl\r\n" +
-				"//File=./3.tmpl\r\n" + // 被忽略了
-				"//file=/5.tmpl\r\n" +
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n" +
-				"\r\n" +
-				"1234567890"),
-		}, {
-			err: true, content: []byte("//file=./2.tmpl\r\n" +
-				"//file=./3.tmpl\r\n" +
-				"//file=\r\n" + // 不正确
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n" +
-				"\r\n" +
-				"1234567890"),
-		}, {
-			content: []byte("file=./2.tmpl\r\n" + // 不正确
-				"file=./3.tmpl\r\n" + // 不正确
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n" +
-				"\r\n" +
-				"1234567890"),
-		}, {
-			content: []byte("//file=./2.tmpl\r\n" +
-				"//file=./3.tmpl\r\n" +
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n" +
-				"\r\n"), // 无内容
-		}, {
-			err: true, content: []byte("//file=./2.tmpl\r\n" +
-				"//file=./3.tmpl\r\n" +
-				"//DelimLeft={{\r\n" +
-				"//DelimRight=}}\r\n"), // 不正确格式,无内容
+			length: 2, content: []string{"file=./2.tmpl", "file=./3.tmpl", "file="},
 		},
 	}
 	for _, v := range tests {
-		shdt := Template{
+		th := templateHeader(v.content)
+		if len(th.File) != v.length {
+			t.Fatal("error")
+		}
+
+		tl := Template{
 			rootPath: "./testdata/wwwroot",
 			pagePath: "/template/t.bw",
 		}
-		bytesBuffer := bytes.NewBuffer(v.content)
-		h, _, err := TemplateSeparation(bytesBuffer)
-		if err != nil {
-			if !v.err {
-				t.Fatal(err)
-			}
-			continue
-		}
-
-		_, err = h.OpenFile(shdt.rootPath, shdt.pagePath)
+		_, err := th.OpenFile(tl.rootPath, tl.pagePath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,20 +45,20 @@ func Test_shdtHeader_openFile(t *testing.T) {
 		pagePath = "/template/1.tmpl"
 	)
 	tests := []struct {
-		shdth  TemplateHeader
+		th     TemplateHeader
 		length int
 	}{
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/5.tmpl"}}, length: 3},
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/6.tmpl"}}, length: 0},    // "/6.tmpl" 该文件不存在
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "/../3.tmpl", "/5.tmpl"}}, length: 0},  // "/../3.tmpl" 等于 "/3.tmpl" ，该文件不存在
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "./../5.tmpl", "/5.tmpl"}}, length: 2}, // "./../5.tmpl" 等于 "/5.tmpl"
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/5.tmpl"}}, length: 2},   // "../5.tmpl" 等于 "/5.tmpl"
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/"}}, length: 0},         // "/" 表示是根目录 "./test/wwwroot"，不是文件。
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "../../"}}, length: 0},    // "../../" 表示是根目录 "./test/wwwroot"，因为不能跨越根目录。同时也不是一个有效的文件。
-		{shdth: TemplateHeader{File: []string{"./2.tmpl", "3.tmpl", "t.bw"}}, length: 3},
+		{th: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/5.tmpl"}}, length: 3},
+		{th: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/6.tmpl"}}, length: 0},    // "/6.tmpl" 该文件不存在
+		{th: TemplateHeader{File: []string{"./2.tmpl", "/../3.tmpl", "/5.tmpl"}}, length: 0},  // "/../3.tmpl" 等于 "/3.tmpl" ，该文件不存在
+		{th: TemplateHeader{File: []string{"./2.tmpl", "./../5.tmpl", "/5.tmpl"}}, length: 2}, // "./../5.tmpl" 等于 "/5.tmpl"
+		{th: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/5.tmpl"}}, length: 2},   // "../5.tmpl" 等于 "/5.tmpl"
+		{th: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/"}}, length: 0},         // "/" 表示是根目录 "./test/wwwroot"，不是文件。
+		{th: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "../../"}}, length: 0},    // "../../" 表示是根目录 "./test/wwwroot"，因为不能跨越根目录。同时也不是一个有效的文件。
+		{th: TemplateHeader{File: []string{"./2.tmpl", "3.tmpl", "t.bw"}}, length: 3},
 	}
 	for index, v := range tests {
-		m, err := v.shdth.OpenFile(rootPath, pagePath)
+		m, err := v.th.OpenFile(rootPath, pagePath)
 		if len(m) != v.length {
 			t.Fatalf("%d %v", index, err)
 		}
@@ -115,35 +67,35 @@ func Test_shdtHeader_openFile(t *testing.T) {
 
 func Test_Template_format(t *testing.T) {
 	tests := []struct {
-		shdth   TemplateHeader
+		th      TemplateHeader
 		content string
 		result  string
 	}{
 		{
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
-			content: "{{\r\n.\r\n}}1234{{\r\n.\r\n}}",
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			content: "{{\n.\n}}1234{{\n.\n}}",
 			result:  "{{.}}1234{{.}}",
 		}, {
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
-			content: "{{\r\n.\r\n}}1234\r\n{{.}}",
-			result:  "{{.}}1234\r\n{{.}}",
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			content: "{{\n.\n}}1234\n{{.}}",
+			result:  "{{.}}1234\n{{.}}",
 		}, {
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
-			content: "{{\r\n.\r\n}}1234{{.}}",
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			content: "{{\n.\n}}1234{{.}}",
 			result:  "{{.}}1234{{.}}",
 		}, {
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
-			content: "{{\r\n.\r\n}}\r\n1234\r\n{{.}}",
-			result:  "{{.}}\r\n1234\r\n{{.}}",
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			content: "{{\r\n.\r\n}}\r\n1234\n{{.}}",
+			result:  "{{.}}\r\n1234\n{{.}}",
 		}, {
-			shdth:   TemplateHeader{DelimLeft: "#*", DelimRight: "*#"},
-			content: "111#*\r\n.\r\n*#3333",
+			th:      TemplateHeader{DelimLeft: "#*", DelimRight: "*#"},
+			content: "111#*\n.\n*#3333",
 			result:  "111#*.*#3333",
 		},
 	}
-	shdt := &Template{}
+	tl := &Template{}
 	for index, v := range tests {
-		content := shdt.format(v.shdth.DelimLeft, v.shdth.DelimRight, v.content)
+		content := tl.format(v.th.DelimLeft, v.th.DelimRight, v.content)
 		if content != v.result {
 			t.Fatalf("%d %v", index, content)
 		}
@@ -152,28 +104,28 @@ func Test_Template_format(t *testing.T) {
 
 func Test_Template_loadTmpl(t *testing.T) {
 	tests := []struct {
-		shdth   TemplateHeader
+		th      TemplateHeader
 		content map[string]string
 		result  string
 		err     bool
 	}{
 		{
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
 			content: map[string]string{"1.tmpl": "{{define \"1.tmpl\"}}1111111{{end}}", "2.tmpl": "{{define \"2.tmpl\"}}222222{{end}}"},
 		}, {
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
 			content: map[string]string{"1.tmpl": "{{define \"1.tmpl\"}}1111111{{end}}", "2.tmpl": "{{define \"2.tmpl\"}}222222"},
 			err:     true,
 		}, {
-			shdth:   TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
+			th:      TemplateHeader{DelimLeft: "{{", DelimRight: "}}"},
 			content: map[string]string{"1.tmpl": "{{define \"1.tmpl\"}}1111111{{end}}", "2.tmpl": "222222222"},
 		},
 	}
 	shdt := Template{}
 	for index, v := range tests {
 		t1 := template.New("test")
-		t1.Delims(v.shdth.DelimLeft, v.shdth.DelimRight)
-		t1, err := shdt.loadTmpl(t1, v.shdth.DelimLeft, v.shdth.DelimRight, v.content)
+		t1.Delims(v.th.DelimLeft, v.th.DelimRight)
+		t1, err := shdt.loadTmpl(t1, v.th.DelimLeft, v.th.DelimRight, v.content)
 
 		if err != nil && !v.err {
 			t.Fatalf("%d 加载模板(%s)，错误：%v", index, v.content, err)
@@ -192,7 +144,7 @@ func Test_TemplateExtend_NewFunc(t *testing.T) {
 	// 仅支持本地测试,需要替换text/template 中的文件，在本目录下的patch目录可以找到有关文件'
 	return
 	var shdt Template
-	err := shdt.ParseText("test", "\r\n{{define \"func\"}}123456{{end}}{{$t := .Context.Value \"Template\"}}{{$f := $t.NewFunc \"func\"}}{{print (NotError $f)}}")
+	err := shdt.ParseText("test", "{{define \"func\"}}123456{{end}}{{$t := .Context.Value \"Template\"}}{{$f := $t.NewFunc \"func\"}}{{print (NotError $f)}}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +156,7 @@ func Test_TemplateExtend_NewFunc(t *testing.T) {
 		t.Fatal(err)
 	}
 	if buf.String() != "true" {
-		t.Fatalf("错误的结果，true == %s", buf.String())
+		t.Fatalf("错误的结果，true != %s", buf.String())
 	}
 }
 

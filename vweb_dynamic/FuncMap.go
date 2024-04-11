@@ -1,6 +1,7 @@
 package vweb_dynamic
 
 import (
+	"bytes"
 	"fmt"
 	"go/constant"
 	"path/filepath"
@@ -326,4 +327,49 @@ func entryname(name string) string {
 		}
 	}
 	return base
+}
+
+func fileHeaderLine(buf *bytes.Buffer) (l []string) {
+	for {
+		b, e := buf.ReadByte()
+		if e != nil {
+			return
+		}
+		buf.UnreadByte()
+		if b != '/' {
+			return
+		}
+
+		// 读取一行
+		commentLine, err := buf.ReadBytes('\n')
+		if err != nil {
+			return
+		}
+		// 不是注释行退出
+		if len(commentLine) <= 2 || string(commentLine[0:2]) != "//" {
+			if err != nil {
+				return
+			}
+			break
+		}
+
+		// 过滤换行符
+		drop := 0
+		if commentLine[len(commentLine)-1] == '\n' {
+			drop = 1
+			if len(commentLine) > 1 && commentLine[len(commentLine)-2] == '\r' {
+				drop = 2
+			}
+			commentLine = commentLine[:len(commentLine)-drop]
+		}
+
+		commentLine = bytes.TrimSpace(commentLine[2:])
+		// 空注释行跳过
+		if len(commentLine) == 0 {
+			continue
+		}
+
+		l = append(l, string(commentLine))
+	}
+	return
 }

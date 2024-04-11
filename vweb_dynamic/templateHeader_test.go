@@ -1,35 +1,17 @@
 package vweb_dynamic
 
 import (
-	"bytes"
 	"testing"
 )
 
-func Test_TemplateSeparation1(t *testing.T) {
-	buf := bytes.NewBufferString("//file=a1.v\n//file=b1.v\n\r\n111111")
-	fh, content, err := TemplateSeparation(buf)
-	if err != nil {
-		t.Fatal(err)
+func Test_templateHeader1(t *testing.T) {
+	lines := []string{
+		"file=a1.v",
+		"file=b1.v",
 	}
+	fh := templateHeader(lines)
 	if len(fh.File) != 2 {
 		t.Fatalf("引入文件长度不正确")
-	}
-	if len(content) != 6 {
-		t.Fatalf("内容长度不正确")
-	}
-}
-
-func Test_TemplateSeparation2(t *testing.T) {
-	buf := bytes.NewBufferString("\r\n111111")
-	fh, content, err := TemplateSeparation(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(fh.File) != 0 {
-		t.Fatalf("引入文件长度不正确")
-	}
-	if len(content) != 6 {
-		t.Fatalf("内容长度不正确")
 	}
 }
 

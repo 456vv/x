@@ -1,12 +1,10 @@
 package vweb_dynamic
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // 标头-模本-处理动态页面文件
@@ -47,64 +45,40 @@ func (T *TemplateHeader) OpenFile(rootPath, pagePath string) (map[string]string,
 	return fileContent, nil
 }
 
-// 解析模本,头，内容
-//
-//	TemplateHeader      模本标头
-//	[]byte          内容，动态语法
-//	error           错误，如果语法无法解析
-func TemplateSeparation(r io.Reader) (*TemplateHeader, []byte, error) {
-	buf, ok := r.(*bufio.Reader)
-	if !ok {
-		buf = bufio.NewReader(r)
-	}
-
-	var (
-		line []byte
-		h    = &TemplateHeader{}
-	)
-
-	for {
-		l, isPrefix, err := buf.ReadLine()
-		if err != nil {
-			return nil, nil, err
-		}
-		// 空行后面是内容
-		if len(l) == 0 {
-			break
-		}
-
-		line = append(line, l...)
-		if isPrefix {
+func headerMap(headerLine []string) map[string][]string {
+	m := map[string][]string{}
+	for _, line := range headerLine {
+		// 跳过空key
+		i := strings.IndexByte(line, '=')
+		if i <= 0 {
 			continue
 		}
 
-		// 清除字符前面 //
-		i := bytes.IndexByte(line, '=')
-		if i < 0 {
-			return nil, nil, fmt.Errorf("vweb_dynamic: Error parsing file header(%s)", string(line))
-		}
-
-		key := string(bytes.Trim(line[:i], "\t "))
+		key := strings.Trim(line[:i], "\t ")
 		i++ // 跳过=符号
-		value := string(bytes.Trim(line[i:], "\t "))
-		if value == "" || value == "/" || value == "\\" {
-			return nil, nil, fmt.Errorf("vweb_dynamic: Error parsing file header(%s)", string(line))
-		}
+		value := strings.Trim(line[i:], "\t ")
+		m[key] = append(m[key], value)
+	}
+	return m
+}
 
+// 解析模本,头
+func templateHeader(headerLine []string) TemplateHeader {
+	var h TemplateHeader
+	for key, vals := range headerMap(headerLine) {
 		switch key {
-		case "//file":
-			h.File = append(h.File, value)
-		case "//delimLeft":
-			h.DelimLeft = value
-		case "//delimRight":
-			h.DelimRight = value
+		case "file":
+			for _, val := range vals {
+				if val == "" {
+					continue
+				}
+				h.File = append(h.File, val)
+			}
+		case "delimLeft":
+			h.DelimLeft = vals[0]
+		case "delimRight":
+			h.DelimRight = vals[0]
 		}
-		line = line[:0]
 	}
-
-	b, err := io.ReadAll(buf)
-	if err != nil {
-		return nil, nil, fmt.Errorf("vweb_dynamic: Error reading file body data(%s)", err.Error())
-	}
-	return h, b, nil
+	return h
 }

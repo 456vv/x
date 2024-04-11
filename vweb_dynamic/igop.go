@@ -1,6 +1,7 @@
 package vweb_dynamic
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"os"
@@ -44,16 +45,37 @@ func (T *Igop) SetEntryName(name string) {
 	T.entryName = name
 }
 
+func (T *Igop) setHeaderLine(l []string) {
+	hm := headerMap(l)
+	if T.entryName == "" && len(hm["entryname"]) > 0 {
+		T.entryName = hm["entryname"][0]
+	}
+}
+
 func (T *Igop) ParseText(name, content string) error {
-	return T.parse(name, content)
+	buf := bytes.NewBufferString(content)
+	l := fileHeaderLine(buf)
+	T.setHeaderLine(l)
+
+	return T.parse(name, buf.String())
 }
 
 func (T *Igop) ParseFile(path string) error {
-	return T.parse(path, nil)
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return T.Parse(file)
 }
 
 func (T *Igop) Parse(r io.Reader) (err error) {
-	return T.parse("", r)
+	buf := bytes.NewBuffer(nil)
+	buf.ReadFrom(r)
+	l := fileHeaderLine(buf)
+	T.setHeaderLine(l)
+
+	return T.parse("", buf.String())
 }
 
 func (T *Igop) parse(filename string, src interface{}) error {

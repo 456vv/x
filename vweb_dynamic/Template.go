@@ -1,6 +1,7 @@
 package vweb_dynamic
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -51,19 +52,22 @@ func (T *Template) SetEntryName(name string) {
 	T.entryName = name
 }
 
-func (T *Template) Parse(r io.Reader) error {
-	// 解析文件头和主体数据
-	h, cb, err := TemplateSeparation(r)
-	if err != nil {
-		return err
-	}
+func (T *Template) setHeaderLine(l []string) {
+}
 
+func (T *Template) Parse(r io.Reader) error {
+	buf := bytes.NewBuffer(nil)
+	buf.ReadFrom(r)
+	l := fileHeaderLine(buf)
+
+	// 解析文件头和主体数据
+	h := templateHeader(l)
 	libs, err := h.OpenFile(T.rootPath, T.pagePath)
 	if err != nil {
 		return err
 	}
 	// 解析主体内容
-	cs := T.format(h.DelimLeft, h.DelimRight, string(cb))
+	cs := T.format(h.DelimLeft, h.DelimRight, buf.String())
 
 	// 模板文件内容载入Tmplate
 	t := template.New(T.fileName)
