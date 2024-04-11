@@ -20,9 +20,10 @@ var (
 )
 
 type Yaegi struct {
-	rootPath string // 文件目录
-	pagePath string // 文件路径
-	inited   bool
+	rootPath  string // 文件目录
+	pagePath  string // 文件路径
+	entryName string
+	inited    bool
 
 	options  interp.Options
 	mainFunc reflect.Value
@@ -62,6 +63,10 @@ func (T *Yaegi) ParseFile(p string) error {
 func (T *Yaegi) SetPath(root, page string) {
 	T.rootPath = root
 	T.pagePath = page
+}
+
+func (T *Yaegi) SetEntryName(name string) {
+	T.entryName = name
 }
 
 func (T *Yaegi) Parse(r io.Reader) (err error) {
@@ -110,8 +115,10 @@ func (T *Yaegi) parse(src string) error {
 		return err
 	}
 
-	name := entryname(T.pagePath)
-	T.mainFunc, err = interpre.Eval(name)
+	if T.entryName == "" {
+		T.entryName = entryname(T.pagePath)
+	}
+	T.mainFunc, err = interpre.Eval(T.entryName)
 	if err != nil {
 		return err
 	}

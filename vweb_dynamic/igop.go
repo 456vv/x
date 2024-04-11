@@ -18,8 +18,9 @@ import (
 var igopOnce sync.Once
 
 type Igop struct {
-	rootPath string // 文件目录
-	pagePath string // 文件名称
+	rootPath  string // 文件目录
+	pagePath  string // 文件名称
+	entryName string
 
 	ctx     *igop.Context
 	mainPkg *ssa.Package
@@ -37,6 +38,10 @@ func (T *Igop) init() {
 func (T *Igop) SetPath(root, page string) {
 	T.rootPath = root
 	T.pagePath = page
+}
+
+func (T *Igop) SetEntryName(name string) {
+	T.entryName = name
 }
 
 func (T *Igop) ParseText(name, content string) error {
@@ -86,8 +91,10 @@ func (T *Igop) Execute(out io.Writer, in interface{}) (err error) {
 	}
 
 	// 调用Main函数
-	name := entryname(T.pagePath)
-	retn, err := T.ctx.RunFunc(T.mainPkg, name, in)
+	if T.entryName == "" {
+		T.entryName = entryname(T.pagePath)
+	}
+	retn, err := T.ctx.RunFunc(T.mainPkg, T.entryName, in)
 	if err != nil {
 		return err
 	}

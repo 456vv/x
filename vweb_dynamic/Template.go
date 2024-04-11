@@ -14,11 +14,11 @@ import (
 	"github.com/456vv/vweb/v2"
 )
 
-
 // Template 模本-处理动态页面文件
 type Template struct {
-	rootPath string // 文件目录
-	pagePath string // 文件名称
+	rootPath  string // 文件目录
+	pagePath  string // 文件名称
+	entryName string
 
 	fileName string
 	t        *template.Template
@@ -45,6 +45,10 @@ func (T *Template) SetPath(root, page string) {
 	T.rootPath = root
 	T.pagePath = page
 	T.fileName = filepath.Base(page)
+}
+
+func (T *Template) SetEntryName(name string) {
+	T.entryName = name
 }
 
 func (T *Template) Parse(r io.Reader) error {

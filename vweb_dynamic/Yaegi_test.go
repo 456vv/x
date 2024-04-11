@@ -10,7 +10,7 @@ import (
 
 func Test_Yaegi(t *testing.T) {
 	yaegi := &Yaegi{}
-	yaegi.SetPath("./testdata/wwwroot", "yagei/y1.yg")
+	yaegi.SetPath("./testdata/wwwroot", "yagei/y1.go")
 
 	if err := yaegi.ParseFile(filepath.Join(yaegi.rootPath, yaegi.pagePath)); err != nil {
 		t.Fatal(err)
