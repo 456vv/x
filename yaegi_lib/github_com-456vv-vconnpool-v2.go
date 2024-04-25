@@ -41,6 +41,7 @@ type _github_com_456vv_vconnpool_v2_Conn struct {
 	WIsReuseConn      func() bool
 	WLocalAddr        func() net.Addr
 	WRawConn          func() net.Conn
+	WRawConnFull      func(a0 []byte) (net.Conn, int)
 	WRead             func(b []byte) (n int, err error)
 	WRemoteAddr       func() net.Addr
 	WSetDeadline      func(t time.Time) error
@@ -63,6 +64,9 @@ func (W _github_com_456vv_vconnpool_v2_Conn) LocalAddr() net.Addr {
 }
 func (W _github_com_456vv_vconnpool_v2_Conn) RawConn() net.Conn {
 	return W.WRawConn()
+}
+func (W _github_com_456vv_vconnpool_v2_Conn) RawConnFull(a0 []byte) (net.Conn, int) {
+	return W.WRawConnFull(a0)
 }
 func (W _github_com_456vv_vconnpool_v2_Conn) Read(b []byte) (n int, err error) {
 	return W.WRead(b)

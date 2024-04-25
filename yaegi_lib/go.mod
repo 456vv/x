@@ -7,21 +7,21 @@ toolchain go1.21.6
 require (
 	github.com/456vv/vbody/v2 v2.2.1
 	github.com/456vv/vcipher v1.0.0
-	github.com/456vv/vconn v1.2.1
-	github.com/456vv/vconnpool/v2 v2.1.12
+	github.com/456vv/vconn v1.3.1
+	github.com/456vv/vconnpool/v2 v2.2.1
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.2.2
 	github.com/456vv/viot/v2 v2.5.4
 	github.com/456vv/vmap/v2 v2.3.3
 	github.com/456vv/vweb/v2 v2.8.1
-	github.com/456vv/x/db v0.0.0-20240411113632-ad6eb3451ae5
-	github.com/456vv/x/smtp v0.0.0-20240411113632-ad6eb3451ae5
-	github.com/456vv/x/sqltable v0.0.0-20240411113632-ad6eb3451ae5
-	github.com/456vv/x/ticker v0.0.0-20240411113632-ad6eb3451ae5
-	github.com/456vv/x/watch v0.0.0-20240411113632-ad6eb3451ae5
+	github.com/456vv/x/db v0.0.0-20240411160003-c900455edb8a
+	github.com/456vv/x/smtp v0.0.0-20240411160003-c900455edb8a
+	github.com/456vv/x/sqltable v0.0.0-20240411160003-c900455edb8a
+	github.com/456vv/x/ticker v0.0.0-20240411160003-c900455edb8a
+	github.com/456vv/x/watch v0.0.0-20240411160003-c900455edb8a
 	github.com/goplus/reflectx v1.1.1
 	github.com/pelletier/go-toml v1.9.5
-	github.com/pelletier/go-toml/v2 v2.2.0
+	github.com/pelletier/go-toml/v2 v2.2.1
 	github.com/tidwall/gjson v1.17.1
 	github.com/tidwall/sjson v1.2.5
 	golang.org/x/crypto v0.22.0
