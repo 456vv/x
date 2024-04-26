@@ -1,7 +1,6 @@
 @echo off
-
-go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,direct
 go mod tidy
+go get -u
 
 if "%1" == "" goto input
 

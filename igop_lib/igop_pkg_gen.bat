@@ -1,8 +1,8 @@
 @echo off
 
 set GOEXPERIMENT=noregabi
-go env -w GOPROXY=https://goproxy.cn,direct
 go mod tidy
+go get -u
 
 if "%1" == "" goto input
 
