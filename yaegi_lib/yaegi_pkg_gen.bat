@@ -1,6 +1,5 @@
 @echo off
 go mod tidy
-go get -u
 
 if "%1" == "" goto input
 
@@ -10,7 +9,7 @@ goto exit
 :input
 	set /p flag=enter pkg path:
 	if "%flag%" == "" goto all
-	go get %flag%
+	go get -u %flag%
 	yaegi extract -tag yaegi_lib %flag%
 	pause
 	goto input
