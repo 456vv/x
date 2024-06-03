@@ -18,7 +18,7 @@ func init() {
 		"Version":          reflect.ValueOf(&server.Version).Elem(),
 
 		// type definitions
-		"Server":      reflect.ValueOf((*server.Server)(nil)),
-		"ServerGroup": reflect.ValueOf((*server.ServerGroup)(nil)),
+		"Group":  reflect.ValueOf((*server.Group)(nil)),
+		"Server": reflect.ValueOf((*server.Server)(nil)),
 	}
 }

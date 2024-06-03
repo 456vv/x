@@ -22,8 +22,6 @@ import(
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/x/watch"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/x/ticker"
 
-	_ "github.com/456vv/x/igop_lib/golang.org/x/crypto/acme"
-	_ "github.com/456vv/x/igop_lib/golang.org/x/crypto/acme/autocert"
 	_ "github.com/456vv/x/igop_lib/github.com/tidwall/gjson"
 	_ "github.com/456vv/x/igop_lib/github.com/tidwall/sjson"
 	_ "github.com/456vv/x/igop_lib/gopkg.in/yaml.v2"

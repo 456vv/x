@@ -28,6 +28,7 @@ func init() {
 			"github.com/456vv/vmap/v2":               "vmap",
 			"github.com/456vv/vweb/v2":               "vweb",
 			"github.com/456vv/vweb/v2/server/config": "config",
+			"golang.org/x/crypto/acme/autocert":      "autocert",
 			"io":                                     "io",
 			"log":                                    "log",
 			"mime":                                   "mime",
@@ -45,8 +46,8 @@ func init() {
 		},
 		Interfaces: map[string]reflect.Type{},
 		NamedTypes: map[string]reflect.Type{
-			"Server":      reflect.TypeOf((*q.Server)(nil)).Elem(),
-			"ServerGroup": reflect.TypeOf((*q.ServerGroup)(nil)).Elem(),
+			"Group":  reflect.TypeOf((*q.Group)(nil)).Elem(),
+			"Server": reflect.TypeOf((*q.Server)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{

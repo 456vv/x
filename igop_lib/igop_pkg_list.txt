@@ -15,13 +15,10 @@ github.com/456vv/x/db
 github.com/456vv/x/watch
 github.com/456vv/x/ticker
 
-golang.org/x/crypto/acme
-golang.org/x/crypto/acme/autocert
 github.com/tidwall/gjson
 github.com/tidwall/sjson
 gopkg.in/yaml.v2
 github.com/pelletier/go-toml/v2
-github.com/bep/godartsass
 
 container/list
 archive/zip

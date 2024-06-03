@@ -21,6 +21,7 @@ func init() {
 	Symbols["github.com/456vv/vweb/v2/vweb"] = map[string]reflect.Value{
 		// function, constant and variable definitions
 		"AddSalt":              reflect.ValueOf(vweb.AddSalt),
+		"AutoCert":             reflect.ValueOf(vweb.AutoCert),
 		"ConnContextKey":       reflect.ValueOf(&vweb.ConnContextKey).Elem(),
 		"CopyStruct":           reflect.ValueOf(vweb.CopyStruct),
 		"CopyStructDeep":       reflect.ValueOf(vweb.CopyStructDeep),
