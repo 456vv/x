@@ -55,7 +55,7 @@ func init() {
 			"Version":          reflect.ValueOf(&q.Version),
 		},
 		Funcs: map[string]reflect.Value{
-			"NewServerGroup": reflect.ValueOf(q.NewServerGroup),
+			"NewGroup": reflect.ValueOf(q.NewGroup),
 		},
 		TypedConsts:   map[string]igop.TypedConst{},
 		UntypedConsts: map[string]igop.UntypedConst{},

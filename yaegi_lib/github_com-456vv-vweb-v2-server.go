@@ -13,7 +13,7 @@ import (
 func init() {
 	Symbols["github.com/456vv/vweb/v2/server/server"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"NewServerGroup":   reflect.ValueOf(server.NewServerGroup),
+		"NewGroup":         reflect.ValueOf(server.NewGroup),
 		"ServerContextKey": reflect.ValueOf(&server.ServerContextKey).Elem(),
 		"Version":          reflect.ValueOf(&server.Version).Elem(),
 
