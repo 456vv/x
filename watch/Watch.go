@@ -1,6 +1,7 @@
 ﻿package watch
 
 import (
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +59,7 @@ L:
 
 			w.rwmu.RLock()
 			for k, f := range w.eventfunc {
-				if strings.HasPrefix(event.Name, k) {
+				if filepath.IsAbs(k) && strings.HasPrefix(event.Name, k) || strings.Contains(event.Name, k) {
 					go f(event)
 				}
 			}

@@ -18,7 +18,7 @@ func Test_all(t *testing.T) {
 	defer watch.Close()
 	tdir := os.TempDir()
 	watch.Monitor(tdir, func(event fsnotify.Event) {
-		t.Log("err", event.Name, event.Op.String())
+		t.Log(event.Name, event.Op.String())
 	})
 
 	tfile, err := os.CreateTemp(tdir, "*.tmp")
