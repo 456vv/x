@@ -1,35 +1,35 @@
 package watch
-	
-import (
-	"testing"
-    "io/ioutil"
-    "github.com/fsnotify/fsnotify"
-    "time"
-)
 
+import (
+	"os"
+	"testing"
+	"time"
+
+	"github.com/fsnotify/fsnotify"
+)
 
 var _ *fsnotify.Op
 
-func Test_NewWatch(t *testing.T){
-	tfile, err := ioutil.TempFile("", "*.tmp")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tpath := tfile.Name()
-	
+func Test_all(t *testing.T) {
 	watch, err := NewWatch()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = watch.Monitor(tpath, func(event fsnotify.Event){
-		t.Log(event)
+	defer watch.Close()
+	tdir := os.TempDir()
+	watch.Monitor(tdir, func(event fsnotify.Event) {
+		t.Log("err", event.Name, event.Op.String())
 	})
+
+	tfile, err := os.CreateTemp(tdir, "*.tmp")
 	if err != nil {
 		t.Fatal(err)
 	}
-	
-	tfile.Write([]byte{65})
+	b := []byte("123")
+	tfile.Write(b)
+	// tfile.Chmod(0o777)
 	tfile.Close()
-	time.Sleep(time.Second)
-	watch.Close()
+	os.Rename(tfile.Name(), tfile.Name()+"-")
+	os.RemoveAll(tfile.Name() + "-")
+	time.Sleep(time.Millisecond * 100)
 }
