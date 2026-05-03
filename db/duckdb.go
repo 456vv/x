@@ -3,5 +3,5 @@
 package db
 
 import(
-	_ "github.com/marcboeker/go-duckdb"
+	_ "github.com/duckdb/duckdb-go"
 )
