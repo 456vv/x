@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"fmt"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -45,7 +46,10 @@ L:
 			break L
 		}
 		select {
-		case event := <-w.watcher.Events:
+		case event, ok := <-w.watcher.Events:
+			if !ok {
+				return
+			}
 			if event.Op == 0 {
 				// 过虑bug
 				continue
@@ -64,7 +68,11 @@ L:
 				}
 			}
 			w.rwmu.RUnlock()
-		case <-w.watcher.Errors:
+		case err, ok := <-w.watcher.Errors:
+			if !ok {
+				return
+			}
+			fmt.Println("watch.event.errors", err)
 		}
 	}
 }
