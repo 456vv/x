@@ -1,4 +1,4 @@
-// export by github.com/goplus/igop/cmd/qexp
+// export by github.com/goplus/ixgo/cmd/qexp
 
 //go:build igop_lib
 // +build igop_lib
@@ -11,11 +11,11 @@ import (
 	"go/constant"
 	"reflect"
 
-	"github.com/goplus/igop"
+	"github.com/goplus/ixgo"
 )
 
 func init() {
-	igop.RegisterPackage(&igop.Package{
+	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "vforward",
 		Path: "github.com/456vv/vforward",
 		Deps: map[string]string{
@@ -45,9 +45,9 @@ func init() {
 		AliasTypes: map[string]reflect.Type{},
 		Vars:       map[string]reflect.Value{},
 		Funcs:      map[string]reflect.Value{},
-		TypedConsts: map[string]igop.TypedConst{
-			"DefaultReadBufSize": {reflect.TypeOf(q.DefaultReadBufSize), constant.MakeInt64(int64(q.DefaultReadBufSize))},
+		TypedConsts: map[string]ixgo.TypedConst{
+			"DefaultReadBufSize": {Typ: reflect.TypeOf(q.DefaultReadBufSize), Value: constant.MakeInt64(int64(q.DefaultReadBufSize))},
 		},
-		UntypedConsts: map[string]igop.UntypedConst{},
+		UntypedConsts: map[string]ixgo.UntypedConst{},
 	})
 }

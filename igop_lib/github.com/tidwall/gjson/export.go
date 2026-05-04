@@ -1,4 +1,4 @@
-// export by github.com/goplus/igop/cmd/qexp
+// export by github.com/goplus/ixgo/cmd/qexp
 
 //go:build igop_lib
 // +build igop_lib
@@ -11,11 +11,11 @@ import (
 	"go/constant"
 	"reflect"
 
-	"github.com/goplus/igop"
+	"github.com/goplus/ixgo"
 )
 
 func init() {
-	igop.RegisterPackage(&igop.Package{
+	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "gjson",
 		Path: "github.com/tidwall/gjson",
 		Deps: map[string]string{
@@ -35,7 +35,8 @@ func init() {
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{
-			"DisableModifiers": reflect.ValueOf(&q.DisableModifiers),
+			"DisableEscapeHTML": reflect.ValueOf(&q.DisableEscapeHTML),
+			"DisableModifiers":  reflect.ValueOf(&q.DisableModifiers),
 		},
 		Funcs: map[string]reflect.Value{
 			"AddModifier":      reflect.ValueOf(q.AddModifier),
@@ -52,14 +53,14 @@ func init() {
 			"Valid":            reflect.ValueOf(q.Valid),
 			"ValidBytes":       reflect.ValueOf(q.ValidBytes),
 		},
-		TypedConsts: map[string]igop.TypedConst{
-			"False":  {reflect.TypeOf(q.False), constant.MakeInt64(int64(q.False))},
-			"JSON":   {reflect.TypeOf(q.JSON), constant.MakeInt64(int64(q.JSON))},
-			"Null":   {reflect.TypeOf(q.Null), constant.MakeInt64(int64(q.Null))},
-			"Number": {reflect.TypeOf(q.Number), constant.MakeInt64(int64(q.Number))},
-			"String": {reflect.TypeOf(q.String), constant.MakeInt64(int64(q.String))},
-			"True":   {reflect.TypeOf(q.True), constant.MakeInt64(int64(q.True))},
+		TypedConsts: map[string]ixgo.TypedConst{
+			"False":  {Typ: reflect.TypeOf(q.False), Value: constant.MakeInt64(int64(q.False))},
+			"JSON":   {Typ: reflect.TypeOf(q.JSON), Value: constant.MakeInt64(int64(q.JSON))},
+			"Null":   {Typ: reflect.TypeOf(q.Null), Value: constant.MakeInt64(int64(q.Null))},
+			"Number": {Typ: reflect.TypeOf(q.Number), Value: constant.MakeInt64(int64(q.Number))},
+			"String": {Typ: reflect.TypeOf(q.String), Value: constant.MakeInt64(int64(q.String))},
+			"True":   {Typ: reflect.TypeOf(q.True), Value: constant.MakeInt64(int64(q.True))},
 		},
-		UntypedConsts: map[string]igop.UntypedConst{},
+		UntypedConsts: map[string]ixgo.UntypedConst{},
 	})
 }

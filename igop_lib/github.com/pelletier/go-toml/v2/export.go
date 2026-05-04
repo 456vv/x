@@ -1,4 +1,4 @@
-// export by github.com/goplus/igop/cmd/qexp
+// export by github.com/goplus/ixgo/cmd/qexp
 
 //go:build igop_lib
 // +build igop_lib
@@ -10,11 +10,11 @@ import (
 
 	"reflect"
 
-	"github.com/goplus/igop"
+	"github.com/goplus/ixgo"
 )
 
 func init() {
-	igop.RegisterPackage(&igop.Package{
+	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "toml",
 		Path: "github.com/pelletier/go-toml/v2",
 		Deps: map[string]string{
@@ -24,14 +24,12 @@ func init() {
 			"errors":        "errors",
 			"fmt":           "fmt",
 			"github.com/pelletier/go-toml/v2/internal/characters": "characters",
-			"github.com/pelletier/go-toml/v2/internal/danger":     "danger",
 			"github.com/pelletier/go-toml/v2/internal/tracker":    "tracker",
 			"github.com/pelletier/go-toml/v2/unstable":            "unstable",
 			"io":          "io",
-			"io/ioutil":   "ioutil",
 			"math":        "math",
 			"reflect":     "reflect",
-			"sort":        "sort",
+			"slices":      "slices",
 			"strconv":     "strconv",
 			"strings":     "strings",
 			"sync/atomic": "atomic",
@@ -57,7 +55,7 @@ func init() {
 			"NewEncoder": reflect.ValueOf(q.NewEncoder),
 			"Unmarshal":  reflect.ValueOf(q.Unmarshal),
 		},
-		TypedConsts:   map[string]igop.TypedConst{},
-		UntypedConsts: map[string]igop.UntypedConst{},
+		TypedConsts:   map[string]ixgo.TypedConst{},
+		UntypedConsts: map[string]ixgo.UntypedConst{},
 	})
 }

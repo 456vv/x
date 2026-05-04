@@ -1,4 +1,4 @@
-// export by github.com/goplus/igop/cmd/qexp
+// export by github.com/goplus/ixgo/cmd/qexp
 
 //go:build igop_lib
 // +build igop_lib
@@ -10,11 +10,11 @@ import (
 
 	"reflect"
 
-	"github.com/goplus/igop"
+	"github.com/goplus/ixgo"
 )
 
 func init() {
-	igop.RegisterPackage(&igop.Package{
+	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "sjson",
 		Path: "github.com/tidwall/sjson",
 		Deps: map[string]string{
@@ -42,7 +42,7 @@ func init() {
 			"SetRawBytesOptions": reflect.ValueOf(q.SetRawBytesOptions),
 			"SetRawOptions":      reflect.ValueOf(q.SetRawOptions),
 		},
-		TypedConsts:   map[string]igop.TypedConst{},
-		UntypedConsts: map[string]igop.UntypedConst{},
+		TypedConsts:   map[string]ixgo.TypedConst{},
+		UntypedConsts: map[string]ixgo.UntypedConst{},
 	})
 }

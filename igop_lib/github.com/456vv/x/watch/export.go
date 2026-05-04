@@ -1,4 +1,4 @@
-// export by github.com/goplus/igop/cmd/qexp
+// export by github.com/goplus/ixgo/cmd/qexp
 
 //go:build igop_lib
 // +build igop_lib
@@ -10,14 +10,15 @@ import (
 
 	"reflect"
 
-	"github.com/goplus/igop"
+	"github.com/goplus/ixgo"
 )
 
 func init() {
-	igop.RegisterPackage(&igop.Package{
+	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "watch",
 		Path: "github.com/456vv/x/watch",
 		Deps: map[string]string{
+			"fmt":                          "fmt",
 			"github.com/fsnotify/fsnotify": "fsnotify",
 			"path/filepath":                "filepath",
 			"strings":                      "strings",
@@ -34,7 +35,7 @@ func init() {
 		Funcs: map[string]reflect.Value{
 			"NewWatch": reflect.ValueOf(q.NewWatch),
 		},
-		TypedConsts:   map[string]igop.TypedConst{},
-		UntypedConsts: map[string]igop.UntypedConst{},
+		TypedConsts:   map[string]ixgo.TypedConst{},
+		UntypedConsts: map[string]ixgo.UntypedConst{},
 	})
 }

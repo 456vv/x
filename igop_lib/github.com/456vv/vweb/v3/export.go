@@ -1,4 +1,4 @@
-// export by github.com/goplus/igop/cmd/qexp
+// export by github.com/goplus/ixgo/cmd/qexp
 
 //go:build igop_lib
 // +build igop_lib
@@ -6,18 +6,18 @@
 package vweb
 
 import (
-	q "github.com/456vv/vweb/v2"
+	q "github.com/456vv/vweb/v3"
 
 	"go/constant"
 	"reflect"
 
-	"github.com/goplus/igop"
+	"github.com/goplus/ixgo"
 )
 
 func init() {
-	igop.RegisterPackage(&igop.Package{
+	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "vweb",
-		Path: "github.com/456vv/vweb/v2",
+		Path: "github.com/456vv/vweb/v3",
 		Deps: map[string]string{
 			"bufio":                             "bufio",
 			"bytes":                             "bytes",
@@ -29,9 +29,7 @@ func init() {
 			"errors":                            "errors",
 			"fmt":                               "fmt",
 			"github.com/456vv/vconnpool/v2":     "vconnpool",
-			"github.com/456vv/verror":           "verror",
 			"github.com/456vv/vmap/v2":          "vmap",
-			"github.com/456vv/vweb/v2/builtin":  "builtin",
 			"golang.org/x/crypto/acme":          "acme",
 			"golang.org/x/crypto/acme/autocert": "autocert",
 			"golang.org/x/net/http/httpguts":    "httpguts",
@@ -50,6 +48,7 @@ func init() {
 			"reflect":                           "reflect",
 			"regexp":                            "regexp",
 			"runtime":                           "runtime",
+			"slices":                            "slices",
 			"strconv":                           "strconv",
 			"strings":                           "strings",
 			"sync":                              "sync",
@@ -67,6 +66,7 @@ func init() {
 			"PluginRPC":        reflect.TypeOf((*q.PluginRPC)(nil)).Elem(),
 			"Pluginer":         reflect.TypeOf((*q.Pluginer)(nil)).Elem(),
 			"Responser":        reflect.TypeOf((*q.Responser)(nil)).Elem(),
+			"Router":           reflect.TypeOf((*q.Router)(nil)).Elem(),
 			"Sessioner":        reflect.TypeOf((*q.Sessioner)(nil)).Elem(),
 		},
 		NamedTypes: map[string]reflect.Type{
@@ -76,6 +76,7 @@ func init() {
 			"ExecCall":             reflect.TypeOf((*q.ExecCall)(nil)).Elem(),
 			"ExitCall":             reflect.TypeOf((*q.ExitCall)(nil)).Elem(),
 			"Forward":              reflect.TypeOf((*q.Forward)(nil)).Elem(),
+			"ForwardRewriter":      reflect.TypeOf((*q.ForwardRewriter)(nil)).Elem(),
 			"HandleFunc":           reflect.TypeOf((*q.HandleFunc)(nil)).Elem(),
 			"PluginHTTPClient":     reflect.TypeOf((*q.PluginHTTPClient)(nil)).Elem(),
 			"PluginRPCClient":      reflect.TypeOf((*q.PluginRPCClient)(nil)).Elem(),
@@ -92,31 +93,27 @@ func init() {
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{
 			"ConnContextKey":     reflect.ValueOf(&q.ConnContextKey),
-			"DefaultSitePool":    reflect.ValueOf(&q.DefaultSitePool),
 			"ListenerContextKey": reflect.ValueOf(&q.ListenerContextKey),
 			"PluginContextKey":   reflect.ValueOf(&q.PluginContextKey),
+			"RouterContextKey":   reflect.ValueOf(&q.RouterContextKey),
 			"SiteContextKey":     reflect.ValueOf(&q.SiteContextKey),
 		},
 		Funcs: map[string]reflect.Value{
 			"AddSalt":              reflect.ValueOf(q.AddSalt),
 			"AutoCert":             reflect.ValueOf(q.AutoCert),
-			"CopyStruct":           reflect.ValueOf(q.CopyStruct),
-			"CopyStructDeep":       reflect.ValueOf(q.CopyStructDeep),
-			"DepthField":           reflect.ValueOf(q.DepthField),
 			"ExecFunc":             reflect.ValueOf(q.ExecFunc),
 			"ForMethod":            reflect.ValueOf(q.ForMethod),
 			"ForType":              reflect.ValueOf(q.ForType),
 			"GenerateRandom":       reflect.ValueOf(q.GenerateRandom),
-			"GenerateRandomId":     reflect.ValueOf(q.GenerateRandomId),
+			"GenerateRandomID":     reflect.ValueOf(q.GenerateRandomID),
 			"GenerateRandomString": reflect.ValueOf(q.GenerateRandomString),
-			"InDirect":             reflect.ValueOf(q.InDirect),
 			"NewSitePool":          reflect.ValueOf(q.NewSitePool),
 			"PagePath":             reflect.ValueOf(q.PagePath),
 		},
-		TypedConsts: map[string]igop.TypedConst{
-			"PluginTypeHTTP": {reflect.TypeOf(q.PluginTypeHTTP), constant.MakeInt64(int64(q.PluginTypeHTTP))},
-			"PluginTypeRPC":  {reflect.TypeOf(q.PluginTypeRPC), constant.MakeInt64(int64(q.PluginTypeRPC))},
+		TypedConsts: map[string]ixgo.TypedConst{
+			"PluginTypeHTTP": {Typ: reflect.TypeOf(q.PluginTypeHTTP), Value: constant.MakeInt64(int64(q.PluginTypeHTTP))},
+			"PluginTypeRPC":  {Typ: reflect.TypeOf(q.PluginTypeRPC), Value: constant.MakeInt64(int64(q.PluginTypeRPC))},
 		},
-		UntypedConsts: map[string]igop.UntypedConst{},
+		UntypedConsts: map[string]ixgo.UntypedConst{},
 	})
 }
