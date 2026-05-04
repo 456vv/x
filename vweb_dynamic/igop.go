@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"sync"
 
-	//	_ "github.com/456vv/x/ixgo_lib"
+	_ "github.com/456vv/x/igop_lib"
 	"github.com/goplus/ixgo"
 	_ "github.com/goplus/ixgo/pkg"                 // 加入默认包
 	_ "github.com/goplus/reflectx/icall/icall2048" // 内置
