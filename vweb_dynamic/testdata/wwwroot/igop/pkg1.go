@@ -1,5 +1,6 @@
 // igop
-// entryname=abc
+// entryName=abc
+// file=y2.go
 package main
 
 import (
@@ -7,8 +8,11 @@ import (
 	"fmt"
 )
 
-func abc(in interface{}) string {
-	return a.Sprint("test pkg-abc")
+func abc(in any) string {
+	if A() != "A" {
+		return "!A"
+	}
+	return a.Sprint(in)
 }
 
 func main() {

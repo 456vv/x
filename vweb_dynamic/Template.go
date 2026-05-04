@@ -12,7 +12,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/456vv/vweb/v2"
+	"github.com/456vv/vweb/v3"
 )
 
 // Template 模本-处理动态页面文件
@@ -52,15 +52,12 @@ func (T *Template) SetEntryName(name string) {
 	T.entryName = name
 }
 
-func (T *Template) setHeaderLine(l []string) {
-}
-
 func (T *Template) Parse(r io.Reader) error {
 	buf := bytes.NewBuffer(nil)
 	buf.ReadFrom(r)
-	l := fileHeaderLine(buf)
 
 	// 解析文件头和主体数据
+	l := fileHeaderLine(buf)
 	h := templateHeader(l)
 	libs, err := h.OpenFile(T.rootPath, T.pagePath)
 	if err != nil {
@@ -83,7 +80,7 @@ func (T *Template) Parse(r io.Reader) error {
 	return err
 }
 
-func (T *Template) Execute(out io.Writer, in interface{}) error {
+func (T *Template) Execute(out io.Writer, in any) error {
 	if T.t == nil {
 		return errTemplateNotParse
 	}
@@ -186,9 +183,9 @@ type part struct {
 	output []reflect.Value
 }
 
-func (T *part) Args(i int) interface{} {
+func (T *part) Args(i int) any {
 	if i == -1 {
-		var ret []interface{}
+		var ret []any
 		for _, in := range T.input {
 			ret = append(ret, in.Interface())
 		}
@@ -201,13 +198,13 @@ func (T *part) Args(i int) interface{} {
 	return nil
 }
 
-func (T *part) Result(out ...interface{}) {
+func (T *part) Result(out ...any) {
 	for _, arg := range out {
 		T.output = append(T.output, reflect.ValueOf(arg))
 	}
 }
 
-// 这是个额外扩展，由于模板不能实现函数创建，只能在这里构造一个支持创建函数。
+// TemplateExtend 这是个额外扩展，由于模板不能实现函数创建，只能在这里构造一个支持创建函数。
 // 在创建的函数内部，需要使用 Args 方法读取参数，使用 Result 方法返回结果。
 // 仅限用于template模板，自定义模板不支持
 type TemplateExtend struct {
@@ -239,10 +236,10 @@ func (T *TemplateExtend) NewFunc(name string) (f func([]reflect.Value) []reflect
 //	f func([]reflect.Value) []reflect.Value	由NewFunc创建的函数
 //	args ...interface{}						可变参数
 //	[]interface{}							返回结果
-func (T *TemplateExtend) Call(f func([]reflect.Value) []reflect.Value, args ...interface{}) []interface{} {
+func (T *TemplateExtend) Call(f func([]reflect.Value) []reflect.Value, args ...any) []any {
 	var (
 		inv []reflect.Value
-		ret []interface{}
+		ret []any
 		ec  vweb.ExecCall
 	)
 	for _, arg := range args {
@@ -269,7 +266,7 @@ func (T *TemplateExtend) Call(f func([]reflect.Value) []reflect.Value, args ...i
 //	name string		模板名称
 //	in interface{}	模板点，带外模板的内容
 //	error			执行语法错误
-func (T *TemplateExtend) ExecuteTemplate(out io.Writer, name string, in interface{}) error {
+func (T *TemplateExtend) ExecuteTemplate(out io.Writer, name string, in any) error {
 	if T.Template == nil {
 		return errTemplateNotParse
 	}

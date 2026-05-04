@@ -1,5 +1,6 @@
 // yaegi
-// entryname=main
+// entryName=main
+// file=/yagei/y2.go
 package main
 
 import (
@@ -16,6 +17,10 @@ func main(a interface{}) string {
 		panic("error")
 	}
 	if !this.IsNil(nil) {
+		panic("error")
+	}
+
+	if A() != "A" {
 		panic("error")
 	}
 

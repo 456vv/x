@@ -7,13 +7,14 @@ import (
 	"strings"
 )
 
-// 标头-模本-处理动态页面文件
+// TemplateHeader 标头-模本-处理动态页面文件
 type TemplateHeader struct {
+	EntryName             string
 	File                  []string // 文件路径, map[文件名或别名]文件路径
 	DelimLeft, DelimRight string   // 语法识别符
 }
 
-// 打开文件内容
+// OpenFile 打开文件内容
 //
 //	rootPath  string    	根目录
 //	pagePath  string		页面路径
@@ -67,6 +68,8 @@ func templateHeader(headerLine []string) TemplateHeader {
 	var h TemplateHeader
 	for key, vals := range headerMap(headerLine) {
 		switch key {
+		case "entryName":
+			h.EntryName = vals[0]
 		case "file":
 			for _, val := range vals {
 				if val == "" {

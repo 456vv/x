@@ -1,17 +1,20 @@
 package vweb_dynamic
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
-	"github.com/goplus/igop"
-	"github.com/issue9/assert/v2"
+	"github.com/goplus/ixgo"
+	"github.com/issue9/assert/v4"
 )
 
 func Test_igop_1(t *testing.T) {
 	as := assert.New(t, true)
-	ssa := &Igop{}
+	ssa := &Ixgo{}
 
 	pRoot := "./testdata/wwwroot/igop"
 	pPath := "pkg1.go"
@@ -20,13 +23,23 @@ func Test_igop_1(t *testing.T) {
 	fPath := filepath.Join(pRoot, pPath)
 	err := ssa.ParseFile(fPath)
 	as.NotError(err)
-	err = ssa.Execute(os.Stdout, nil)
-	as.NotError(err)
+
+	var wg sync.WaitGroup
+	for i := range 100 {
+		as.Go(func(as *assert.Assertion) {
+			defer wg.Done()
+			buf := bytes.NewBuffer(nil)
+			err = ssa.Execute(buf, i)
+			as.NotError(err).Equal(buf.String(), fmt.Sprintf("%d+receive", i))
+		})
+		wg.Add(1)
+	}
+	wg.Wait()
 }
 
 func Test_igop_2(t *testing.T) {
 	as := assert.New(t, true)
-	ctx := igop.NewContext(0)
+	ctx := ixgo.NewContext(0)
 	ctx.Lookup = func(root, path string) (dir string, found bool) {
 		dir = filepath.Join(root, "src", path)
 		if info, err := os.Stat(dir); err == nil && info.IsDir() {

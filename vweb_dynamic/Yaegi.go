@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
+	"path/filepath"
 	"reflect"
 	"sync"
 
@@ -25,9 +27,7 @@ type Yaegi struct {
 	pagePath  string // 文件路径
 	entryName string
 	inited    bool
-
-	options  interp.Options
-	mainFunc reflect.Value
+	mainFunc  reflect.Value
 }
 
 func (T *Yaegi) init() {
@@ -35,7 +35,6 @@ func (T *Yaegi) init() {
 		return
 	}
 	T.inited = true
-	T.options.GoPath = T.rootPath
 	yaegiOnce.Do(func() {
 		// 增加内置函数
 		yaegiFunc = make(interp.Exports)
@@ -70,11 +69,10 @@ func (T *Yaegi) SetEntryName(name string) {
 	T.entryName = name
 }
 
-func (T *Yaegi) setHeaderLine(l []string) {
-	hm := headerMap(l)
-	if T.entryName == "" && len(hm["entryname"]) > 0 {
-		T.entryName = hm["entryname"][0]
-	}
+func (T *Yaegi) setHeaderLine(buf *bytes.Buffer) TemplateHeader {
+	l := fileHeaderLine(buf)
+	hm := templateHeader(l)
+	return hm
 }
 
 func (T *Yaegi) Parse(r io.Reader) (err error) {
@@ -86,8 +84,11 @@ func (T *Yaegi) Parse(r io.Reader) (err error) {
 	return T.parse(string(contact))
 }
 
-func (T *Yaegi) newInterpre(src string) (*interp.Interpreter, error) {
-	i := interp.New(T.options)
+func (T *Yaegi) newInterpre() (*interp.Interpreter, error) {
+	options := interp.Options{
+		GoPath: T.rootPath,
+	}
+	i := interp.New(options)
 	// 内置标准库
 	if err := i.Use(stdlib.Symbols); err != nil {
 		return nil, err
@@ -111,25 +112,40 @@ func (T *Yaegi) newInterpre(src string) (*interp.Interpreter, error) {
 
 	i.ImportUsed()
 
-	_, err := i.Eval(src)
-	return i, err
+	return i, nil
 }
 
 func (T *Yaegi) parse(src string) error {
 	T.init()
 
 	buf := bytes.NewBufferString(src)
-	l := fileHeaderLine(buf)
-	T.setHeaderLine(l)
+	th := T.setHeaderLine(buf)
+	T.entryName = entryname(T.entryName, th.EntryName, T.pagePath)
 
-	interpre, err := T.newInterpre(buf.String())
+	interpre, err := T.newInterpre()
 	if err != nil {
 		return err
 	}
 
-	if T.entryName == "" {
-		T.entryName = entryname(T.pagePath)
+	// 加载额外的文件
+	dir := filepath.Dir(T.pagePath)
+	for _, f := range th.File {
+		if path.IsAbs(f) {
+			_, err = interpre.EvalPath(filepath.Join(T.rootPath, f))
+		} else {
+			p := filepath.Join(T.rootPath, dir, f)
+			_, err = interpre.EvalPath(p)
+		}
+		if err != nil {
+			return err
+		}
 	}
+
+	// 加载主文件
+	if _, err := interpre.Eval(buf.String()); err != nil {
+		return err
+	}
+
 	T.mainFunc, err = interpre.Eval(T.entryName)
 	if err != nil {
 		return err

@@ -4,6 +4,6 @@ import (
 	"b"
 )
 
-func Sprint(m string) string {
+func Sprint(m any) string {
 	return b.Sprint(m)
 }

@@ -4,6 +4,6 @@ import (
 	"fmt"
 )
 
-func Sprint(m string) string {
+func Sprint(m any) string {
 	return fmt.Sprint(m, "+receive")
 }

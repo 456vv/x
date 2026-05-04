@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"go/constant"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"text/template"
 
-	"github.com/456vv/vweb/v2"
-	"github.com/456vv/vweb/v2/builtin"
-	"github.com/goplus/igop"
+	"github.com/456vv/vweb/v3"
+	"github.com/456vv/vweb/v3/builtin"
+	"github.com/goplus/ixgo"
 )
 
 /*
@@ -31,9 +32,7 @@ func ExtendPackage(name string, deputy template.FuncMap) {
 
 func addFuncs(funcMap template.FuncMap) template.FuncMap {
 	m := make(template.FuncMap)
-	for n, v := range funcMap {
-		m[n] = v
-	}
+	maps.Copy(m, funcMap)
 	return m
 }
 
@@ -122,15 +121,12 @@ type pkgTypes struct {
 }
 
 func (T *pkgTypes) new(args ...any) any {
-	var pv reflect.Value
+	pv := reflect.New(T.t).Elem()
 	if len(args) != 0 {
-		ptyp := reflect.PointerTo(T.t)
-		pv = reflect.New(ptyp).Elem()
 		if args[0] != nil && !builtin.Convert(pv, args[0]) {
 			panic("The type are not the same and cannot be converted")
 		}
 	} else {
-		pv = reflect.New(T.t)
 		builtin.Init(pv)
 	}
 	return pv.Interface()
@@ -145,7 +141,7 @@ func (T *pkgInterface) to(v any) any {
 }
 
 type pkgTypedConsts struct {
-	tc igop.TypedConst
+	tc ixgo.TypedConst
 }
 
 func (T *pkgTypedConsts) get() any {
@@ -158,7 +154,7 @@ func importPkg(name string) template.FuncMap {
 	}
 
 	fm := make(template.FuncMap)
-	if pkg, ok := igop.LookupPackage(name); ok {
+	if pkg, ok := ixgo.LookupPackage(name); ok {
 		// 接口，用处不大
 		for n, t := range pkg.Interfaces {
 			pt := pkgInterface{t: t}
@@ -198,10 +194,9 @@ var TemplateFunc = template.FuncMap{
 	"Import":         importPkg,
 	"ForMethod":      vweb.ForMethod,
 	"ForType":        vweb.ForType,
-	"InDirect":       vweb.InDirect,
-	"DepthField":     vweb.DepthField,
-	"CopyStruct":     vweb.CopyStruct,
-	"CopyStructDeep": vweb.CopyStructDeep,
+	"DepthField":     builtin.DepthField,
+	"CopyStruct":     builtin.CopyStruct,
+	"CopyStructDeep": builtin.CopyStructDeep,
 	"Convert":        builtin.Convert,
 	"Init":           builtin.Init,
 	"Value":          builtin.Value, // Value(v) reflect.Value
@@ -312,8 +307,14 @@ var TemplateFunc = template.FuncMap{
 	},
 }
 
-func entryname(name string) string {
-	base := filepath.Base(name)
+func entryname(name1, name2, name3 string) string {
+	if name1 != "" {
+		return name1
+	}
+	if name2 != "" {
+		return name2
+	}
+	base := filepath.Base(name3)
 	pos := strings.IndexAny(base, ".")
 	if pos != -1 {
 		base = base[:pos]

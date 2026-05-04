@@ -6,7 +6,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/456vv/vweb/v2"
+	"github.com/456vv/vweb/v3"
 )
 
 func Test_templateHeader(t *testing.T) {
