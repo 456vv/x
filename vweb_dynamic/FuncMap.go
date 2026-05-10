@@ -189,6 +189,27 @@ func importPkg(name string) template.FuncMap {
 	return fm
 }
 
+type wasmFuncType int
+
+const (
+	wasmFuncTypeImport wasmFuncType = iota
+	ForMethod
+	ForType
+	DepthField
+	CopyStruct
+	CopyStructDeep
+	Convert
+	Init
+	Value
+	Call
+	CallMethod
+)
+
+var wasmFunc = map[wasmFuncType]any{
+	Call:       call,
+	CallMethod: callMethod,
+}
+
 // 模板函数映射
 var TemplateFunc = template.FuncMap{
 	"Import":         importPkg,
@@ -307,27 +328,28 @@ var TemplateFunc = template.FuncMap{
 	},
 }
 
-func entryname(name1, name2, name3 string) string {
+func entryname(name1, name2 string) string {
 	if name1 != "" {
 		return name1
 	}
-	if name2 != "" {
-		return name2
-	}
-	base := filepath.Base(name3)
+
+	base := filepath.Base(name2)
 	pos := strings.IndexAny(base, ".")
 	if pos != -1 {
 		base = base[:pos]
 	}
-	if base == "index" || base == "" || base[0] < 'A' || base[0] > 'Z' {
+
+	if base == "index" || base == "" {
 		return "Main"
 	}
+
 	for _, v := range base {
 		if v < '0' || (v > '9' && v < 'A') || (v > 'Z' && v < 'a') || v > 'z' {
 			return "Main"
 		}
 	}
-	return base
+
+	return strings.ToUpper(base[:1]) + base[1:]
 }
 
 func fileHeaderLine(buf *bytes.Buffer) (l []string) {

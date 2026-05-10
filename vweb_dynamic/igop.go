@@ -43,10 +43,6 @@ func (T *Ixgo) SetPath(root, page string) {
 	T.pagePath = page
 }
 
-func (T *Ixgo) SetEntryName(name string) {
-	T.entryName = name
-}
-
 func (T *Ixgo) setHeaderLine(buf *bytes.Buffer) TemplateHeader {
 	l := fileHeaderLine(buf)
 	return templateHeader(l)
@@ -80,7 +76,7 @@ func (T *Ixgo) parse(filename string, buf *bytes.Buffer) error {
 	ctx.Lookup = T.lookup
 
 	th := T.setHeaderLine(buf)
-	T.entryName = entryname(T.entryName, th.EntryName, T.pagePath)
+	T.entryName = th.EntryName
 
 	var (
 		err  error
@@ -132,11 +128,13 @@ func (T *Ixgo) lookup(root, path string) (dir string, found bool) {
 	return
 }
 
-func (T *Ixgo) Execute(out io.Writer, in interface{}) (err error) {
+func (T *Ixgo) Execute(entryName string, out io.Writer, in ...any) (err error) {
 	if T.mainPkg == nil {
 		return errTemplateNotParse
 	}
-	retn, err := T.ctx.RunFunc(T.mainPkg, T.entryName, in)
+
+	entryName = entryname(T.entryName, entryName)
+	retn, err := T.ctx.RunFunc(T.mainPkg, entryName, in...)
 	if err != nil {
 		return err
 	}
@@ -150,7 +148,7 @@ func (T *Ixgo) Execute(out io.Writer, in interface{}) (err error) {
 		io.Copy(out, rv)
 	default:
 		// 暂时不显示无法识别类型
-		log.Printf("ixgo url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(rv).Elem().Type().String())
+		log.Printf("ixgo call %s returned unrecognized data type(%s)\n", entryName, reflect.ValueOf(rv).Type().String())
 	}
 
 	return nil

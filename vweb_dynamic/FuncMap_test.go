@@ -87,13 +87,13 @@ func Test_entryname(t *testing.T) {
 			result: "A",
 		}, {
 			name:   "a",
-			result: "Main",
+			result: "A",
 		}, {
 			name:   "A_",
 			result: "Main",
 		},
 	}
 	for _, tt := range tests {
-		at.Equal(tt.result, entryname("", "", tt.name))
+		at.Equal(tt.result, entryname("", tt.name))
 	}
 }

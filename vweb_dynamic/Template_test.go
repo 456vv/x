@@ -15,9 +15,9 @@ func Test_templateHeader(t *testing.T) {
 		length  int
 	}{
 		{
-			length: 3, content: []string{"file=./2.tmpl", "file=./3.tmpl", "file=/5.tmpl"},
+			length: 3, content: []string{"file=./2.tmpl", "file=./3.tmpl", "file=/template/5.tmpl"},
 		}, {
-			length: 2, content: []string{"file=./2.tmpl", "file=/5.tmpl", "//File=./3.tmpl"},
+			length: 2, content: []string{"file=./2.tmpl", "file=/template/5.tmpl", "//File=./3.tmpl"},
 		}, {
 			length: 2, content: []string{"file=./2.tmpl", "file=./3.tmpl", "file="},
 		},
@@ -48,13 +48,13 @@ func Test_shdtHeader_openFile(t *testing.T) {
 		th     TemplateHeader
 		length int
 	}{
-		{th: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/5.tmpl"}}, length: 3},
-		{th: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/6.tmpl"}}, length: 0},    // "/6.tmpl" 该文件不存在
-		{th: TemplateHeader{File: []string{"./2.tmpl", "/../3.tmpl", "/5.tmpl"}}, length: 0},  // "/../3.tmpl" 等于 "/3.tmpl" ，该文件不存在
-		{th: TemplateHeader{File: []string{"./2.tmpl", "./../5.tmpl", "/5.tmpl"}}, length: 2}, // "./../5.tmpl" 等于 "/5.tmpl"
-		{th: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/5.tmpl"}}, length: 2},   // "../5.tmpl" 等于 "/5.tmpl"
-		{th: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "/"}}, length: 0},         // "/" 表示是根目录 "./test/wwwroot"，不是文件。
-		{th: TemplateHeader{File: []string{"./2.tmpl", "../5.tmpl", "../../"}}, length: 0},    // "../../" 表示是根目录 "./test/wwwroot"，因为不能跨越根目录。同时也不是一个有效的文件。
+		{th: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/template/5.tmpl"}}, length: 3},
+		{th: TemplateHeader{File: []string{"./2.tmpl", "./3.tmpl", "/6.tmpl"}}, length: 0},                      // "/6.tmpl" 该文件不存在
+		{th: TemplateHeader{File: []string{"./2.tmpl", "/../3.tmpl", "/template/5.tmpl"}}, length: 0},           // "/../3.tmpl" 等于 "/3.tmpl" ，该文件不存在
+		{th: TemplateHeader{File: []string{"./2.tmpl", "./../template/5.tmpl", "/template/5.tmpl"}}, length: 2}, // "./../5.tmpl" 等于 "/5.tmpl"
+		{th: TemplateHeader{File: []string{"./2.tmpl", "../template/5.tmpl", "/template/5.tmpl"}}, length: 2},   // "../5.tmpl" 等于 "/5.tmpl"
+		{th: TemplateHeader{File: []string{"./2.tmpl", "../template/5.tmpl", "/"}}, length: 0},                  // "/" 表示是根目录 "./test/wwwroot"，不是文件。
+		{th: TemplateHeader{File: []string{"./2.tmpl", "../template/5.tmpl", "../../"}}, length: 0},             // "../../" 表示是根目录 "./test/wwwroot"，因为不能跨越根目录。同时也不是一个有效的文件。
 		{th: TemplateHeader{File: []string{"./2.tmpl", "3.tmpl", "t.bw"}}, length: 3},
 	}
 	for index, v := range tests {

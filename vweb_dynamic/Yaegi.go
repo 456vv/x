@@ -27,7 +27,9 @@ type Yaegi struct {
 	pagePath  string // 文件路径
 	entryName string
 	inited    bool
-	mainFunc  reflect.Value
+	m         sync.Mutex
+	mainFunc  map[string]reflect.Value
+	interpre  *interp.Interpreter
 }
 
 func (T *Yaegi) init() {
@@ -35,6 +37,12 @@ func (T *Yaegi) init() {
 		return
 	}
 	T.inited = true
+
+	T.m.Lock()
+	defer T.m.Unlock()
+
+	T.mainFunc = make(map[string]reflect.Value)
+
 	yaegiOnce.Do(func() {
 		// 增加内置函数
 		yaegiFunc = make(interp.Exports)
@@ -48,25 +56,21 @@ func (T *Yaegi) init() {
 }
 
 func (T *Yaegi) ParseText(name, content string) error {
-	T.pagePath = name
-	return T.parse(content)
+	return T.parse([]byte(content))
 }
 
 func (T *Yaegi) ParseFile(p string) error {
-	b, err := os.ReadFile(p)
+	file, err := os.Open(p)
 	if err != nil {
 		return err
 	}
-	return T.parse(string(b))
+	defer file.Close()
+	return T.Parse(file)
 }
 
 func (T *Yaegi) SetPath(root, page string) {
 	T.rootPath = root
 	T.pagePath = page
-}
-
-func (T *Yaegi) SetEntryName(name string) {
-	T.entryName = name
 }
 
 func (T *Yaegi) setHeaderLine(buf *bytes.Buffer) TemplateHeader {
@@ -81,7 +85,7 @@ func (T *Yaegi) Parse(r io.Reader) (err error) {
 		return err
 	}
 
-	return T.parse(string(contact))
+	return T.parse(contact)
 }
 
 func (T *Yaegi) newInterpre() (*interp.Interpreter, error) {
@@ -115,12 +119,12 @@ func (T *Yaegi) newInterpre() (*interp.Interpreter, error) {
 	return i, nil
 }
 
-func (T *Yaegi) parse(src string) error {
+func (T *Yaegi) parse(src []byte) error {
 	T.init()
 
-	buf := bytes.NewBufferString(src)
+	buf := bytes.NewBuffer(src)
 	th := T.setHeaderLine(buf)
-	T.entryName = entryname(T.entryName, th.EntryName, T.pagePath)
+	T.entryName = th.EntryName
 
 	interpre, err := T.newInterpre()
 	if err != nil {
@@ -146,38 +150,45 @@ func (T *Yaegi) parse(src string) error {
 		return err
 	}
 
-	T.mainFunc, err = interpre.Eval(T.entryName)
-	if err != nil {
-		return err
-	}
+	T.interpre = interpre
 	return nil
 }
 
-func (T *Yaegi) Execute(out io.Writer, in interface{}) (err error) {
-	if !T.mainFunc.IsValid() {
+func (T *Yaegi) Execute(entryName string, out io.Writer, in ...any) (err error) {
+	if T.interpre == nil {
 		return errTemplateNotParse
 	}
 
-	res := T.mainFunc
-	if res.Kind() == reflect.Func {
-		rt := res.Type()
-		if rt.NumIn() == 1 {
-			retn, err := call(res, in)
-			if err != nil {
-				return err
-			}
-			if rt.NumOut() == 1 {
-				switch rv := retn[0].(type) {
-				case string:
-					io.WriteString(out, rv)
-				case []byte:
-					out.Write(rv)
-				case io.Reader:
-					io.Copy(out, rv)
-				default:
-					// 暂时不显示无法识别类型
-					log.Printf("yaegi url(%s) returned unrecognized data type(%s)\n", T.pagePath, reflect.ValueOf(rv).Elem().Type().String())
-				}
+	T.m.Lock()
+	entryName = entryname(T.entryName, entryName)
+	mainFunc, ok := T.mainFunc[entryName]
+	if !ok {
+		mainFunc, err = T.interpre.Eval(entryName)
+		if err != nil {
+			T.m.Unlock()
+			return err
+		}
+		T.mainFunc[entryName] = mainFunc
+	}
+	T.m.Unlock()
+
+	if mainFunc.Kind() == reflect.Func {
+		retn, err := call(mainFunc, in...)
+		if err != nil {
+			return err
+		}
+
+		if mainFunc.Type().NumOut() == 1 {
+			switch rv := retn[0].(type) {
+			case string:
+				io.WriteString(out, rv)
+			case []byte:
+				out.Write(rv)
+			case io.Reader:
+				io.Copy(out, rv)
+			default:
+				// 暂时不显示无法识别类型
+				log.Printf("yaegi call %s returned unrecognized data type(%s)\n", entryName, reflect.ValueOf(rv).Type().String())
 			}
 		}
 	}

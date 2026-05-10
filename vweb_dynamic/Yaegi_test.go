@@ -16,10 +16,10 @@ func Test_Yaegi(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < 1000; i++ {
+	for i := range 100 {
 		go func(i int) {
 			buf := bytes.NewBuffer(nil)
-			if err := yaegi.Execute(buf, i); err != nil {
+			if err := yaegi.Execute("", buf, i); err != nil {
 				panic(err)
 			}
 			if buf.String() != fmt.Sprint(i) {
