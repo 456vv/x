@@ -194,3 +194,7 @@ func (T *Yaegi) Execute(entryName string, out io.Writer, in ...any) (err error) 
 	}
 	return nil
 }
+
+func (T *Yaegi) Close() error {
+	return nil
+}

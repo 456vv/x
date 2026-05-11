@@ -153,3 +153,7 @@ func (T *Ixgo) Execute(entryName string, out io.Writer, in ...any) (err error) {
 
 	return nil
 }
+
+func (T *Ixgo) Close() error {
+	return nil
+}
