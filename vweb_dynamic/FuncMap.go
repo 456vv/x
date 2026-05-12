@@ -335,11 +335,13 @@ func entryname(name1, name2 string) string {
 
 	base := filepath.Base(name2)
 	pos := strings.IndexAny(base, ".")
+	isDir := true
 	if pos != -1 {
 		base = base[:pos]
+		isDir = false
 	}
 
-	if base == "index" || base == "" {
+	if isDir || base == "index" || base == "" {
 		return "Main"
 	}
 
