@@ -9,7 +9,7 @@ require (
 	github.com/456vv/vconnpool/v2 v2.2.1
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward v1.2.4
-	github.com/456vv/vmap/v2 v2.3.4
+	github.com/456vv/vmap/v2 v2.3.5
 	github.com/456vv/vweb/v3 v3.0.3
 	github.com/456vv/x/db v0.0.0-20260503090039-272b1336468a
 	github.com/456vv/x/smtp v0.0.0-20240929162145-67fc0320d4d7
