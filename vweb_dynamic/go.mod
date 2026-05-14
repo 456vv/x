@@ -23,7 +23,7 @@ require (
 	github.com/456vv/vconnpool/v2 v2.2.1 // indirect
 	github.com/456vv/verifycode v1.0.3 // indirect
 	github.com/456vv/vforward v1.2.4 // indirect
-	github.com/456vv/vmap/v2 v2.3.4 // indirect
+	github.com/456vv/vmap/v2 v2.3.5 // indirect
 	github.com/456vv/x/db v0.0.0-20260504044256-e716b49061f3 // indirect
 	github.com/456vv/x/smtp v0.0.0-20260504044256-e716b49061f3 // indirect
 	github.com/456vv/x/sqltable v0.0.0-20260504044256-e716b49061f3 // indirect

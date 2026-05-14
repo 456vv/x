@@ -10,10 +10,8 @@ github.com/456vv/verifycode v1.0.3 h1:N/1px3+5s5nreQKErl/bKKLTsmOa87OpO+8Zpp6j4r
 github.com/456vv/verifycode v1.0.3/go.mod h1:sO5bsEpPw9a6IhIq6NDeY0K2uxofZ9oFwgRQ45P/Dao=
 github.com/456vv/vforward v1.2.4 h1:sHsIEcI+TloiQ4dAkTEjUSQ5RpoV/V3xy2tqrQ1QDPE=
 github.com/456vv/vforward v1.2.4/go.mod h1:/0Ztvw5hWWjK5jhLnccBDMa+jKP0RkncVlBvBqrIEvI=
-github.com/456vv/vmap/v2 v2.3.3 h1:V1zd6fUjtEjSX6tEbB1v7nh4rzC3012Emisp/I5jpGM=
-github.com/456vv/vmap/v2 v2.3.3/go.mod h1:+tSy8LEBuQ8GZIt+Zu9aIZkIdFeZoK9BSg98vsVmONY=
-github.com/456vv/vmap/v2 v2.3.4 h1:Sw0Nn3yoyqeoPrnUDTD/ZiY24K2F9SkWIFzKIdtzODY=
-github.com/456vv/vmap/v2 v2.3.4/go.mod h1:+tSy8LEBuQ8GZIt+Zu9aIZkIdFeZoK9BSg98vsVmONY=
+github.com/456vv/vmap/v2 v2.3.5 h1:fszT3m70GQ7rDeZ1mjUtpYIkUw76GZOOaMSMyl/WRhs=
+github.com/456vv/vmap/v2 v2.3.5/go.mod h1:+tSy8LEBuQ8GZIt+Zu9aIZkIdFeZoK9BSg98vsVmONY=
 github.com/456vv/vweb/v3 v3.0.3 h1:m62cOUbcYcoQBYZcW17KBO+Q7oM/eU4jYQoepYH4bbg=
 github.com/456vv/vweb/v3 v3.0.3/go.mod h1:43mZubG0K/cLj9BgW/JucMZfbdoxtVuxSDre6xi7nDo=
 github.com/456vv/x/db v0.0.0-20260504044256-e716b49061f3 h1:fodDfEwnLOdb9HK7JggSYMrNUVhJvDs3e8t+qQi1XjA=
