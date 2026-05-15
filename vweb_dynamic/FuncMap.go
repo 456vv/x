@@ -210,7 +210,7 @@ var wasmFunc = map[wasmFuncType]any{
 	CallMethod: callMethod,
 }
 
-// 模板函数映射
+// TemplateFunc 模板函数映射
 var TemplateFunc = template.FuncMap{
 	"Import":         importPkg,
 	"ForMethod":      vweb.ForMethod,

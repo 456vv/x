@@ -21,6 +21,7 @@ func init() {
 		Deps: map[string]string{
 			"github.com/tidwall/match":  "match",
 			"github.com/tidwall/pretty": "pretty",
+			"iter":                      "iter",
 			"strconv":                   "strconv",
 			"strings":                   "strings",
 			"time":                      "time",
