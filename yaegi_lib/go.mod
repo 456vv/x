@@ -11,11 +11,11 @@ require (
 	github.com/456vv/vforward/v2 v2.0.1
 	github.com/456vv/vmap/v2 v2.3.5
 	github.com/456vv/vweb/v3 v3.0.7
-	github.com/456vv/x/db v0.0.0-20260515152012-f494c2029e04
-	github.com/456vv/x/smtp v0.0.0-20260515152012-f494c2029e04
-	github.com/456vv/x/sqltable v0.0.0-20260515152012-f494c2029e04
-	github.com/456vv/x/ticker v0.0.0-20260515152012-f494c2029e04
-	github.com/456vv/x/watch v0.0.0-20260515152012-f494c2029e04
+	github.com/456vv/x/db v0.0.0-20260629144613-00ba8754b9ff
+	github.com/456vv/x/smtp v0.0.0-20260629144613-00ba8754b9ff
+	github.com/456vv/x/sqltable v0.0.0-20260629144613-00ba8754b9ff
+	github.com/456vv/x/ticker v0.0.0-20260629144613-00ba8754b9ff
+	github.com/456vv/x/watch v0.0.0-20260629144613-00ba8754b9ff
 	github.com/pelletier/go-toml/v2 v2.4.2
 	github.com/tidwall/gjson v1.19.0
 	github.com/tidwall/sjson v1.2.5
@@ -23,7 +23,7 @@ require (
 )
 
 require (
-	github.com/456vv/x/tcptest v0.0.0-20260515152012-f494c2029e04 // indirect
+	github.com/456vv/x/tcptest v0.0.0-20260629144613-00ba8754b9ff // indirect
 	github.com/fsnotify/fsnotify v1.10.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/issue9/assert/v2 v2.3.2 // indirect
