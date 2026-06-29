@@ -6,7 +6,7 @@
 package vconnpool
 
 import (
-	q "github.com/456vv/vconnpool/v2"
+	q "github.com/456vv/vconnpool/v3"
 
 	"reflect"
 
@@ -16,13 +16,12 @@ import (
 func init() {
 	ixgo.RegisterPackage(&ixgo.Package{
 		Name: "vconnpool",
-		Path: "github.com/456vv/vconnpool/v2",
+		Path: "github.com/456vv/vconnpool/v3",
 		Deps: map[string]string{
 			"context":                "context",
 			"errors":                 "errors",
 			"fmt":                    "fmt",
 			"github.com/456vv/vconn": "vconn",
-			"io":                     "io",
 			"net":                    "net",
 			"sync":                   "sync",
 			"sync/atomic":            "atomic",
@@ -33,14 +32,19 @@ func init() {
 			"Dialer": reflect.TypeOf((*q.Dialer)(nil)).Elem(),
 		},
 		NamedTypes: map[string]reflect.Type{
-			"ConnPool": reflect.TypeOf((*q.ConnPool)(nil)).Elem(),
+			"Addr": reflect.TypeOf((*q.Addr)(nil)).Elem(),
+			"Pool": reflect.TypeOf((*q.Pool)(nil)).Elem(),
 		},
 		AliasTypes: map[string]reflect.Type{},
 		Vars: map[string]reflect.Value{
-			"ErrConnNotAvailable": reflect.ValueOf(&q.ErrConnNotAvailable),
-			"ErrConnPoolMax":      reflect.ValueOf(&q.ErrConnPoolMax),
-			"ErrPoolFull":         reflect.ValueOf(&q.ErrPoolFull),
-			"PriorityContextKey":  reflect.ValueOf(&q.PriorityContextKey),
+			"ErrConnAlreadyExists": reflect.ValueOf(&q.ErrConnAlreadyExists),
+			"ErrConnClose":         reflect.ValueOf(&q.ErrConnClose),
+			"ErrConnIdleMax":       reflect.ValueOf(&q.ErrConnIdleMax),
+			"ErrConnNotAvailable":  reflect.ValueOf(&q.ErrConnNotAvailable),
+			"ErrConnPoolClosed":    reflect.ValueOf(&q.ErrConnPoolClosed),
+			"ErrConnPoolMax":       reflect.ValueOf(&q.ErrConnPoolMax),
+			"ErrConnRAWRead":       reflect.ValueOf(&q.ErrConnRAWRead),
+			"PriorityContextKey":   reflect.ValueOf(&q.PriorityContextKey),
 		},
 		Funcs: map[string]reflect.Value{
 			"ResolveAddr": reflect.ValueOf(q.ResolveAddr),
