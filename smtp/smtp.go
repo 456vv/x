@@ -114,7 +114,7 @@ func (T *Smtp) reconnection() error {
 	if err != nil {
 		return err
 	}
-	T.conn = vconn.NewConn(conn)
+	T.conn = vconn.New(conn)
 	
 	c, err := smtp.NewClient(T.conn , host)
 	if err != nil {
