@@ -1,7 +1,7 @@
 github.com/456vv/verifycode
 github.com/456vv/vmap/v2
-github.com/456vv/vconnpool/v2
-github.com/456vv/vforward
+github.com/456vv/vconnpool/v3
+github.com/456vv/vforward/v2
 github.com/456vv/vconn
 github.com/456vv/vbody/v2
 github.com/456vv/vcipher

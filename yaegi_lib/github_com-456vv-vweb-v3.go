@@ -186,13 +186,17 @@ func (W _github_com_456vv_vweb_v3_Doter) WithContext(ctx context.Context) {
 // _github_com_456vv_vweb_v3_DynamicTemplater is an interface wrapper for DynamicTemplater type
 type _github_com_456vv_vweb_v3_DynamicTemplater struct {
 	IValue   interface{}
-	WExecute func(out io.Writer, dot any) error
+	WClose   func() error
+	WExecute func(name string, out io.Writer, dot ...any) error
 	WParse   func(r io.Reader) (err error)
 	WSetPath func(root string, page string)
 }
 
-func (W _github_com_456vv_vweb_v3_DynamicTemplater) Execute(out io.Writer, dot any) error {
-	return W.WExecute(out, dot)
+func (W _github_com_456vv_vweb_v3_DynamicTemplater) Close() error {
+	return W.WClose()
+}
+func (W _github_com_456vv_vweb_v3_DynamicTemplater) Execute(name string, out io.Writer, dot ...any) error {
+	return W.WExecute(name, out, dot...)
 }
 func (W _github_com_456vv_vweb_v3_DynamicTemplater) Parse(r io.Reader) (err error) {
 	return W.WParse(r)
