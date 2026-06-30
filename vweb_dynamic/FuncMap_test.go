@@ -83,13 +83,13 @@ func Test_entryname(t *testing.T) {
 			name:   "@a",
 			result: "Main",
 		}, {
-			name:   "A",
+			name:   "A.html",
 			result: "A",
 		}, {
-			name:   "a",
-			result: "A",
+			name:   "/a/b",
+			result: "Main",
 		}, {
-			name:   "A_",
+			name:   "/A_",
 			result: "Main",
 		},
 	}
