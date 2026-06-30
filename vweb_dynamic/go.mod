@@ -4,8 +4,8 @@ go 1.25.0
 
 require (
 	github.com/456vv/vweb/v3 v3.0.7
-	github.com/456vv/x/igop_lib v0.0.0-20260629150452-43817cca69e8
-	github.com/456vv/x/yaegi_lib v0.0.0-20260629150452-43817cca69e8
+	github.com/456vv/x/igop_lib v0.0.0-20260630031248-11d1612a683b
+	github.com/456vv/x/yaegi_lib v0.0.0-20260630031248-11d1612a683b
 	github.com/OpenListTeam/wazero-wasip2 v0.0.0-20251102195840-b699dbc20d5c
 	github.com/goplus/ixgo v1.1.0
 	github.com/goplus/reflectx v1.7.0
@@ -19,26 +19,26 @@ require (
 	github.com/456vv/vbody/v2 v2.2.1 // indirect
 	github.com/456vv/vcipher v1.0.0 // indirect
 	github.com/456vv/vconn v1.4.6 // indirect
-	github.com/456vv/vconnpool/v3 v3.2.10 // indirect
+	github.com/456vv/vconnpool/v3 v3.2.11 // indirect
 	github.com/456vv/verifycode v1.0.3 // indirect
 	github.com/456vv/vforward/v2 v2.0.1 // indirect
 	github.com/456vv/vmap/v2 v2.3.5 // indirect
-	github.com/456vv/x/db v0.0.0-20260629144613-00ba8754b9ff // indirect
-	github.com/456vv/x/smtp v0.0.0-20260629144613-00ba8754b9ff // indirect
-	github.com/456vv/x/sqltable v0.0.0-20260629144613-00ba8754b9ff // indirect
-	github.com/456vv/x/ticker v0.0.0-20260629144613-00ba8754b9ff // indirect
-	github.com/456vv/x/watch v0.0.0-20260629144613-00ba8754b9ff // indirect
-	github.com/fsnotify/fsnotify v1.10.0 // indirect
+	github.com/456vv/x/db v0.0.0-20260630031248-11d1612a683b
+	github.com/456vv/x/smtp v0.0.0-20260630031248-11d1612a683b
+	github.com/456vv/x/sqltable v0.0.0-20260630031248-11d1612a683b
+	github.com/456vv/x/ticker v0.0.0-20260630031248-11d1612a683b
+	github.com/456vv/x/watch v0.0.0-20260630031248-11d1612a683b
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/libp2p/go-reuseport v0.4.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.47 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.2 // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
-	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/tidwall/match v1.2.0 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/timandy/routine v1.1.5 // indirect
+	github.com/timandy/routine v1.1.6 // indirect
 	github.com/visualfc/funcval v0.1.4 // indirect
 	github.com/visualfc/goembed v0.3.4 // indirect
 	github.com/visualfc/xtype v0.3.0 // indirect
