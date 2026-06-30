@@ -7,7 +7,7 @@ import(
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/verifycode"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vmap/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vconnpool/v3"
-	_ "github.com/456vv/x/igop_lib/github.com/456vv/vforward/2"
+	_ "github.com/456vv/x/igop_lib/github.com/456vv/vforward/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vconn"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vbody/v2"
 	_ "github.com/456vv/x/igop_lib/github.com/456vv/vcipher"

@@ -8,6 +8,7 @@ require (
 	github.com/456vv/vconn v1.4.6
 	github.com/456vv/vconnpool/v3 v3.2.10
 	github.com/456vv/verifycode v1.0.3
+	github.com/456vv/vforward/v2 v2.0.1
 	github.com/456vv/vmap/v2 v2.3.5
 	github.com/456vv/vweb/v3 v3.0.7
 	github.com/456vv/x/db v0.0.0-20260629144613-00ba8754b9ff
@@ -25,7 +26,6 @@ require (
 )
 
 require (
-	github.com/456vv/vforward/v2 v2.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.10.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/libp2p/go-reuseport v0.4.0 // indirect
