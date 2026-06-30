@@ -6,7 +6,7 @@ require (
 	github.com/456vv/vbody/v2 v2.2.1
 	github.com/456vv/vcipher v1.0.0
 	github.com/456vv/vconn v1.4.6
-	github.com/456vv/vconnpool/v3 v3.2.10
+	github.com/456vv/vconnpool/v3 v3.2.11
 	github.com/456vv/verifycode v1.0.3
 	github.com/456vv/vforward/v2 v2.0.1
 	github.com/456vv/vmap/v2 v2.3.5
