@@ -13,6 +13,7 @@ import (
 func Test_igop_1(t *testing.T) {
 	as := assert.New(t, true)
 	ssa := &Ixgo{}
+	defer ssa.Close()
 
 	pRoot := "./testdata/wwwroot/igop"
 	pPath := "pkg1.go"

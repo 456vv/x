@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/issue9/assert/v4"
+	assert "github.com/issue9/assert/v4"
 )
 
 func Test_pkgTypes_new(t *testing.T) {
@@ -15,7 +15,7 @@ func Test_pkgTypes_new(t *testing.T) {
 	}{
 		{
 			T:    &pkgTypes{t: reflect.TypeOf((*testing.T)(nil))},
-			args: []any{(testing.TB)(t)},
+			args: []any{testing.TB(t)},
 			result: func(v reflect.Value) bool {
 				return v.Type().String() == "*testing.T" && v.IsValid()
 			},
