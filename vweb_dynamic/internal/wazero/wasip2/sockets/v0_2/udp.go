@@ -1,0 +1,207 @@
+package v0_2
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net"
+	"time"
+
+	manager_io "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/io"
+	manager_sockets "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/sockets"
+
+	"github.com/456vv/x/vweb_dynamic/internal/wazero/wasip2"
+	wasip2_io "github.com/456vv/x/vweb_dynamic/internal/wazero/wasip2/io/v0_2"
+	witgo "github.com/456vv/x/vweb_dynamic/internal/wazero/witgo"
+)
+
+type udpImpl struct {
+	host *wasip2.Host
+}
+
+func newUDPImpl(h *wasip2.Host) *udpImpl {
+	return &udpImpl{host: h}
+}
+
+func (i *udpImpl) checkNetwork(network Network) ErrorCode {
+	if i.host == nil || i.host.NetworkManager() == nil {
+		return ErrorCodeInvalidArgument
+	}
+	if _, ok := i.host.NetworkManager().Get(network); !ok {
+		return ErrorCodeInvalidArgument
+	}
+	return 0
+}
+
+func (i *udpImpl) Stream(_ context.Context, this UDPSocket, remoteAddress witgo.Option[IPSocketAddress]) witgo.Result[witgo.Tuple[IncomingDatagramStream, OutgoingDatagramStream], ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	if !ok || sock.Conn == nil {
+		return witgo.Err[witgo.Tuple[IncomingDatagramStream, OutgoingDatagramStream], ErrorCode](ErrorCodeInvalidState)
+	}
+	if err := sock.ReplaceDatagramStreams(func() error {
+		return i.connectUDP(sock, remoteAddress)
+	}); err != nil {
+		if errors.Is(err, manager_sockets.ErrInvalidSocketState) {
+			return witgo.Err[witgo.Tuple[IncomingDatagramStream, OutgoingDatagramStream], ErrorCode](ErrorCodeInvalidState)
+		}
+		return witgo.Err[witgo.Tuple[IncomingDatagramStream, OutgoingDatagramStream], ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[witgo.Tuple[IncomingDatagramStream, OutgoingDatagramStream], ErrorCode](
+		witgo.Tuple[IncomingDatagramStream, OutgoingDatagramStream]{F0: this, F1: this},
+	)
+}
+
+func (i *udpImpl) LocalAddress(ctx context.Context, this UDPSocket) witgo.Result[IPSocketAddress, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	if !ok || sock.Conn == nil {
+		return witgo.Err[IPSocketAddress, ErrorCode](ErrorCodeInvalidState)
+	}
+	addr, err := toIPSocketAddress(sock.Conn.LocalAddr())
+	if err != nil {
+		return witgo.Err[IPSocketAddress, ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[IPSocketAddress, ErrorCode](addr)
+}
+
+func (i *udpImpl) RemoteAddress(ctx context.Context, this UDPSocket) witgo.Result[IPSocketAddress, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	if !ok || sock.Conn == nil {
+		return witgo.Err[IPSocketAddress, ErrorCode](ErrorCodeInvalidState)
+	}
+	addr, err := toIPSocketAddress(sock.Conn.RemoteAddr())
+	if err != nil {
+		return witgo.Err[IPSocketAddress, ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[IPSocketAddress, ErrorCode](addr)
+}
+
+func (i *udpImpl) AddressFamily(ctx context.Context, this UDPSocket) IPAddressFamily {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	if !ok {
+		return IPAddressFamilyIPV4
+	}
+	family, _ := toIPAddressFamily(sock.Family)
+	return family
+}
+
+// SetReceiveBufferSize 设置接收缓冲区大小。
+func (i *udpImpl) SetReceiveBufferSize(ctx context.Context, this UDPSocket, value uint64) witgo.Result[witgo.Unit, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this) // 原先误用 TCPSocket/TCPSocketManager
+	if !ok {
+		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
+	}
+	if sock.Conn == nil {
+		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
+	}
+	if err := sock.Conn.SetReadBuffer(clampToInt(value)); err != nil {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
+}
+
+// SetSendBufferSize 设置发送缓冲区大小。
+func (i *udpImpl) SetSendBufferSize(ctx context.Context, this UDPSocket, value uint64) witgo.Result[witgo.Unit, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	if !ok {
+		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
+	}
+	if sock.Conn == nil {
+		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
+	}
+	if err := sock.Conn.SetWriteBuffer(clampToInt(value)); err != nil {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
+}
+
+func (i *udpImpl) Subscribe(ctx context.Context, this UDPSocket) wasip2_io.Pollable {
+	return i.host.PollManager().Add(manager_io.NewReadyPollable())
+}
+
+func (i *udpImpl) DropIncomingDatagramStream(_ context.Context, handle IncomingDatagramStream) {
+	sock, ok := i.host.UDPSocketManager().Get(handle)
+	if !ok {
+		return
+	}
+	if r := sock.TakeReader(); r != nil {
+		r.Close()
+		r.WaitExit()
+		if sock.Conn != nil {
+			_ = sock.Conn.SetReadDeadline(time.Time{})
+		}
+	}
+}
+
+func (i *udpImpl) DropOutgoingDatagramStream(_ context.Context, handle OutgoingDatagramStream) {
+	sock, ok := i.host.UDPSocketManager().Get(handle)
+	if !ok {
+		return
+	}
+	if w := sock.TakeWriter(); w != nil {
+		w.Close()
+		w.WaitExit()
+		if sock.Conn != nil {
+			_ = sock.Conn.SetWriteDeadline(time.Time{})
+		}
+	}
+}
+
+func (i *udpImpl) Receive(_ context.Context, this IncomingDatagramStream, maxResults uint64) witgo.Result[[]IncomingDatagram, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	reader := sock.GetReader()
+	if !ok || reader == nil {
+		return witgo.Err[[]IncomingDatagram, ErrorCode](ErrorCodeInvalidArgument)
+	}
+	if maxResults == 0 {
+		return witgo.Ok[[]IncomingDatagram, ErrorCode]([]IncomingDatagram{})
+	}
+	datagrams, err := reader.Receive(maxResults)
+	if err != nil {
+		if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+			return witgo.Err[[]IncomingDatagram, ErrorCode](ErrorCodeInvalidState)
+		}
+		return witgo.Err[[]IncomingDatagram, ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[[]IncomingDatagram, ErrorCode](datagrams)
+}
+
+func (i *udpImpl) Send(_ context.Context, this OutgoingDatagramStream, datagrams []OutgoingDatagram) witgo.Result[uint64, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	writer := sock.GetWriter()
+	if !ok || writer == nil {
+		return witgo.Err[uint64, ErrorCode](ErrorCodeInvalidArgument)
+	}
+	sentCount, err := writer.Send(datagrams)
+	if err != nil {
+		return witgo.Err[uint64, ErrorCode](mapOsError(err))
+	}
+	return witgo.Ok[uint64, ErrorCode](sentCount)
+}
+
+func (i *udpImpl) CheckSend(_ context.Context, this OutgoingDatagramStream) witgo.Result[uint64, ErrorCode] {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	writer := sock.GetWriter()
+	// 流已 drop 时应 InvalidState，而不是 Ok(0) 被 guest 当成“暂无空间”空转。
+	if !ok || writer == nil {
+		return witgo.Err[uint64, ErrorCode](ErrorCodeInvalidState)
+	}
+	return witgo.Ok[uint64, ErrorCode](writer.AvailableSpace())
+}
+
+func (i *udpImpl) SubscribeIncoming(ctx context.Context, this IncomingDatagramStream) wasip2_io.Pollable {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	reader := sock.GetReader()
+	if !ok || reader == nil {
+		return i.host.PollManager().Add(manager_io.NewReadyPollable())
+	}
+	return i.host.PollManager().Add(reader.Subscribe())
+}
+
+func (i *udpImpl) SubscribeOutgoing(ctx context.Context, this OutgoingDatagramStream) wasip2_io.Pollable {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	writer := sock.GetWriter()
+	if !ok || writer == nil {
+		return i.host.PollManager().Add(manager_io.NewReadyPollable())
+	}
+	return i.host.PollManager().Add(writer.Subscribe())
+}

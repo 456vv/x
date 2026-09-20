@@ -1,0 +1,94 @@
+package v0_2
+
+import (
+	"context"
+	"fmt"
+
+	manager_http "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/http"
+	manager_io "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/io"
+	witgo "github.com/456vv/x/vweb_dynamic/internal/wazero/witgo"
+)
+
+// outgoing 用于host端的资源
+
+type outgoingBodyImpl struct {
+	hm *manager_http.HTTPManager
+}
+
+func newOutgoingBodyImpl(hm *manager_http.HTTPManager) *outgoingBodyImpl {
+	return &outgoingBodyImpl{hm: hm}
+}
+
+// Drop 是 outgoing-body 资源的析构函数。
+// 它确保在句柄被废弃时，相关的写入管道被关闭。
+func (i *outgoingBodyImpl) Drop(_ context.Context, handle OutgoingBody) {
+	i.hm.Bodies.Remove(handle)
+}
+
+// outpt-stream必须在outgoing-body被丢弃或完成前先被丢弃，否则会触发错误（trap）；
+// 该流只能获取一次（第一次调用成功），后续调用会返回错误（避免重复写入导致的混乱）。
+func (i *outgoingBodyImpl) Write(_ context.Context, this OutgoingBody) witgo.Result[OutputStream, witgo.Unit] {
+	body, ok := i.hm.Bodies.Get(this)
+	if !ok {
+		return witgo.Err[OutputStream, witgo.Unit](witgo.Unit{})
+	}
+	if !body.Consumed.CompareAndSwap(false, true) {
+		return witgo.Err[OutputStream, witgo.Unit](witgo.Unit{})
+	}
+
+	// Stream 由 outgoingBody 管理,所以去除Close
+	stream := manager_io.NewAsyncStreamForWriter(body.BodyWriter, manager_io.WriterWritten(&body.BytesWritten), manager_io.DontCloseWriter())
+	body.OutputStreamHandle = i.hm.Streams.Add(stream)
+	return witgo.Ok[OutputStream, witgo.Unit](body.OutputStreamHandle)
+}
+
+// 显式标记消息体已完成，可附带 trailers。这是必须调用的方法，用于告知系统 "消息体内容已全部发送"
+// 如果对应的 HTTP 请求 / 响应包含Content-Length头，finish会校验实际写入的内容长度是否与该头指定的值一致；不一致则返回失败（确保协议合规）
+// 若未调用finish就直接丢弃outgoing-body资源，系统会将消息体视为 "不完整 / 损坏"，并通过各种方式（如破坏传输内容、中止请求、发送错误状态码）将错误反馈到 HTTP 协议层面
+func (i *outgoingBodyImpl) Finish(_ context.Context, this OutgoingBody, trailers witgo.Option[Fields]) witgo.Result[witgo.Unit, ErrorCode] {
+	var trailer manager_http.Fields
+	var trailerHandle uint32
+	if trailers.IsSome() {
+		trailerHandle = *trailers.Some
+		trailer, _ = i.hm.Fields.Pop(trailerHandle)
+	}
+
+	body, ok := i.hm.Bodies.Pop(this)
+	if !ok {
+		// 已 Pop 的 trailers 必须塞回，否则 finish 失败会泄漏 fields
+		if trailerHandle != 0 && trailer != nil {
+			i.hm.Fields.Set(trailerHandle, trailer)
+		}
+		return witgo.Err[witgo.Unit, ErrorCode](ErrorCode{InternalError: witgo.SomePtr("invalid outgoing_body handle")})
+	}
+
+	// 必须 先 drop output-stream（DontCloseWriter + BlockingFlush）再读 BytesWritten。
+	// 原先 defer 在 return 之后才 flush，Content-Length 校验永远偏小。
+	// 此时不可 Close PipeWriter，否则读端先收到 EOF，trailers 来不及挂上。
+	if body.OutputStreamHandle != 0 {
+		i.hm.Streams.Remove(body.OutputStreamHandle)
+		body.OutputStreamHandle = 0
+	}
+	if body.SetTrailers != nil {
+		if err := body.SetTrailers(trailer); err != nil {
+			if body.BodyWriter != nil {
+				_ = body.BodyWriter.CloseWithError(err)
+			}
+			return witgo.Err[witgo.Unit, ErrorCode](mapGoErrToWasiHttpErr(err))
+		}
+	}
+	if body.ContentLength != nil {
+		bytesWritten := body.BytesWritten.Load()
+		if bytesWritten != *body.ContentLength {
+			errMsg := fmt.Sprintf("content-length mismatch: header specified %d, but %d bytes were written", *body.ContentLength, bytesWritten)
+			if body.BodyWriter != nil {
+				_ = body.BodyWriter.CloseWithError(fmt.Errorf("%s", errMsg))
+			}
+			return witgo.Err[witgo.Unit, ErrorCode](ErrorCode{InternalError: witgo.SomePtr(errMsg)})
+		}
+	}
+	if body.BodyWriter != nil {
+		_ = body.BodyWriter.Close()
+	}
+	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
+}
