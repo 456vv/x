@@ -106,20 +106,26 @@ var (
 
 // waitTCPConnect 等待非阻塞 connect 完成（可写或 except）。
 // select 失败时用 Call 的 lastErr；SOCKET_ERROR 恒为 -1。
-func waitTCPConnect(fd windows.Handle) error {
+func waitTCPConnect(fd windows.Handle, ctx context.Context) error {
 	for {
+		if ctx != nil {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
 		var wset, eset winFdSet
 		wset.fdCount = 1
 		wset.fdArray[0] = fd
 		eset.fdCount = 1
 		eset.fdArray[0] = fd
-		// nfds 在 Windows 上被忽略；timeout=NULL 表示无限等待
+		// timeout=NULL 时 drop 无法打断；200ms 轮询观察 ConnectContext
+		tv := syscall.Timeval{Sec: 0, Usec: 200000}
 		r1, _, callErr := procSelect.Call(
 			0,
 			0,
 			uintptr(unsafe.Pointer(&wset)),
 			uintptr(unsafe.Pointer(&eset)),
-			0,
+			uintptr(unsafe.Pointer(&tv)),
 		)
 		if int32(r1) == -1 {
 			if callErr == windows.WSAEINTR {
@@ -130,7 +136,9 @@ func waitTCPConnect(fd windows.Handle) error {
 			}
 			return syscall.EINVAL
 		}
-		return nil
+		if r1 > 0 {
+			return nil
+		}
 	}
 }
 
@@ -144,7 +152,17 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		if sock.Family == sockets.IPAddressFamilyIPV6 {
 			network = "tcp6"
 		}
-		return net.DialTCP(network, nil, addr)
+		// drop 必须能取消拨号
+		c, err := (&net.Dialer{}).DialContext(sock.ConnectContext(), network, addr.String())
+		if err != nil {
+			return nil, err
+		}
+		tc, ok := c.(*net.TCPConn)
+		if !ok {
+			_ = c.Close()
+			return nil, syscall.EINVAL
+		}
+		return tc, nil
 	}
 	sa, err := fromIPSocketAddressToSockaddr(remoteAddress)
 	if err != nil {
@@ -159,7 +177,7 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		return nil, cerr
 	}
 	if cerr != nil {
-		if err := waitTCPConnect(windows.Handle(sock.Fd)); err != nil {
+		if err := waitTCPConnect(windows.Handle(sock.Fd), sock.ConnectContext()); err != nil {
 			return nil, err
 		}
 		soerr, gerr := windows.GetsockoptInt(windows.Handle(sock.Fd), windows.SOL_SOCKET, soError)

@@ -3,6 +3,7 @@ package witgo
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/tetratelabs/wazero/api"
@@ -402,6 +403,10 @@ func lowerSlice2(ctx context.Context, mem api.Memory, contentPtr uint32, content
 	stride := align(elemLayout.Size, elemLayout.Alignment)
 	if stride == 0 {
 		stride = elemLayout.Size
+	}
+	// 修改原因：恶意 guest 的 contentLen*stride 会溢出 uint32，elemPtr 回绕
+	if stride > 0 && uint64(contentLen) > uint64(math.MaxUint32)/uint64(stride) {
+		return fmt.Errorf("slice content size overflow: len=%d stride=%d", contentLen, stride)
 	}
 
 	n := int(contentLen)

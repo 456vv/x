@@ -90,7 +90,18 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 			local = la
 		}
 	}
-	return net.DialTCP(network, local, addr)
+	// drop 时 ConnectContext 取消才能打断无原始 fd 平台上的拨号
+	d := net.Dialer{LocalAddr: local}
+	c, err := d.DialContext(sock.ConnectContext(), network, addr.String())
+	if err != nil {
+		return nil, err
+	}
+	tc, ok := c.(*net.TCPConn)
+	if !ok {
+		_ = c.Close()
+		return nil, errors.New("dial did not return TCPConn")
+	}
+	return tc, nil
 }
 
 func (i *tcpImpl) acceptTCP(sock *sockets.TCPSocket) (*net.TCPConn, error) {

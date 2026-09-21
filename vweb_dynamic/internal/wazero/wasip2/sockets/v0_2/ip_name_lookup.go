@@ -23,6 +23,14 @@ func (i *ipNameLookupImpl) ResolveAddresses(ctx context.Context, network Network
 	if name == "" {
 		return witgo.Err[ResolveAddressStream, ErrorCode](ErrorCodeInvalidArgument)
 	}
+	// network 是 WASI 能力句柄；无效时不应做 DNS
+	if i.host == nil || i.host.NetworkManager() == nil {
+		return witgo.Err[ResolveAddressStream, ErrorCode](ErrorCodeInvalidArgument)
+	}
+	if _, ok := i.host.NetworkManager().Get(network); !ok {
+		return witgo.Err[ResolveAddressStream, ErrorCode](ErrorCodeInvalidArgument)
+	}
+
 	state := &sockets.ResolveAddressStreamState{
 		Done: make(chan struct{}),
 	}

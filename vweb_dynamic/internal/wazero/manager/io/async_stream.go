@@ -296,6 +296,11 @@ func WithMaxBufferSize(size int) AsyncWriteWrapperOption {
 	}
 }
 
+// closedWriter 避免 NewAsyncWriteWrapper(nil) 时后台 goroutine 对 Writer 解引用 panic。
+type closedWriter struct{}
+
+func (closedWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
 // AsyncWriteWrapper 将一个阻塞的 io.Writer 封装成一个非阻塞的 writer，
 // 带有内部缓冲区，并通过 IPollable 接口提供空间可用性通知。
 type AsyncWriteWrapper struct {
@@ -317,6 +322,10 @@ type AsyncWriteWrapper struct {
 
 // NewAsyncWriteWrapper 创建并启动一个新的异步写入封装器。
 func NewAsyncWriteWrapper(w io.Writer, opts ...AsyncWriteWrapperOption) *AsyncWriteWrapper {
+	if w == nil {
+		// nil Writer 会让 run() 中 Write 解引用 panic
+		w = closedWriter{}
+	}
 	wrapper := &AsyncWriteWrapper{
 		writer:          w,
 		buffer:          &bytes.Buffer{},
@@ -439,6 +448,8 @@ func (aww *AsyncWriteWrapper) BlockingFlush() error {
 	aww.mutex.Lock()
 	defer aww.mutex.Unlock()
 
+	// 不可把 closed 放进循环条件。Close() 先 Store(true) 再 Flush；
+	// 否则 DontCloseWriter（HTTP pipe）会未排空就返回，读端收到截断 body。
 	for aww.buffer.Len() > 0 && aww.err == nil {
 		select {
 		case <-aww.done:

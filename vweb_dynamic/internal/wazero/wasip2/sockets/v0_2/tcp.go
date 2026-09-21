@@ -85,6 +85,10 @@ func (i *tcpImpl) FinishConnect(ctx context.Context, this TCPSocket) witgo.Resul
 	}
 
 	if !sock.ClaimConnectSuccess(result.Conn) {
+		// drop 抢先 Closed 时 Claim 失败，result.Conn 可能尚未被析构拷走
+		if result.Conn != nil && sock.GetState() != sockets.TCPStateConnected {
+			_ = result.Conn.Close()
+		}
 		return witgo.Err[witgo.Tuple[wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeNotInProgress)
 	}
 

@@ -103,7 +103,6 @@ func (i *tcpImpl) listenTCP(sock *sockets.TCPSocket) error {
 // 禁止 net.DialTCP 另开套接字，否则 start-bind 的本地地址丢失。
 func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddress) (*net.TCPConn, error) {
 	if !sock.HasFd() {
-		// 无原始 fd 时才回退 DialTCP；Fd==0 仍可能是已 bind 的套接字
 		addr, err := fromIPSocketAddressToTCPAddr(remoteAddress)
 		if err != nil {
 			return nil, err
@@ -112,7 +111,17 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		if sock.Family == sockets.IPAddressFamilyIPV6 {
 			network = "tcp6"
 		}
-		return net.DialTCP(network, nil, addr)
+		// drop 必须能取消拨号
+		c, err := (&net.Dialer{}).DialContext(sock.ConnectContext(), network, addr.String())
+		if err != nil {
+			return nil, err
+		}
+		tc, ok := c.(*net.TCPConn)
+		if !ok {
+			_ = c.Close()
+			return nil, syscall.EINVAL
+		}
+		return tc, nil
 	}
 
 	sa, err := fromIPSocketAddressToSockaddr(remoteAddress)
@@ -131,15 +140,23 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		// 非阻塞 socket：Connect 返回 EINPROGRESS，poll 可写后再读 SO_ERROR
 		if cerr == unix.EINPROGRESS || cerr == unix.EAGAIN || cerr == unix.EWOULDBLOCK {
 			fds := []unix.PollFd{{Fd: int32(sock.Fd), Events: unix.POLLOUT}}
+			ctx := sock.ConnectContext()
 			for {
-				_, perr := unix.Poll(fds, -1)
+				if ctx != nil {
+					if err := ctx.Err(); err != nil {
+						return nil, err
+					}
+				}
+				n, perr := unix.Poll(fds, 200) // imeout=-1 无法在 drop 时退出
 				if perr == unix.EINTR {
 					continue
 				}
 				if perr != nil {
 					return nil, perr
 				}
-				break
+				if n > 0 {
+					break
+				}
 			}
 			soerr, gerr := unix.GetsockoptInt(sock.Fd, unix.SOL_SOCKET, unix.SO_ERROR)
 			if gerr != nil {
@@ -150,6 +167,7 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 			}
 			break
 		}
+
 		return nil, cerr
 	}
 

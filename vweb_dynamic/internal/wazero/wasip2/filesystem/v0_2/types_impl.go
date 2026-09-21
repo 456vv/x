@@ -865,7 +865,14 @@ func (s *sectionWriter) Write(p []byte) (n int, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n, err = s.w.WriteAt(p, s.offset)
-	s.offset += int64(n)
+	if n > 0 {
+		// offset+n 超过 MaxInt64 会变成负偏移，后续 WriteAt 行为未定义
+		if s.offset > math.MaxInt64-int64(n) {
+			s.offset = math.MaxInt64
+		} else {
+			s.offset += int64(n)
+		}
+	}
 	return
 }
 

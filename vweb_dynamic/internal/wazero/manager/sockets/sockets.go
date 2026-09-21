@@ -91,6 +91,10 @@ type TCPSocket struct {
 	connectMu     sync.Mutex
 	connectStored ConnectResult
 	connectReady  atomic.Bool
+
+	// drop 时取消 in-flight Dial/Poll；无原始 fd 时 DialTCP 无法被 Conn.Close 打断
+	connectCtx    context.Context
+	connectCancel context.CancelFunc
 }
 
 // TCPState represents the state of a TCP socket as defined in the WIT world.
@@ -136,6 +140,20 @@ func (s *TCPSocket) SetState(st TCPState) {
 	s.stateAtomic.Store(uint32(st))
 }
 
+// ConnectContext 返回当前 connect 的可取消 context；无则 Background。
+// wasip2 与 manager 不同包，不能直接读未导出字段。
+func (s *TCPSocket) ConnectContext() context.Context {
+	if s == nil {
+		return context.Background()
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	if s.connectCtx == nil {
+		return context.Background()
+	}
+	return s.connectCtx
+}
+
 // DoBind 在 Unbound 下执行 bind，成功则进入 Bound。持锁避免与 connect/drop 并发。
 func (s *TCPSocket) DoBind(fn func() error) error {
 	if s == nil {
@@ -179,12 +197,27 @@ func (s *TCPSocket) DoListen(fn func() error) error {
 // StoreConnectResult 一次性保存 connect 结果并唤醒等待方。
 func (s *TCPSocket) StoreConnectResult(res ConnectResult) {
 	if s == nil {
+		// 无接收方时仍可能带着已拨通的 Conn，必须关掉
+		if res.Conn != nil {
+			_ = res.Conn.Close()
+		}
 		return
 	}
 	s.connectMu.Lock()
 	defer s.connectMu.Unlock()
 	if s.connectReady.Load() {
+		// 二次结果不能覆盖已保存的 Conn，否则旧/新连接泄漏或被误关
+		if res.Conn != nil && res.Conn != s.connectStored.Conn {
+			_ = res.Conn.Close()
+		}
 		return
+	}
+	if s.GetState() != TCPStateConnecting {
+		// drop 已 Closed 时 finish 不会再 Claim，Conn 必须当场关
+		if res.Conn != nil {
+			_ = res.Conn.Close()
+			res.Conn = nil
+		}
 	}
 	s.connectStored = res
 	s.connectReady.Store(true)
@@ -235,6 +268,11 @@ func (s *TCPSocket) BeginConnect() (ok bool, conflict bool) {
 	if s.ConnectResult == nil {
 		s.ConnectResult = make(chan ConnectResult, 1)
 	}
+	// 每次 connect 独立可取消 context，drop 才能打断 Dial/Poll
+	if s.connectCancel != nil {
+		s.connectCancel()
+	}
+	s.connectCtx, s.connectCancel = context.WithCancel(context.Background())
 	s.SetState(TCPStateConnecting)
 	return true, false
 }
@@ -251,6 +289,10 @@ func (s *TCPSocket) ClaimConnectSuccess(conn *net.TCPConn) bool {
 		return false
 	}
 	s.Conn = conn
+	// 所有权转到 sock.Conn 后清空 stored，避免析构再关一次
+	if s.connectStored.Conn == conn {
+		s.connectStored.Conn = nil
+	}
 	s.SetState(TCPStateConnected)
 	return true
 }
@@ -427,22 +469,42 @@ func NewTCPSocketManager() *TCPSocketManager {
 		// 与 bind/connect 同一把锁交接 Conn/Listener/fd，避免关 fd 后仍 Connect。
 		resource.connectMu.Lock()
 		resource.SetState(TCPStateClosed)
+		if resource.connectCancel != nil {
+			// 打断 in-flight DialContext/Poll，否则 drop 后 dial goroutine 泄漏
+			resource.connectCancel()
+			resource.connectCancel = nil
+		}
 		conn := resource.Conn
 		resource.Conn = nil
+		stored := resource.connectStored.Conn
+		resource.connectStored.Conn = nil
 		ln := resource.Listener
 		resource.Listener = nil
 		cfd := resource.closeFd
 		resource.closeFd = nil
 		resource.Fd = -1
+		done := resource.ConnectDone
 		resource.connectMu.Unlock()
 		if conn != nil {
 			_ = conn.Close()
+		}
+		// finish-connect 尚未 Claim 时连接只在 connectStored 里
+		if stored != nil && stored != conn {
+			_ = stored.Close()
 		}
 		if ln != nil {
 			_ = ln.Close()
 		}
 		if cfd != nil {
 			_ = cfd()
+		}
+		if done != nil {
+			// connect 被取消且尚未 Store 时，subscribe 会永久堵在 ConnectDone
+			select {
+			case <-done:
+			default:
+				close(done)
+			}
 		}
 	})
 }

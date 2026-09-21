@@ -154,6 +154,8 @@ func (p *ChannelPollable) Close() {
 	if cancel != nil {
 		cancel()
 	}
+	// drop/Host.Close 必须唤醒 Block 与 poll.select；定时器 Stop 后原 channel 可能永不关闭
+	p.SetReady()
 }
 
 // LevelPollable 按条件判断就绪（电平触发）。

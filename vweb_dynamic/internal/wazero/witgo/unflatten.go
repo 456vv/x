@@ -80,7 +80,8 @@ func (h *Host) unflattenParam(ctx context.Context, mem api.Memory, ps *paramStre
 		}
 		bits := targetType.Bits()
 		if bits < 64 {
-			p &= (1 << bits) - 1 // 截断到类型位宽
+			// 32 位上 `1 << 32` 作为 int 溢出成 0，截断失效；必须用 uint64 移位
+			p &= (uint64(1) << uint(bits)) - 1
 		}
 		outVal.SetUint(p)
 	case reflect.Int:

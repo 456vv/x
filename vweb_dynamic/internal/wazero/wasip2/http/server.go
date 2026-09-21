@@ -75,7 +75,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			defer close(copyDone)
 			switch result := v.(type) {
 			case v0_2.OutgoingResponse:
-				s.writeOutgoingResponse(w, result)
+				s.writeOutgoingResponse(ctx, w, result)
 			case v0_2.ErrorCode:
 				http.Error(w, fmt.Sprintf("guest returned an error code: %+v", result), http.StatusInternalServerError)
 			default:
@@ -101,6 +101,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, callErr := s.handleFunc.Call(ctx, uint64(reqHandle), uint64(outparamHandle))
 	s.guestMu.Unlock()
 	if callErr != nil {
+		// handle 成功后 incoming-request 所有权在 guest，不能 Remove；
+		// 仅 trap 时 guest 未 drop，才由宿主回收，避免拆掉仍在读的 body。
 		hm.IncomingRequests.Remove(reqHandle)
 	}
 
@@ -155,7 +157,7 @@ func (s *Server) createIncomingRequest(ctx context.Context, r *http.Request) (v0
 }
 
 // writeOutgoingResponse 将 guest 返回的 OutgoingResponse 写入 http.ResponseWriter
-func (s *Server) writeOutgoingResponse(w http.ResponseWriter, respHandle v0_2.OutgoingResponse) {
+func (s *Server) writeOutgoingResponse(ctx context.Context, w http.ResponseWriter, respHandle v0_2.OutgoingResponse) {
 	hm := s.wasiHost.HTTPManager()
 	resp, ok := hm.OutgoingResponses.Pop(respHandle)
 	if !ok {
@@ -187,7 +189,20 @@ func (s *Server) writeOutgoingResponse(w http.ResponseWriter, respHandle v0_2.Ou
 	}
 	w.WriteHeader(status)
 	if resp.Body != nil {
-		_, _ = io.Copy(w, resp.Body)
+		// 客户端取消时 io.Copy 会一直等到 guest finish；关 Body 打断 Pipe
+		errCh := make(chan error, 1)
+		go func() {
+			_, copyErr := io.Copy(w, resp.Body)
+			errCh <- copyErr
+		}()
+		select {
+		case <-errCh:
+		case <-ctx.Done():
+			if c, ok := resp.Body.(io.Closer); ok {
+				_ = c.Close()
+			}
+			<-errCh
+		}
 		if c, ok := resp.Body.(io.Closer); ok {
 			_ = c.Close()
 		}
