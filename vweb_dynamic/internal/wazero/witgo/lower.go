@@ -9,6 +9,10 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
+// maxLowerBytes 限制从 guest 线性内存拷入 host 的单次 string/list。
+// contentLen 为 guest 可控 u32，make([]T, n) / mem.Read 可打爆宿主。
+const maxLowerBytes = 64 << 20
+
 // ============================================================
 // Lower：Guest 内存 -> Go 值
 // ============================================================
@@ -350,6 +354,9 @@ func LowerStringFromParts(mem api.Memory, ptr, length uint32) (str string, err e
 	if length == 0 {
 		return "", nil
 	}
+	if length > maxLowerBytes {
+		return "", fmt.Errorf("string length %d exceeds host limit %d", length, maxLowerBytes)
+	}
 	if mem == nil {
 		return "", fmt.Errorf("memory is nil")
 	}
@@ -404,9 +411,12 @@ func lowerSlice2(ctx context.Context, mem api.Memory, contentPtr uint32, content
 	if stride == 0 {
 		stride = elemLayout.Size
 	}
-	// 修改原因：恶意 guest 的 contentLen*stride 会溢出 uint32，elemPtr 回绕
+	// 恶意 guest 的 contentLen*stride 会溢出 uint32，elemPtr 回绕
 	if stride > 0 && uint64(contentLen) > uint64(math.MaxUint32)/uint64(stride) {
 		return fmt.Errorf("slice content size overflow: len=%d stride=%d", contentLen, stride)
+	}
+	if stride > 0 && uint64(contentLen)*uint64(stride) > maxLowerBytes {
+		return fmt.Errorf("slice payload %d bytes exceeds host limit %d", uint64(contentLen)*uint64(stride), maxLowerBytes)
 	}
 
 	n := int(contentLen)
@@ -424,10 +434,12 @@ func lowerSlice2(ctx context.Context, mem api.Memory, contentPtr uint32, content
 	return nil
 }
 
-// LowerSliceFromParts 从线性内存读取 []byte 并返回独立副本。
 func LowerSliceFromParts(mem api.Memory, ptr, length uint32) ([]byte, error) {
 	if length == 0 {
 		return []byte{}, nil
+	}
+	if length > maxLowerBytes {
+		return nil, fmt.Errorf("slice length %d exceeds host limit %d", length, maxLowerBytes)
 	}
 	if mem == nil {
 		return nil, fmt.Errorf("memory is nil")

@@ -14,7 +14,9 @@ type ResourceManager[T any] struct {
 	mu         sync.RWMutex      // 读写锁
 	handles    map[uint32]T      // 句柄 -> 资源的映射
 	nextID     uint32            // 下一个候选句柄 ID
+	free       []uint32          // Remove/Pop 后回收句柄，避免 nextID 只增并在空洞上线性探测
 	destructor DestructorFunc[T] // 资源删除时的清理函数
+	closed     bool              // Clear 后禁止再 Add/Set，避免 Close 与 guest 并发路径泄漏新资源
 }
 
 // NewResourceManager 创建一个新的资源管理器，可选的 destructor 在删除资源时调用。
@@ -36,6 +38,63 @@ func NewResourceManager[T any](destructor DestructorFunc[T]) *ResourceManager[T]
 	}
 }
 
+func (m *ResourceManager[T]) recycleLocked(handle uint32) {
+	if handle == 0 {
+		return
+	}
+	// 极端 churn 时 free 切片 cap 只增不减，收缩常驻内存
+	if cap(m.free) > 1024 && len(m.free) < cap(m.free)/4 {
+		nfree := make([]uint32, len(m.free), len(m.free)+1)
+		copy(nfree, m.free)
+		m.free = nfree
+	}
+	m.free = append(m.free, handle)
+}
+
+func (m *ResourceManager[T]) dropFromFreeLocked(handle uint32) {
+	if handle == 0 || len(m.free) == 0 {
+		return
+	}
+	for i := len(m.free) - 1; i >= 0; i-- {
+		if m.free[i] == handle {
+			m.free = append(m.free[:i], m.free[i+1:]...)
+			return
+		}
+	}
+}
+
+func (m *ResourceManager[T]) allocHandleLocked() uint32 {
+	// 从尾部弹出空闲句柄；Set 可能占用仍留在 free 里的 id，脏项跳过继续弹
+	for len(m.free) > 0 {
+		h := m.free[len(m.free)-1]
+		m.free = m.free[:len(m.free)-1]
+		if h == 0 {
+			continue
+		}
+		if _, exists := m.handles[h]; !exists {
+			return h
+		}
+	}
+
+	m.nextID++
+	if m.nextID == 0 {
+		m.nextID = 1 // 句柄 0 在 WASI 中表示无效资源，跳过
+	}
+	start := m.nextID
+	for {
+		if _, exists := m.handles[m.nextID]; !exists {
+			return m.nextID
+		}
+		m.nextID++
+		if m.nextID == 0 {
+			m.nextID = 1
+		}
+		if m.nextID == start {
+			panic("ResourceManager handle table is full")
+		}
+	}
+}
+
 // Set 将指定 handle 关联的资源设置为 resource，若 handle 已存在则替换旧资源（并调用 destructor）。
 //
 // 参数:
@@ -45,12 +104,19 @@ func (m *ResourceManager[T]) Set(handle uint32, resource T) {
 	if m == nil {
 		return
 	}
+	if handle == 0 {
+		// WASI 句柄 0 表示无效资源；写入 0 会让 Get(0) 误成功。
+		return
+	}
 	m.mu.Lock()
 	old, exists := m.handles[handle]
 	m.handles[handle] = resource
 	// 记录已使用的最大句柄，避免随后 Add 从较小 nextID 扫描过久或产生混淆
 	if handle >= m.nextID {
 		m.nextID = handle
+	}
+	if !exists {
+		m.dropFromFreeLocked(handle)
 	}
 	dt := m.destructor
 	m.mu.Unlock()
@@ -77,29 +143,13 @@ func (m *ResourceManager[T]) Add(resource T) uint32 {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
+	if m.closed {
+		panic("ResourceManager is closed")
+	}
 	if uint64(len(m.handles)) >= math.MaxUint32-1 {
 		panic("ResourceManager handle table is full")
 	}
-
-	m.nextID++
-	if m.nextID == 0 {
-		m.nextID = 1 // 句柄 0 在 WASI 中表示无效资源，跳过
-	}
-	start := m.nextID
-	for {
-		if _, exists := m.handles[m.nextID]; !exists {
-			break
-		}
-		m.nextID++
-		if m.nextID == 0 {
-			m.nextID = 1
-		}
-		if m.nextID == start {
-			panic("ResourceManager handle table is full")
-		}
-	}
-	handle := m.nextID
+	handle := m.allocHandleLocked()
 	m.handles[handle] = resource
 	return handle
 }
@@ -141,11 +191,45 @@ func (m *ResourceManager[T]) Remove(handle uint32) bool {
 		return false
 	}
 	delete(m.handles, handle)
+	m.recycleLocked(handle)
 	dt := m.destructor
 	m.mu.Unlock()
 
 	if dt != nil {
 		dt(res) // 清理资源
+	}
+	return true
+}
+
+// RemoveIf 仅当 handle 仍指向 match 认可的那个资源时才删除。
+// 句柄回收后会被复用；先 Get 再 Remove 的窗口里可能已经换成新资源。
+// match 只能比较指针或值，不能再进 ResourceManager，否则自锁。
+func (m *ResourceManager[T]) RemoveIf(handle uint32, match func(T) bool) bool {
+	return m.RemoveIfWith(handle, match, nil)
+}
+
+// RemoveIfWith 与 RemoveIf 相同，但在仍持有表锁、句柄尚未放回 free 列表时调用 beforeRecycle。
+// 先 Unlock 再 UnmarkFieldsImmutable 时，handle 可能已被 Add 复用，
+// 会清掉新 incoming headers 的不可变标记。
+func (m *ResourceManager[T]) RemoveIfWith(handle uint32, match func(T) bool, beforeRecycle func(T)) bool {
+	if m == nil || match == nil {
+		return false
+	}
+	m.mu.Lock()
+	res, ok := m.handles[handle]
+	if !ok || !match(res) {
+		m.mu.Unlock()
+		return false
+	}
+	delete(m.handles, handle)
+	if beforeRecycle != nil {
+		beforeRecycle(res)
+	}
+	m.recycleLocked(handle)
+	dt := m.destructor
+	m.mu.Unlock()
+	if dt != nil {
+		dt(res)
 	}
 	return true
 }
@@ -175,6 +259,7 @@ func (m *ResourceManager[T]) Pop(handle uint32) (T, bool) {
 		return zero, false
 	}
 	delete(m.handles, handle)
+	m.recycleLocked(handle)
 	m.mu.Unlock()
 	return res, true
 }
@@ -214,9 +299,11 @@ func (m *ResourceManager[T]) Clear() {
 		return
 	}
 	m.mu.Lock()
+	m.closed = true
 	handles := m.handles
 	m.handles = make(map[uint32]T)
 	m.nextID = 0
+	m.free = nil
 	dt := m.destructor
 	m.mu.Unlock()
 	if dt == nil {

@@ -1,9 +1,11 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,12 +21,14 @@ type Fields = http.Header
 type IncomingRequest struct {
 	Request *http.Request
 
-	Method    string
-	Path      string
-	Query     string
-	Scheme    *string
-	Authority *string
-	Headers   uint32
+	Method      string
+	Path        string
+	Query       string
+	Scheme      *string
+	Authority   *string
+	Headers     uint32
+	HeadersData Fields     // 与 Fields 表里同一块 map，供 drop 时 RemoveIf
+	hdrMu       sync.Mutex // Headers 句柄与 Headers() 并发
 
 	Body io.ReadCloser
 
@@ -33,6 +37,64 @@ type IncomingRequest struct {
 
 	// 与 IncomingResponse 对齐，保证 consume 至多一次（并发安全）
 	Consumed atomic.Bool
+
+	bodyMu   sync.Mutex // consume 写 BodyHandle 与 drop 关 Body 必须同一把锁
+	dropping bool       // drop 已取走 Body 后禁止 consume 再 Add
+}
+
+func (r *IncomingRequest) TakeHeadersForDrop() (handle uint32, data Fields) {
+	if r == nil {
+		return 0, nil
+	}
+	r.hdrMu.Lock()
+	handle = r.Headers
+	data = r.HeadersData
+	r.Headers = 0
+	r.hdrMu.Unlock()
+	return handle, data
+}
+
+func (r *IncomingRequest) LoadHeadersHandle() uint32 {
+	if r == nil {
+		return 0
+	}
+	r.hdrMu.Lock()
+	h := r.Headers
+	r.hdrMu.Unlock()
+	return h
+}
+
+// InstallIncomingBody 在锁内 CAS + 登记 incoming-body，并把 Body 所有权交出去。
+// wasip2 与 manager 不同包，不能直接锁未导出的 bodyMu。
+func (r *IncomingRequest) InstallIncomingBody(add func(io.ReadCloser) uint32) (uint32, bool) {
+	if r == nil || add == nil {
+		return 0, false
+	}
+	r.bodyMu.Lock()
+	defer r.bodyMu.Unlock()
+	if r.dropping || !r.Consumed.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	h := add(r.Body)
+	r.BodyHandle = h
+	r.Body = nil // 所有权已在 IncomingBody；drop 只认 BodyHandle
+	return h, true
+}
+
+// ReleaseForDrop 在析构时取出尚未移交的 Body 或已登记的句柄（互斥）。
+func (r *IncomingRequest) ReleaseForDrop() (bodyHandle uint32, body io.ReadCloser) {
+	if r == nil {
+		return 0, nil
+	}
+	r.bodyMu.Lock()
+	r.dropping = true
+	r.Consumed.Store(true) // drop 已开始则并发 consume 必须失败，不能对已关 Body 再 Add
+	bodyHandle = r.BodyHandle
+	r.BodyHandle = 0
+	body = r.Body
+	r.Body = nil
+	r.bodyMu.Unlock()
+	return bodyHandle, body
 }
 
 // OutgoingRequest 代表一个由 guest 构建的出站 HTTP 请求。
@@ -48,7 +110,8 @@ type OutgoingRequest struct {
 
 	// headers() 必须每次返回同一 child handle，且不能每次 Add 共享 map
 	HeadersHandle uint32
-	headersOnce   sync.Once // 并发 headers() 会重复 Add；Once 必须留在本包，外包不能碰未导出字段
+	headersOnce   sync.Once  // 并发 headers() 会重复 Add；Once 必须留在本包，外包不能碰未导出字段
+	hdrMu         sync.Mutex // HeadersHandle 与 headers()/drop 并发
 
 	Body io.Reader
 
@@ -59,16 +122,157 @@ type OutgoingRequest struct {
 
 	// 消耗标记
 	Consumed atomic.Bool
+
+	bodyMu   sync.Mutex // body() 里 NewOutgoingBody 已 Add，写入 BodyHandle 前 drop 会漏回收
+	dropping bool
+
+	metaMu sync.RWMutex
+
+	pendingTrailers Fields
+}
+
+func (o *OutgoingRequest) TakeHeadersHandleForDrop() (uint32, Fields) {
+	if o == nil {
+		return 0, nil
+	}
+	// 等正在进行的 headers() 把句柄写入；或抢先让后续 headers() 变成 no-op。
+	o.headersOnce.Do(func() {})
+	o.hdrMu.Lock()
+	h := o.HeadersHandle
+	hdr := o.Headers
+	o.HeadersHandle = 0
+	o.hdrMu.Unlock()
+	return h, hdr
+}
+
+func (o *OutgoingRequest) StoreHeadersHandle(h uint32) {
+	if o == nil {
+		return
+	}
+	o.hdrMu.Lock()
+	o.HeadersHandle = h
+	o.hdrMu.Unlock()
+}
+
+func (o *OutgoingRequest) LoadHeadersHandle() uint32 {
+	if o == nil {
+		return 0
+	}
+	o.hdrMu.Lock()
+	h := o.HeadersHandle
+	o.hdrMu.Unlock()
+	return h
+}
+
+// StoreTrailers 保存 finish 时的 trailer。Request 已经存在时同时写进即将发送的请求。
+// finish 既可能早于 handle，也可能晚于 handle；只处理其中一条路径都会丢 trailer。
+func (o *OutgoingRequest) StoreTrailers(t Fields) {
+	if o == nil || len(t) == 0 {
+		return
+	}
+	o.metaMu.Lock()
+	defer o.metaMu.Unlock()
+	if o.pendingTrailers == nil {
+		o.pendingTrailers = make(Fields, len(t))
+	}
+	for k, vv := range t {
+		cp := make([]string, len(vv))
+		copy(cp, vv)
+		o.pendingTrailers[k] = append(o.pendingTrailers[k], cp...)
+	}
+	if o.Request == nil {
+		return
+	}
+	if o.Request.Trailer == nil {
+		o.Request.Trailer = make(Fields)
+	}
+	for k, vv := range t {
+		cp := make([]string, len(vv))
+		copy(cp, vv)
+		o.Request.Trailer[k] = append(o.Request.Trailer[k], cp...)
+		o.Request.Header.Add("Trailer", k)
+	}
+}
+
+// BindRequest 发布 http.Request，并把此前 finish 保存的 trailer 挂上去。
+func (o *OutgoingRequest) BindRequest(r *http.Request) {
+	if o == nil || r == nil {
+		return
+	}
+	o.metaMu.Lock()
+	defer o.metaMu.Unlock()
+	o.Request = r
+	if len(o.pendingTrailers) == 0 {
+		return
+	}
+	if r.Trailer == nil {
+		r.Trailer = make(Fields, len(o.pendingTrailers))
+	}
+	for k, vv := range o.pendingTrailers {
+		cp := make([]string, len(vv))
+		copy(cp, vv)
+		r.Trailer[k] = cp
+		r.Header.Add("Trailer", k)
+	}
+}
+
+// LoadRequestLine 复制请求行。修改原因：set-* 与 buildGoRequest 会并发读写这些字段。
+func (o *OutgoingRequest) LoadRequestLine() (method, path string, scheme, authority *string) {
+	if o == nil {
+		return "", "", nil, nil
+	}
+	o.metaMu.RLock()
+	defer o.metaMu.RUnlock()
+	return o.Method, o.Path, cloneStringPtr(o.Scheme), cloneStringPtr(o.Authority)
+}
+
+func (o *OutgoingRequest) StoreMethod(method string) {
+	if o == nil {
+		return
+	}
+	o.metaMu.Lock()
+	o.Method = method
+	o.metaMu.Unlock()
+}
+
+func (o *OutgoingRequest) StorePath(path string) {
+	if o == nil {
+		return
+	}
+	o.metaMu.Lock()
+	o.Path = path
+	o.metaMu.Unlock()
+}
+
+func (o *OutgoingRequest) StoreScheme(scheme *string) {
+	if o == nil {
+		return
+	}
+	o.metaMu.Lock()
+	o.Scheme = cloneStringPtr(scheme)
+	o.metaMu.Unlock()
+}
+
+func (o *OutgoingRequest) StoreAuthority(authority *string) {
+	if o == nil {
+		return
+	}
+	o.metaMu.Lock()
+	o.Authority = cloneStringPtr(authority)
+	o.metaMu.Unlock()
 }
 
 func (o *OutgoingRequest) Close() error {
 	if o == nil {
 		return nil
 	}
-	if o.Body != nil {
-		if closer, ok := o.Body.(io.Closer); ok {
-			return closer.Close()
-		}
+	// 无锁读 Body 与 InstallOutgoingBody 并发是 data race。
+	o.bodyMu.Lock()
+	body := o.Body
+	o.Body = nil
+	o.bodyMu.Unlock()
+	if closer, ok := body.(io.Closer); ok {
+		return closer.Close()
 	}
 	return nil
 }
@@ -81,6 +285,37 @@ func (o *OutgoingRequest) EnsureHeadersHandle(init func()) {
 	o.headersOnce.Do(init)
 }
 
+// InstallOutgoingBody 在锁内创建并登记 outgoing-body。
+func (o *OutgoingRequest) InstallOutgoingBody(create func() (handle uint32, body io.Reader, pw *io.PipeWriter)) (uint32, bool) {
+	if o == nil || create == nil {
+		return 0, false
+	}
+	o.bodyMu.Lock()
+	defer o.bodyMu.Unlock()
+	if o.dropping || !o.Consumed.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	h, body, pw := create()
+	o.BodyHandle = h
+	o.Body = body
+	o.BodyWriter = pw
+	return h, true
+}
+
+// TakeBodyHandleForDrop 取出 outgoing-body 句柄；drop 期间禁止再 body()。
+func (o *OutgoingRequest) TakeBodyHandleForDrop() uint32 {
+	if o == nil {
+		return 0
+	}
+	o.bodyMu.Lock()
+	o.dropping = true
+	o.Consumed.Store(true)
+	h := o.BodyHandle
+	o.BodyHandle = 0
+	o.bodyMu.Unlock()
+	return h
+}
+
 // IncomingResponse 代表一个已到达的、由 Host 接收的 HTTP 响应。
 type IncomingResponse struct {
 	Response *http.Response
@@ -90,12 +325,50 @@ type IncomingResponse struct {
 
 	// WASI incoming-response.headers 每次返回同一不可变快照句柄
 	HeaderHandle uint32
-	headersOnce  sync.Once // 并发 headers() 会重复 Clone+Add
+	HeaderSnap   Fields     // headers() 实际 Add 进表的那份 clone，不是 Headers 原件
+	headersOnce  sync.Once  // 并发 headers() 会重复 Clone+Add
+	hdrMu        sync.Mutex // HeadersHandle 与 headers()/drop 并发
 
 	Body       *IncomingBody
 	BodyHandle uint32 // 指向 incoming-body 的句柄
 	// 消耗标记
 	Consumed atomic.Bool
+
+	bodyMu   sync.Mutex // 与 IncomingRequest 相同，consume/drop 争用 Response.Body
+	dropping bool
+}
+
+func (r *IncomingResponse) TakeHeaderHandleForDrop() (uint32, Fields) {
+	if r == nil {
+		return 0, nil
+	}
+	r.headersOnce.Do(func() {})
+	r.hdrMu.Lock()
+	h := r.HeaderHandle
+	snap := r.HeaderSnap
+	r.HeaderHandle = 0
+	r.hdrMu.Unlock()
+	return h, snap
+}
+
+func (r *IncomingResponse) StoreHeaderHandle(h uint32, snap Fields) {
+	if r == nil {
+		return
+	}
+	r.hdrMu.Lock()
+	r.HeaderHandle = h
+	r.HeaderSnap = snap
+	r.hdrMu.Unlock()
+}
+
+func (r *IncomingResponse) LoadHeaderHandle() uint32 {
+	if r == nil {
+		return 0
+	}
+	r.hdrMu.Lock()
+	h := r.HeaderHandle
+	r.hdrMu.Unlock()
+	return h
 }
 
 // EnsureHeaderHandle 保证 incoming-response.headers 只创建一次快照句柄。
@@ -104,6 +377,50 @@ func (r *IncomingResponse) EnsureHeaderHandle(init func()) {
 		return
 	}
 	r.headersOnce.Do(init)
+}
+
+// InstallIncomingBody 在锁内移交 http.Response.Body，避免与 drop 双关。
+func (r *IncomingResponse) InstallIncomingBody(add func(io.ReadCloser) uint32) (uint32, bool) {
+	if r == nil || add == nil {
+		return 0, false
+	}
+	r.bodyMu.Lock()
+	defer r.bodyMu.Unlock()
+	if r.dropping || !r.Consumed.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	var rc io.ReadCloser
+	if r.Response != nil {
+		rc = r.Response.Body
+	}
+	h := add(rc)
+	r.BodyHandle = h
+	if r.Response != nil {
+		// 必须先 Add 再摘 Body。先改 NoBody 再 Add，create panic 会丢失未关闭 Body。
+		r.Response.Body = http.NoBody
+	}
+	return h, true
+}
+
+// ReleaseForDrop 在析构时取出 incoming-body 句柄或尚未 consume 的 Body。
+func (r *IncomingResponse) ReleaseForDrop() (bodyHandle uint32, body io.ReadCloser) {
+	if r == nil {
+		return 0, nil
+	}
+	r.bodyMu.Lock()
+	r.dropping = true
+	r.Consumed.Store(true)
+	bodyHandle = r.BodyHandle
+	r.BodyHandle = 0
+	if r.Response != nil {
+		body = r.Response.Body
+		r.Response.Body = http.NoBody
+	}
+	r.bodyMu.Unlock()
+	if body == http.NoBody {
+		body = nil
+	}
+	return bodyHandle, body
 }
 
 // OutgoingResponse 代表一个由 Guest 构建的出站 HTTP 响应。
@@ -115,7 +432,8 @@ type OutgoingResponse struct {
 
 	// 与 OutgoingRequest 相同，缓存 headers() 子资源
 	HeadersHandle uint32
-	headersOnce   sync.Once // 并发 headers() 会重复 Add
+	headersOnce   sync.Once  // 并发 headers() 会重复 Add
+	hdrMu         sync.Mutex // HeadersHandle 与 headers()/drop 并发
 
 	Body io.Reader
 
@@ -125,16 +443,106 @@ type OutgoingResponse struct {
 
 	// 消耗标记
 	Consumed atomic.Bool
+
+	bodyMu   sync.Mutex // 与 OutgoingRequest.body 相同的 BodyHandle 窗口
+	dropping bool
+
+	metaMu sync.RWMutex
+
+	pendingTrailers Fields
+}
+
+func (o *OutgoingResponse) TakeHeadersHandleForDrop() (uint32, Fields) {
+	if o == nil {
+		return 0, nil
+	}
+	// 修改原因：等正在进行的 headers() 把句柄写入；或抢先让后续 headers() 变成 no-op。
+	o.headersOnce.Do(func() {})
+	o.hdrMu.Lock()
+	h := o.HeadersHandle
+	hdr := o.Headers
+	o.HeadersHandle = 0
+	o.hdrMu.Unlock()
+	return h, hdr
+}
+
+func (o *OutgoingResponse) StoreHeadersHandle(h uint32) {
+	if o == nil {
+		return
+	}
+	o.hdrMu.Lock()
+	o.HeadersHandle = h
+	o.hdrMu.Unlock()
+}
+
+func (o *OutgoingResponse) LoadHeadersHandle() uint32 {
+	if o == nil {
+		return 0
+	}
+	o.hdrMu.Lock()
+	h := o.HeadersHandle
+	o.hdrMu.Unlock()
+	return h
+}
+
+// StoreTrailers 在写响应头之前暂存 trailer。net/http 要求 Trailer 前缀先于 WriteHeader。
+func (o *OutgoingResponse) StoreTrailers(t Fields) {
+	if o == nil || len(t) == 0 {
+		return
+	}
+	o.metaMu.Lock()
+	defer o.metaMu.Unlock()
+	if o.pendingTrailers == nil {
+		o.pendingTrailers = make(Fields, len(t))
+	}
+	for k, vv := range t {
+		cp := make([]string, len(vv))
+		copy(cp, vv)
+		o.pendingTrailers[k] = append(o.pendingTrailers[k], cp...)
+	}
+}
+
+// TakeTrailers 取出并清空 trailer，避免重复写入。
+func (o *OutgoingResponse) TakeTrailers() Fields {
+	if o == nil {
+		return nil
+	}
+	o.metaMu.Lock()
+	defer o.metaMu.Unlock()
+	t := o.pendingTrailers
+	o.pendingTrailers = nil
+	return t
+}
+
+func (o *OutgoingResponse) LoadStatus() int {
+	if o == nil {
+		return 0
+	}
+	o.metaMu.RLock()
+	defer o.metaMu.RUnlock()
+	return o.StatusCode
+}
+
+func (o *OutgoingResponse) StoreStatus(code int) {
+	if o == nil {
+		return
+	}
+	o.metaMu.Lock()
+	o.StatusCode = code
+	o.metaMu.Unlock()
 }
 
 func (o *OutgoingResponse) Close() error {
 	if o == nil {
 		return nil
 	}
-	if o.Body != nil {
-		if closer, ok := o.Body.(io.Closer); ok {
-			return closer.Close()
-		}
+	// 与 OutgoingRequest.Close 相同，必须和 body() 共用 bodyMu。
+	o.bodyMu.Lock()
+	body := o.Body
+	o.Body = nil
+	o.bodyMu.Unlock()
+	if closer, ok := body.(io.Closer); ok {
+		return closer.Close()
 	}
 	return nil
 }
@@ -147,6 +555,37 @@ func (o *OutgoingResponse) EnsureHeadersHandle(init func()) {
 	o.headersOnce.Do(init)
 }
 
+// InstallOutgoingBody 在锁内创建并登记 outgoing-body。
+func (o *OutgoingResponse) InstallOutgoingBody(create func() (handle uint32, body io.Reader, pw *io.PipeWriter)) (uint32, bool) {
+	if o == nil || create == nil {
+		return 0, false
+	}
+	o.bodyMu.Lock()
+	defer o.bodyMu.Unlock()
+	if o.dropping || !o.Consumed.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	h, body, pw := create()
+	o.BodyHandle = h
+	o.Body = body
+	o.BodyWriter = pw
+	return h, true
+}
+
+// TakeBodyHandleForDrop 取出 outgoing-body 句柄。
+func (o *OutgoingResponse) TakeBodyHandleForDrop() uint32 {
+	if o == nil {
+		return 0
+	}
+	o.bodyMu.Lock()
+	o.dropping = true
+	o.Consumed.Store(true)
+	h := o.BodyHandle
+	o.BodyHandle = 0
+	o.bodyMu.Unlock()
+	return h
+}
+
 // ResponseOutparam 是一个一次性的句柄，用于让 Guest 设置对 IncomingRequest 的响应。
 type ResponseOutparam struct {
 	// 当 Guest 调用 response-outparam.set 时，结果会通过这个 channel 发送。
@@ -157,7 +596,8 @@ type ResponseOutparam struct {
 // IncomingBody 代表一个入站的 HTTP Body。
 type IncomingBody struct {
 	// 因为go http 的限制Body和Stream 生命周期统一管理
-	StreamHandle uint32 // 指向 input-stream 的句柄
+	StreamHandle uint32             // 指向 input-stream 的句柄
+	streamRes    *manager_io.Stream // finish/drop 不能按复用后的句柄 Get/Remove 别人的流
 	Stream       io.Reader
 
 	// 可选方法
@@ -165,6 +605,47 @@ type IncomingBody struct {
 
 	// 消耗标记
 	Consumed atomic.Bool
+
+	// stream() 写 StreamHandle 与 drop/finish 读句柄无同步，
+	// 既是数据竞争，也会在句柄尚未写入时漏掉 Streams.Remove。
+	streamMu sync.Mutex
+	dropping bool
+}
+
+// InstallStream 在锁内完成一次性 stream()，并登记 input-stream 句柄。
+func (o *IncomingBody) InstallStream(create func(r io.Reader) (uint32, *manager_io.Stream)) (uint32, bool) {
+	if o == nil || create == nil {
+		return 0, false
+	}
+	o.streamMu.Lock()
+	defer o.streamMu.Unlock()
+	if o.dropping || o.StreamHandle != 0 || !o.Consumed.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	r := o.Stream
+	if r == nil {
+		r = bytes.NewReader(nil)
+	}
+	h, st := create(r)
+	o.StreamHandle = h
+	o.streamRes = st
+	return h, true
+}
+
+// TakeStreamHandleForDrop 取出流句柄。drop/finish 之后 stream() 必须失败。
+func (o *IncomingBody) TakeStreamHandleForDrop() (uint32, *manager_io.Stream) {
+	if o == nil {
+		return 0, nil
+	}
+	o.streamMu.Lock()
+	o.dropping = true
+	o.Consumed.Store(true)
+	h := o.StreamHandle
+	st := o.streamRes
+	o.StreamHandle = 0
+	o.streamRes = nil
+	o.streamMu.Unlock()
+	return h, st
 }
 
 func (o *IncomingBody) Close() error {
@@ -193,6 +674,44 @@ type OutgoingBody struct {
 
 	// 消耗标记
 	Consumed atomic.Bool
+
+	// stream() 写 StreamHandle 与 drop/finish 读句柄无同步，
+	// 既是数据竞争，也会在句柄尚未写入时漏掉 Streams.Remove。
+	streamMu  sync.Mutex
+	dropping  bool
+	streamRes *manager_io.Stream // finish/drop 不能按复用后的句柄 Get/Remove 别人的流
+}
+
+// InstallOutputStream 在锁内完成一次性 write()。
+func (o *OutgoingBody) InstallOutputStream(create func(w *io.PipeWriter) (uint32, *manager_io.Stream)) (uint32, bool) {
+	if o == nil || create == nil {
+		return 0, false
+	}
+	o.streamMu.Lock()
+	defer o.streamMu.Unlock()
+	if o.dropping || o.OutputStreamHandle != 0 || !o.Consumed.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	h, st := create(o.BodyWriter)
+	o.OutputStreamHandle = h
+	o.streamRes = st
+	return h, true
+}
+
+// TakeOutputStreamHandleForDrop 取出 output-stream 句柄。
+func (o *OutgoingBody) TakeOutputStreamHandleForDrop() (uint32, *manager_io.Stream) {
+	if o == nil {
+		return 0, nil
+	}
+	o.streamMu.Lock()
+	o.dropping = true
+	o.Consumed.Store(true)
+	h := o.OutputStreamHandle
+	st := o.streamRes
+	o.OutputStreamHandle = 0
+	o.streamRes = nil
+	o.streamMu.Unlock()
+	return h, st
 }
 
 func (o *OutgoingBody) Close() error {
@@ -200,8 +719,10 @@ func (o *OutgoingBody) Close() error {
 		return nil
 	}
 	if o.BodyWriter != nil {
-		// 正常关闭用 Close，避免把 EOF 当作错误路径误导读端
-		return o.BodyWriter.Close()
+		// resource-drop 且未 finish 时，WASI 要求把 body 视为不完整。
+		// PipeWriter.Close() 是干净 EOF，http.Client / io.Copy 会把截断当发送成功。
+		// Finish() 走 Pop，不进析构，自行 Close() 表示正常结束。
+		return o.BodyWriter.CloseWithError(io.ErrUnexpectedEOF)
 	}
 	return nil
 }
@@ -242,6 +763,60 @@ type RequestOptions struct {
 	ConnectTimeout      *time.Duration
 	FirstByteTimeout    *time.Duration
 	BetweenBytesTimeout *time.Duration
+	mu                  sync.Mutex
+}
+
+func cloneDurationPtr(d *time.Duration) *time.Duration {
+	if d == nil {
+		return nil
+	}
+	v := *d
+	return &v
+}
+
+func cloneStringPtr(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	v := *s
+	return &v
+}
+
+// CopyTimeouts 返回超时副本。修改原因：setter 替换 *time.Duration 与 getClient 读取是数据竞争。
+func (o *RequestOptions) CopyTimeouts() (connect, first, between *time.Duration) {
+	if o == nil {
+		return nil, nil, nil
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return cloneDurationPtr(o.ConnectTimeout), cloneDurationPtr(o.FirstByteTimeout), cloneDurationPtr(o.BetweenBytesTimeout)
+}
+
+func (o *RequestOptions) StoreConnectTimeout(d *time.Duration) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.ConnectTimeout = cloneDurationPtr(d)
+	o.mu.Unlock()
+}
+
+func (o *RequestOptions) StoreFirstByteTimeout(d *time.Duration) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.FirstByteTimeout = cloneDurationPtr(d)
+	o.mu.Unlock()
+}
+
+func (o *RequestOptions) StoreBetweenBytesTimeout(d *time.Duration) {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.BetweenBytesTimeout = cloneDurationPtr(d)
+	o.mu.Unlock()
 }
 
 // FutureIncomingResponse 代表一个尚未到达的 HTTP 响应。
@@ -334,15 +909,16 @@ func NewHTTPManager(sm *manager_io.StreamManager, poll *manager_io.PollManager) 
 		if resource == nil {
 			return
 		}
-		if resource.HeadersHandle != 0 {
-			hm.Fields.Remove(resource.HeadersHandle)
-			resource.HeadersHandle = 0
+		if h, hdr := resource.TakeHeadersHandleForDrop(); h != 0 {
+			hm.Fields.RemoveIf(h, func(cur Fields) bool { return SameFields(cur, hdr) })
 		}
-		if resource.BodyHandle != 0 {
-			hm.Bodies.Remove(resource.BodyHandle)
-			resource.BodyHandle = 0
+		if h := resource.TakeBodyHandleForDrop(); h != 0 {
+			pw := resource.BodyWriter
+			hm.Bodies.RemoveIf(h, func(cur *OutgoingBody) bool {
+				return cur != nil && pw != nil && cur.BodyWriter == pw
+			})
 		}
-		_ = resource.Close()
+		resource.Close()
 	})
 	hm.Futures = witgo.NewResourceManager[*FutureIncomingResponse](func(resource *FutureIncomingResponse) {
 		if resource == nil {
@@ -350,6 +926,7 @@ func NewHTTPManager(sm *manager_io.StreamManager, poll *manager_io.PollManager) 
 		}
 		if resource.Cancel != nil {
 			resource.Cancel()
+			resource.Cancel = nil // Clear/Remove 二次路径不要重复观察 Cancel
 		}
 		// 取消后必须等到 Do 结束再关 Body，否则与 executeRequest 赋值 Result 竞态
 		if resource.Pollable != nil {
@@ -363,48 +940,54 @@ func NewHTTPManager(sm *manager_io.StreamManager, poll *manager_io.PollManager) 
 		defer resource.resultMu.Unlock()
 		if resource.Result.Response != nil && resource.Result.Response.Body != nil {
 			resource.Result.Response.Body.Close()
+			resource.Result.Response.Body = http.NoBody
 		}
 	})
 	hm.Responses = witgo.NewResourceManager[*IncomingResponse](func(resource *IncomingResponse) {
 		if resource == nil {
 			return
 		}
-		if resource.HeaderHandle != 0 {
-			hm.UnmarkFieldsImmutable(resource.HeaderHandle)
-			hm.Fields.Remove(resource.HeaderHandle)
-			resource.HeaderHandle = 0
+		if h, snap := resource.TakeHeaderHandleForDrop(); h != 0 {
+			hm.Fields.RemoveIfWith(h, func(cur Fields) bool {
+				return SameFields(cur, snap)
+			}, func(Fields) { hm.UnmarkFieldsImmutable(h) })
 		}
-		if resource.BodyHandle != 0 {
-			hm.IncomingBodies.Remove(resource.BodyHandle)
-			resource.BodyHandle = 0
-		} else if !resource.Consumed.Load() && resource.Response != nil && resource.Response.Body != nil {
-			_ = resource.Response.Body.Close()
+		bh, body := resource.ReleaseForDrop()
+		if bh != 0 {
+			hm.IncomingBodies.Remove(bh)
+		} else if body != nil {
+			body.Close()
 		}
 	})
 	hm.IncomingRequests = witgo.NewResourceManager[*IncomingRequest](func(resource *IncomingRequest) {
 		if resource == nil {
 			return
 		}
-		if resource.Headers != 0 {
-			hm.UnmarkFieldsImmutable(resource.Headers)
-			hm.Fields.Remove(resource.Headers)
+		if h, data := resource.TakeHeadersForDrop(); h != 0 {
+			hm.Fields.RemoveIfWith(h, func(cur Fields) bool {
+				return SameFields(cur, data)
+			}, func(Fields) { hm.UnmarkFieldsImmutable(h) })
 		}
-		if resource.BodyHandle != 0 {
-			hm.IncomingBodies.Remove(resource.BodyHandle)
-			resource.BodyHandle = 0
-		} else if resource.Body != nil && !resource.Consumed.Load() {
-			_ = resource.Body.Close()
+		bh, body := resource.ReleaseForDrop()
+		if bh != 0 {
+			hm.IncomingBodies.Remove(bh)
+		} else if body != nil {
+			body.Close()
 		}
 	})
 	hm.Bodies = witgo.NewResourceManager[*OutgoingBody](func(resource *OutgoingBody) {
 		if resource == nil {
 			return
 		}
-		_ = resource.Close()
-		if resource.OutputStreamHandle != 0 && sm != nil {
-			sm.Remove(resource.OutputStreamHandle)
+		h, st := resource.TakeOutputStreamHandleForDrop()
+		// 先 CloseWithError(pw) 再 Flush，会把未写出的缓冲写成 broken pipe。
+		// 先停 output-stream（DontCloseWriter 时会 BlockingFlush），再标记 body 不完整。
+		if h != 0 && sm != nil {
+			sm.RemoveIf(h, func(cur *manager_io.Stream) bool { return cur != nil && cur == st })
 		}
+		resource.Close()
 	})
+
 	hm.FutureTrailers = witgo.NewResourceManager[*FutureTrailers](nil)
 	hm.ResponseOutparams = witgo.NewResourceManager[*ResponseOutparam](func(resource *ResponseOutparam) {
 		if resource != nil && resource.ResultChan != nil {
@@ -415,25 +998,27 @@ func NewHTTPManager(sm *manager_io.StreamManager, poll *manager_io.PollManager) 
 		if resource == nil {
 			return
 		}
-		if resource.HeadersHandle != 0 {
-			hm.Fields.Remove(resource.HeadersHandle)
-			resource.HeadersHandle = 0
+		if h, hdr := resource.TakeHeadersHandleForDrop(); h != 0 {
+			hm.Fields.RemoveIf(h, func(cur Fields) bool { return SameFields(cur, hdr) })
 		}
-		if resource.BodyHandle != 0 {
-			hm.Bodies.Remove(resource.BodyHandle)
-			resource.BodyHandle = 0
+		if h := resource.TakeBodyHandleForDrop(); h != 0 {
+			pw := resource.BodyWriter
+			hm.Bodies.RemoveIf(h, func(cur *OutgoingBody) bool {
+				return cur != nil && pw != nil && cur.BodyWriter == pw
+			})
 		}
-		_ = resource.Close()
+		resource.Close()
 	})
 	hm.IncomingBodies = witgo.NewResourceManager[*IncomingBody](func(resource *IncomingBody) {
 		if resource == nil {
 			return
 		}
-		_ = resource.Close()
-		// NOTE: 为了防止忘记关闭，这里的生命周期和Stream绑定
-		if resource.StreamHandle != 0 && sm != nil {
-			sm.Remove(resource.StreamHandle)
+		h, st := resource.TakeStreamHandleForDrop()
+		// 先关底层 Body 再 Remove 流，后台 Read 更容易 use-after-close。
+		if h != 0 && sm != nil {
+			sm.RemoveIf(h, func(cur *manager_io.Stream) bool { return cur != nil && cur == st })
 		}
+		resource.Close()
 	})
 	return hm
 }
@@ -533,10 +1118,21 @@ func (hm *HTTPManager) CloseIdleConnections() {
 	for c := range hm.httpClients {
 		clients = append(clients, c)
 	}
+	// Host.Close 后不再持有 Client 引用，避免 map 只增不减导致 Transport 常驻
+	hm.httpClients = make(map[*http.Client]struct{})
 	hm.httpClientsMu.Unlock()
 	for _, c := range clients {
 		if c != nil {
 			c.CloseIdleConnections()
 		}
 	}
+}
+
+// SameFields 用 map 头指针比较 http.Header 身份，供 RemoveIf 使用。
+// 句柄 uint32 会复用；不能只凭编号 Remove child fields。
+func SameFields(a, b Fields) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 }

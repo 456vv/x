@@ -2,6 +2,7 @@ package v0_2
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	manager_io "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/io"
@@ -41,14 +42,28 @@ func (i *ipNameLookupImpl) ResolveAddresses(ctx context.Context, network Network
 	handle := i.host.ResolveAddressStreamManager().Add(state)
 
 	if ip := net.ParseIP(name); ip != nil {
-		cancel() //  不走 LookupIPAddr 必须立刻 cancel，避免 context/goroutine 泄漏
-		state.Addresses = []net.IP{ip}
+		cancel() // 不走 LookupIPAddr 必须立刻 cancel，避免 context/goroutine 泄漏
+		// ParseIP 可能复用内部缓冲；写 Addresses 与 resolve-next-address 必须同一把锁。
+		ipCopy := append(net.IP(nil), ip...)
+		state.Mu.Lock()
+		state.Addresses = []net.IP{ipCopy}
+		state.Mu.Unlock()
 		close(state.Done)
 		return witgo.Ok[ResolveAddressStream, ErrorCode](handle)
 	}
 
 	go func() {
-		defer close(state.Done)
+		defer func() {
+			if rec := recover(); rec != nil {
+				// panic 若跳过 close(Done)，resolve-next-address 的 subscribe 会永久阻塞。
+				state.Mu.Lock()
+				if state.Error == nil {
+					state.Error = fmt.Errorf("dns lookup panic: %v", rec)
+				}
+				state.Mu.Unlock()
+			}
+			close(state.Done)
+		}()
 		addrs, err := net.DefaultResolver.LookupIPAddr(lookupCtx, name)
 		state.Mu.Lock()
 		defer state.Mu.Unlock()
@@ -58,7 +73,7 @@ func (i *ipNameLookupImpl) ResolveAddresses(ctx context.Context, network Network
 		}
 		state.Addresses = make([]net.IP, len(addrs))
 		for i, ipAddr := range addrs {
-			state.Addresses[i] = ipAddr.IP
+			state.Addresses[i] = append(net.IP(nil), ipAddr.IP...)
 		}
 	}()
 
@@ -71,7 +86,7 @@ func (i *ipNameLookupImpl) DropResolveAddressStream(_ context.Context, handle Re
 
 func (i *ipNameLookupImpl) ResolveNextAddress(_ context.Context, this ResolveAddressStream) witgo.Result[witgo.Option[IPAddress], ErrorCode] {
 	state, ok := i.host.ResolveAddressStreamManager().Get(this)
-	if !ok {
+	if !ok || state == nil { // ok 但资源为 nil 时解引用会 panic
 		return witgo.Err[witgo.Option[IPAddress], ErrorCode](ErrorCodeInvalidArgument)
 	}
 
@@ -102,8 +117,7 @@ func (i *ipNameLookupImpl) ResolveNextAddress(_ context.Context, this ResolveAdd
 
 func (i *ipNameLookupImpl) Subscribe(_ context.Context, this ResolveAddressStream) wasip2_io.Pollable {
 	state, ok := i.host.ResolveAddressStreamManager().Get(this)
-	if !ok {
-		// 如果句柄无效，返回一个立即就绪的 pollable
+	if !ok || state == nil {
 		return i.host.PollManager().Add(manager_io.NewReadyPollable())
 	}
 

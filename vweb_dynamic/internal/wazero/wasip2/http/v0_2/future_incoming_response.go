@@ -24,12 +24,14 @@ func (i *futureIncomingResponseImpl) Drop(_ context.Context, handle FutureIncomi
 // Subscribe 实现了 [method]future-incoming-response.subscribe。
 func (i *futureIncomingResponseImpl) Subscribe(_ context.Context, this FutureIncomingResponse) Pollable {
 	future, ok := i.hm.Futures.Get(this)
-	if !ok {
+	if !ok || future == nil || future.Pollable == nil {
 		// 对于无效句柄，返回一个立即就绪的 pollable
 		return i.hm.Poll.Add(manager_io.NewReadyPollable())
 	}
 
-	return i.hm.Poll.Add(future.Pollable)
+	// 直接 Add(future.Pollable) 时 guest drop pollable 会 Close→SetReady，
+	// get() 会误判请求已完成。LevelPollable.Close 不关共享 wake。
+	return i.hm.Poll.Add(manager_io.NewLevelPollable(future.Pollable.IsReady, future.Pollable))
 }
 
 // Get implements [method]future-incoming-response.get.
@@ -38,15 +40,15 @@ func (i *futureIncomingResponseImpl) Get(
 	ctx context.Context,
 	this FutureIncomingResponse,
 ) witgo.Option[witgo.Result[witgo.Result[IncomingResponse, ErrorCode], witgo.Unit]] {
+	_ = ctx // WASI get 非阻塞，不在 ctx 上等待，也不因取消丢掉已就绪结果
 	future, ok := i.hm.Futures.Get(this)
-	if !ok {
+	if !ok || future == nil {
 		// Invalid handle, return None. The WIT doesn't specify an error here.
 		return witgo.None[witgo.Result[witgo.Result[IncomingResponse, ErrorCode], witgo.Unit]]()
 	}
 
-	select {
-	case <-future.Pollable.Channel():
-	case <-ctx.Done():
+	// guest 无法同时 poll 其它事件。未就绪必须立即 none。
+	if future.Pollable == nil || !future.Pollable.IsReady() {
 		return witgo.None[witgo.Result[witgo.Result[IncomingResponse, ErrorCode], witgo.Unit]]()
 	}
 
@@ -59,7 +61,11 @@ func (i *futureIncomingResponseImpl) Get(
 	var innerResult witgo.Result[IncomingResponse, ErrorCode]
 	res := future.LoadResult() // 与 executeRequest 无锁写 Result 数据竞争
 	if res.Err != nil {
-		innerResult = witgo.Err[IncomingResponse, ErrorCode](mapGoErrToWasiHttpErr(res.Err))
+		// 部分 Transport 错误路径仍带 Response；Consumed 后析构不再关 Body。
+		if res.Response != nil && res.Response.Body != nil {
+			_ = res.Response.Body.Close()
+		}
+		innerResult = witgo.Err[IncomingResponse, ErrorCode](mapGoErerToWasiHTTPErr(res.Err))
 	} else if res.Response == nil {
 		// 在 Client.Do 异常路径可能 Err 与 Response 皆空，解引用会 panic
 		innerResult = witgo.Err[IncomingResponse, ErrorCode](ErrorCode{InternalError: witgo.SomePtr("empty http response")})

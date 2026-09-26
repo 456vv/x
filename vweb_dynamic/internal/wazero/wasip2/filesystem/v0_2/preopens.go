@@ -18,19 +18,10 @@ func newPreopensImpl(fsm *filesystem.Manager) *preopensImpl {
 // GetDirectories returns the list of pre-opened directories.
 func (i *preopensImpl) GetDirectories(_ context.Context) []witgo.Tuple[Descriptor, string] {
 	var results []witgo.Tuple[Descriptor, string]
-	// Note: In a real implementation, this would iterate over pre-opened
-	// directories configured by the host environment. For this example,
-	// we assume the manager contains only pre-opens.
 	i.fsm.Range(func(handle uint32, desc *filesystem.Descriptor) bool {
-		if desc == nil {
+		// 无锁 desc.File.Stat 与 Close 是数据竞争；已关闭项由 ForPreopen 排除。
+		if desc == nil || !desc.ForPreopen() {
 			return true
-		}
-		// get-directories 只应返回目录 preopen；文件描述符混入会让 guest 对文件调 read-directory。
-		if desc.File != nil {
-			st, err := desc.File.Stat()
-			if err != nil || !st.IsDir() {
-				return true
-			}
 		}
 		results = append(results, witgo.Tuple[Descriptor, string]{
 			F0: handle,
@@ -38,5 +29,6 @@ func (i *preopensImpl) GetDirectories(_ context.Context) []witgo.Tuple[Descripto
 		})
 		return true
 	})
+
 	return results
 }

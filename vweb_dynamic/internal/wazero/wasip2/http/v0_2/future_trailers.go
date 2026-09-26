@@ -22,23 +22,23 @@ func (i *futureTrailersImpl) Drop(this FutureTrailers) {
 
 func (i *futureTrailersImpl) Subscribe(this FutureTrailers) Pollable {
 	future, ok := i.hm.FutureTrailers.Get(this)
-	if !ok {
+	if !ok || future == nil || future.Pollable == nil {
 		// 对于无效句柄，返回一个立即就绪的 pollable
 		return i.hm.Poll.Add(manager_io.NewReadyPollable())
 	}
 
-	return i.hm.Poll.Add(future.Pollable)
+	// 与 future-incoming-response 相同，不能把内部 Pollable 直接交给 PollManager 析构。
+	return i.hm.Poll.Add(manager_io.NewLevelPollable(future.Pollable.IsReady, future.Pollable))
 }
 
 func (i *futureTrailersImpl) Get(ctx context.Context, this FutureTrailers) witgo.Option[witgo.Result[witgo.Result[witgo.Option[Trailers], ErrorCode], witgo.Unit]] {
+	_ = ctx // 与 future-incoming-response.get 相同：非阻塞，不因 ctx 丢就绪结果
 	future, ok := i.hm.FutureTrailers.Get(this)
-	if !ok {
+	if !ok || future == nil {
 		return witgo.None[witgo.Result[witgo.Result[witgo.Option[Trailers], ErrorCode], witgo.Unit]]()
 	}
 
-	select {
-	case <-future.Pollable.Channel():
-	case <-ctx.Done():
+	if future.Pollable == nil || !future.Pollable.IsReady() {
 		return witgo.None[witgo.Result[witgo.Result[witgo.Option[Trailers], ErrorCode], witgo.Unit]]()
 	}
 

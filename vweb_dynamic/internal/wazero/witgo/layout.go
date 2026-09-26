@@ -2,16 +2,12 @@ package witgo
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sync"
 )
 
-// ============================================================
-// 类型布局计算：描述 WIT 类型在内存中的排布
-// ============================================================
-
 // TypeLayout 描述 WIT 类型在内存中的布局。
-// 包含大小、对齐、字段偏移等关键信息，用于正确的内存读写。
 type TypeLayout struct {
 	Size          uint32        // 类型总大小（字节）
 	Alignment     uint32        // 对齐要求（字节，2 的幂）
@@ -31,39 +27,46 @@ type FieldLayout struct {
 var layoutCache = sync.Map{} // 全局缓存，避免重复计算布局
 
 // GetOrCalculateLayout 获取或计算类型 typ 的布局，结果缓存在全局缓存中。
-// 布局计算是昂贵的（尤其对嵌套结构体），缓存可显著提升性能。
-//
-// 参数:
-//   - typ: Go 类型
-//
-// 返回:
-//   - *TypeLayout: 计算得到的布局
-//   - error: 类型不支持时的错误
-//
-// 示例:
-//
-//	layout, err := GetOrCalculateLayout(reflect.TypeOf(MyStruct{}))
 func GetOrCalculateLayout(typ reflect.Type) (*TypeLayout, error) {
+	return getOrCalculateLayoutStack(typ, make(map[reflect.Type]struct{}))
+}
+
+// getOrCalculateLayoutStack 带环检测。
+// 递归 struct/pointer 会把栈打爆；不能在全局缓存放“计算中”哨兵，
+// 否则两个 goroutine 同时算同一类型会被误判成递归。嵌套必须走同一 stack，
+// 若内层再调公开的 GetOrCalculateLayout 会新建空 stack，环检测失效。
+func getOrCalculateLayoutStack(typ reflect.Type, stack map[reflect.Type]struct{}) (*TypeLayout, error) {
 	if typ == nil {
 		return nil, fmt.Errorf("cannot calculate layout for nil type")
 	}
 	if layout, ok := layoutCache.Load(typ); ok {
-		return layout.(*TypeLayout), nil
+		if tl, ok := layout.(*TypeLayout); ok && tl != nil {
+			return tl, nil
+		}
 	}
-	layout, err := calculateLayout(typ)
+	if _, cycling := stack[typ]; cycling {
+		return nil, fmt.Errorf("recursive type not supported for layout: %v", typ)
+	}
+	stack[typ] = struct{}{}
+	defer delete(stack, typ)
+
+	layout, err := calculateLayout(typ, stack)
 	if err != nil {
 		return nil, err
 	}
 	actual, _ := layoutCache.LoadOrStore(typ, layout)
-	return actual.(*TypeLayout), nil
+	if tl, ok := actual.(*TypeLayout); ok && tl != nil {
+		return tl, nil
+	}
+	return layout, nil
 }
 
 // calculateLayout 内部计算布局。
 // 根据类型种类分发到不同的计算函数。
-func calculateLayout(typ reflect.Type) (*TypeLayout, error) {
+func calculateLayout(typ reflect.Type, stack map[reflect.Type]struct{}) (*TypeLayout, error) {
 	// 先检查特殊类型
 	if isVariant(typ) {
-		return calculateSumLayout(typ, getVariantCaseTypes(typ))
+		return calculateSumLayout(typ, getVariantCaseTypes(typ), stack)
 	}
 	if isFlags(typ) {
 		numFlags := 0
@@ -106,11 +109,11 @@ func calculateLayout(typ reflect.Type) (*TypeLayout, error) {
 	case reflect.String, reflect.Slice:
 		return &TypeLayout{Size: 8, Alignment: 4}, nil // {ptr, len} 各 4 字节
 	case reflect.Struct:
-		return calculateStructLayout(typ)
+		return calculateStructLayout(typ, stack)
 	case reflect.Array:
-		return calculateArrayLayout(typ)
+		return calculateArrayLayout(typ, stack)
 	case reflect.Pointer:
-		return GetOrCalculateLayout(typ.Elem())
+		return getOrCalculateLayoutStack(typ.Elem(), stack)
 	default:
 		return nil, fmt.Errorf("unsupported type for layout calculation: %v", typ)
 	}
@@ -127,7 +130,7 @@ func calculateLayout(typ reflect.Type) (*TypeLayout, error) {
 // 返回:
 //   - *TypeLayout: variant 的内存布局
 //   - error: 计算失败时的错误
-func calculateSumLayout(typ reflect.Type, cases []reflect.Type) (*TypeLayout, error) {
+func calculateSumLayout(typ reflect.Type, cases []reflect.Type, stack map[reflect.Type]struct{}) (*TypeLayout, error) {
 	numCases := len(cases)
 	if numCases == 0 {
 		numCases = typ.NumField()
@@ -150,7 +153,7 @@ func calculateSumLayout(typ reflect.Type, cases []reflect.Type) (*TypeLayout, er
 		if caseType.Kind() == reflect.Pointer {
 			caseType = caseType.Elem()
 		}
-		caseLayout, err := GetOrCalculateLayout(caseType)
+		caseLayout, err := getOrCalculateLayoutStack(caseType, stack)
 		if err != nil {
 			return nil, err
 		}
@@ -167,6 +170,10 @@ func calculateSumLayout(typ reflect.Type, cases []reflect.Type) (*TypeLayout, er
 		alignment = 1
 	}
 	payloadOffset := align(discSize, alignment)
+	if maxCaseSize > math.MaxUint32-payloadOffset {
+		// payloadOffset+maxCaseSize 溢出后 layout.Size 回绕，lift 会少分配
+		return nil, fmt.Errorf("variant layout size overflow")
+	}
 	totalSize := payloadOffset + maxCaseSize
 	return &TypeLayout{
 		Size:          align(totalSize, alignment),
@@ -196,7 +203,7 @@ func getVariantCaseTypes(typ reflect.Type) []reflect.Type {
 // 返回:
 //   - *TypeLayout: 结构体的内存布局
 //   - error: 计算失败时的错误
-func calculateStructLayout(typ reflect.Type) (*TypeLayout, error) {
+func calculateStructLayout(typ reflect.Type, stack map[reflect.Type]struct{}) (*TypeLayout, error) {
 	var fields []FieldLayout
 	var currentOffset uint32 = 0
 	var maxAlignment uint32 = 1
@@ -206,7 +213,7 @@ func calculateStructLayout(typ reflect.Type) (*TypeLayout, error) {
 		if !isExportedField(field) {
 			continue
 		}
-		fieldLayout, err := GetOrCalculateLayout(field.Type)
+		fieldLayout, err := getOrCalculateLayoutStack(field.Type, stack)
 		if err != nil {
 			return nil, fmt.Errorf("field %s: %w", field.Name, err)
 		}
@@ -219,6 +226,10 @@ func calculateStructLayout(typ reflect.Type) (*TypeLayout, error) {
 			Layout:      fieldLayout,
 		})
 
+		if fieldLayout.Size > math.MaxUint32-currentOffset {
+			// 字段偏移回绕后后续字段会写到结构体开头
+			return nil, fmt.Errorf("struct layout size overflow at field %s", field.Name)
+		}
 		currentOffset += fieldLayout.Size
 		if fieldLayout.Alignment > maxAlignment {
 			maxAlignment = fieldLayout.Alignment
@@ -241,17 +252,21 @@ func calculateStructLayout(typ reflect.Type) (*TypeLayout, error) {
 // 返回:
 //   - *TypeLayout: 数组的内存布局
 //   - error: 计算失败时的错误
-func calculateArrayLayout(typ reflect.Type) (*TypeLayout, error) {
+func calculateArrayLayout(typ reflect.Type, stack map[reflect.Type]struct{}) (*TypeLayout, error) {
 	if typ.Len() == 0 {
 		return &TypeLayout{Size: 0, Alignment: 1}, nil
 	}
-	elemLayout, err := GetOrCalculateLayout(typ.Elem())
+	elemLayout, err := getOrCalculateLayoutStack(typ.Elem(), stack)
 	if err != nil {
 		return nil, err
 	}
 	var currentOffset uint32 = 0
 	for i := 0; i < typ.Len(); i++ {
 		currentOffset = align(currentOffset, elemLayout.Alignment)
+		if elemLayout.Size > math.MaxUint32-currentOffset {
+			// 大数组 Size 回绕后 lower 会少读元素
+			return nil, fmt.Errorf("array layout size overflow")
+		}
 		currentOffset += elemLayout.Size
 	}
 	return &TypeLayout{

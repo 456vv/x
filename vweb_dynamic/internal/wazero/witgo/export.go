@@ -139,7 +139,6 @@ func (e *Exporter) Export(funcName string, goFunc interface{}) error {
 //   - interface{}: 包装后的函数实现
 //   - error: 签名分析失败时的错误
 func (e *Exporter) makeWrapperFunc(funcType reflect.Type, funcVal reflect.Value) (interface{}, error) {
-	// 尝试从缓存获取已分析的签名
 	var sig *exportSig
 	if v, ok := exportSigCache.Load(funcType); ok {
 		sig, _ = v.(*exportSig)
@@ -168,35 +167,42 @@ func (e *Exporter) makeWrapperFunc(funcType reflect.Type, funcVal reflect.Value)
 	hasIndirectParams := sig.hasIndirectParams
 	wrapperType := sig.wrapperType
 
-	// 构建 wrapper 实现
 	wrapperImpl := func(args []reflect.Value) []reflect.Value {
 		ctx := args[0].Interface().(context.Context)
 		module := args[1].Interface().(api.Module)
+
+		// Host.Call 在 ctx 上挂 allocScope，返回时 freeAll。
+		// wazero 把同一 ctx 传给 guest→host export；export 里 Allocate 的 string/list
+		// 所有权属于 guest。若记入 Call 的 scope，Call 返回会把 guest 仍在用的缓冲释放掉。
+		// WithValue 覆盖本层 key 后 scopeFromCtx 得到 nil，不再入账；ctx.Done 仍在。
+		if ctx == nil {
+			ctx = context.Background()
+		} else {
+			ctx = context.WithValue(ctx, allocScopeKey{}, (*allocScope)(nil))
+		}
 
 		h, err := getOrCreateHost(module)
 		if err != nil {
 			panic(fmt.Sprintf("failed to get host for calling module: %v", err))
 		}
 
-		argIdx := 2
 		var paramBase uint32
 		if hasIndirectParams {
-			if argIdx >= len(args) {
+			if len(args) < 3 {
 				panic("function expected an indirect-params pointer, but received no parameters")
 			}
-			paramBase = uint32(args[argIdx].Uint())
-			argIdx++
+			paramBase = uint32(args[2].Uint())
 		}
 
 		var retptr uint32
 		if hasRetptr {
-			if argIdx >= len(args) {
+			if len(args) < 3 {
 				panic("function expected a return pointer, but received no parameters")
 			}
-			retptr = uint32(args[argIdx].Uint())
+			// 真正的 retptr 是最后一个 i32（CABI）。会把 list/string/result 写到错误地址。
+			retptr = uint32(args[len(args)-1].Uint())
 		}
 
-		// 反扁平化参数为 Go 值
 		callArgs := make([]reflect.Value, funcType.NumIn())
 		funcParamIndex := 0
 		if len(callArgs) > 0 && funcType.In(0) == typeOf[context.Context]() {
@@ -205,8 +211,6 @@ func (e *Exporter) makeWrapperFunc(funcType reflect.Type, funcVal reflect.Value)
 		}
 
 		if hasIndirectParams {
-			// 扁平参数 >16 时 guest 只传一个指向“参数 tuple”的 i32。
-			// 按记录布局从该指针逐个 Lower，不能再走 unflattenParam 的扁平栈。
 			offset := paramBase
 			for ; funcParamIndex < len(callArgs); funcParamIndex++ {
 				paramType := funcType.In(funcParamIndex)
@@ -269,7 +273,6 @@ func (e *Exporter) makeWrapperFunc(funcType reflect.Type, funcVal reflect.Value)
 			}
 			return nil
 		}
-		// 处理直接返回值（扁平化为 uint64）
 		if len(flatOut) > 0 {
 			var flats []uint64
 			for _, res := range results {
@@ -350,9 +353,26 @@ func setFlatGoValue(ret reflect.Value, v uint64) {
 	switch ret.Kind() {
 	case reflect.Bool:
 		ret.SetBool(v != 0)
-	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+	case reflect.Int8:
+		ret.SetInt(int64(int8(v)))
+	case reflect.Int16:
+		ret.SetInt(int64(int16(v)))
+	case reflect.Int32:
+		ret.SetInt(int64(int32(v)))
+	case reflect.Int64:
+		ret.SetInt(int64(v))
+	case reflect.Int:
+		// 32 位 int 直接 SetInt(int64(v))，高位非零时 reflect 会 panic。
+		if ret.Type().Size() == 4 {
+			ret.SetInt(int64(int32(v)))
+			return
+		}
 		ret.SetInt(int64(v))
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		bits := ret.Type().Bits()
+		if bits < 64 {
+			v &= (uint64(1) << uint(bits)) - 1
+		}
 		ret.SetUint(v)
 	case reflect.Float32:
 		ret.SetFloat(float64(math.Float32frombits(uint32(v))))

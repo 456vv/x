@@ -1,6 +1,7 @@
 package v0_2
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"io/fs"
@@ -93,6 +94,9 @@ func fromIPSocketAddressToUDPAddr(addr IPSocketAddress) (*net.UDPAddr, error) {
 func mapDnsError(err error) ErrorCode {
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
+		if dnsErr.IsTimeout {
+			return ErrorCodeTimeout
+		}
 		if dnsErr.IsTemporary {
 			return ErrorCodeTemporaryResolverFailure
 		}
@@ -110,6 +114,16 @@ func mapDnsError(err error) ErrorCode {
 func mapOsError(err error) ErrorCode {
 	if err == nil {
 		return 0 // Not an error
+	}
+	// DialContext 被 drop 取消时返回 context 错误，不是 syscall.Errno，原先全变成 unknown。
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ErrorCodeTimeout
+	}
+	if errors.Is(err, context.Canceled) {
+		return ErrorCodeConnectionAborted
+	}
+	if errors.Is(err, net.ErrClosed) {
+		return ErrorCodeInvalidState
 	}
 	if errors.Is(err, fs.ErrPermission) {
 		return ErrorCodeAccessDenied

@@ -40,10 +40,30 @@ func NewPollableByChan(c chan struct{}, cancel func()) *ChannelPollable {
 	if c == nil {
 		c = make(chan struct{})
 	}
-	return &ChannelPollable{
-		readyChan: c,
-		cancel:    cancel,
+	// 不得把调用方的 channel 当作 readyChan。Close→SetReady 会 close 它：
+	// 1) DNS ResolveAddressStreamState.Done 在 lookup 结束时还会 close → 双重 close panic
+	// 2) TCP ConnectDone 被 socket/析构/多个 subscribe 共享 → drop 某一个 pollable 会让 finish-connect 误判完成
+	stop := make(chan struct{})
+	var once sync.Once
+	p := NewPollable(func() {
+		once.Do(func() { close(stop) })
+		if cancel != nil {
+			cancel()
+		}
+	})
+	select {
+	case <-c:
+		p.SetReady()
+	default:
+		go func() {
+			select {
+			case <-c:
+				p.SetReady()
+			case <-stop:
+			}
+		}()
 	}
+	return p
 }
 
 var ReadyPollable = NewReadyPollable()
@@ -79,12 +99,23 @@ func (p *ChannelPollable) Block() {
 	if p == nil {
 		return
 	}
-	// Reset 会换新 channel；循环直到当前视图仍为就绪，避免只等到“已关闭的旧通道”。
-	for !p.IsReady() {
+	// Reset 会换新 channel；必须在锁内拿到“当前视图”并确认仍未就绪后再等，
+	// 否则只等到已关闭的旧 channel 后误判就绪，或与 SetReady 交错丢失唤醒。
+	for {
 		p.mu.Lock()
-		ch := p.readyChan
-		p.mu.Unlock()
-		<-ch
+		if p.sticky {
+			p.mu.Unlock()
+			return
+		}
+		select {
+		case <-p.readyChan:
+			p.mu.Unlock()
+			return
+		default:
+			ch := p.readyChan
+			p.mu.Unlock()
+			<-ch
+		}
 	}
 }
 

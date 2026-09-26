@@ -14,8 +14,13 @@ func newWallClockImpl() *wallClockImpl {
 // Now returns the current wall-clock time.
 func (i *wallClockImpl) Now(_ context.Context) Datetime {
 	now := time.Now()
+	sec := now.Unix()
+	if sec < 0 {
+		// 时钟被拨到 1970 前时 uint64(负数) 会绕成超大秒数。
+		sec = 0
+	}
 	return Datetime{
-		Seconds:     uint64(now.Unix()),
+		Seconds:     uint64(sec),
 		Nanoseconds: uint32(now.Nanosecond()),
 	}
 }

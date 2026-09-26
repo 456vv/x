@@ -139,6 +139,13 @@ func (T *Wazero) parse(calcWasm []byte) error {
 		return fmt.Errorf("instantiate wasip2.Host: %w", err)
 	}
 
+	if T.rootPath != "" {
+		// 注册wasi根目录
+		err := registerPreopens(h, map[string]string{"/": filepath.Clean(T.rootPath)})
+		if err != nil {
+			return err
+		}
+	}
 	cm, err := runtime.CompileModule(ctx, calcWasm)
 	if err != nil {
 		_ = runtime.Close(ctx)
@@ -284,4 +291,24 @@ func (T *Wazero) closeLocked() error {
 		T.cache = nil
 	}
 	return firstErr
+}
+
+func registerPreopens(h *wasip2.Host, dirs map[string]string) error {
+	for guestPath, hostPath := range dirs {
+		f, err := os.Open(hostPath)
+		if err != nil {
+			return err
+		}
+		st, err := f.Stat()
+		if err != nil {
+			f.Close()
+			return err
+		}
+		if !st.IsDir() {
+			f.Close()
+			return fmt.Errorf("preopen %q is not a directory", hostPath)
+		}
+		h.AddPreopen(f, guestPath)
+	}
+	return nil
 }

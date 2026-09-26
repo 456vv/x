@@ -15,11 +15,7 @@ func goFileInfoToDescriptorStat(info fs.FileInfo) DescriptorStat {
 	var stat DescriptorStat
 	stat.Type = goModeToDescriptorType(info.Mode())
 	stat.Size = Filesize(info.Size())
-	modTime := info.ModTime()
-	stat.DataModificationTimestamp = witgo.Some(Datetime{
-		Seconds:     uint64(modTime.Unix()),
-		Nanoseconds: uint32(modTime.Nanosecond()),
-	})
+	stat.DataModificationTimestamp = witgo.Some(datetimeFromTime(info.ModTime()))
 
 	if sys, ok := info.Sys().(*syscall.Stat_t); ok {
 		stat.LinkCount = uint64(sys.Nlink)
@@ -44,8 +40,19 @@ func GetATime(info os.FileInfo) (time.Time, error) {
 	return time.Unix(stat.Atimespec.Sec, int64(stat.Atimespec.Nsec)), nil
 }
 
-
 func adviseFile(_ *os.File, _ Filesize, _ Filesize, _ Advice) error {
 	// Darwin 没有 posix_fadvise/Fadvise，保持 WASI Unsupported
 	return errAdviseUnsupported
+}
+
+func syncDataFile(f *os.File) error {
+	if f == nil {
+		return os.ErrInvalid
+	}
+	// 退回 fsync，满足 sync-data 的落盘语义。
+	return f.Sync()
+}
+
+func timeToDatetime(ts syscall.Timespec) Datetime {
+	return datetimeFromUnix(int64(ts.Sec), int64(ts.Nsec))
 }

@@ -145,7 +145,7 @@ type Flagger interface {
 	IsFlags()
 }
 
-var flaggerType = reflect.TypeFor[Flagger]()
+var flaggerType = typeOf[Flagger]()
 
 // isFlags 检查类型是否实现了 Flagger 接口（即标志类型）。
 // flags 类型被编码为单个整数位图。
@@ -168,7 +168,7 @@ type Optioner interface {
 	IsOption()
 }
 
-var optionerType = reflect.TypeFor[Optioner]()
+var optionerType = typeOf[Optioner]()
 
 // isOption 检查类型是否为 Option 类型。
 func isOption(typ reflect.Type) bool {
@@ -184,7 +184,7 @@ type Resulter interface {
 	IsResult()
 }
 
-var resulterType = reflect.TypeFor[Resulter]()
+var resulterType = typeOf[Resulter]()
 
 // isResult 检查类型是否为 Result 类型。
 func isResult(typ reflect.Type) bool {

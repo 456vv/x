@@ -3,6 +3,7 @@ package v0_2
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -183,8 +184,16 @@ func (c *streamConn) Close() error {
 	return nil
 }
 
-func (c *streamConn) LocalAddr() net.Addr  { return nil }
-func (c *streamConn) RemoteAddr() net.Addr { return nil }
+type dummyNetAddr struct{}
+
+func (dummyNetAddr) Network() string { return "tcp" }
+func (dummyNetAddr) String() string  { return "0.0.0.0:0" }
+
+func (c *streamConn) LocalAddr() net.Addr {
+	// crypto/tls 部分路径会调 addr.String()，返回 nil 会 panic
+	return dummyNetAddr{}
+}
+func (c *streamConn) RemoteAddr() net.Addr { return dummyNetAddr{} }
 
 func (c *streamConn) SetDeadline(t time.Time) error {
 	c.mu.Lock()
@@ -236,6 +245,13 @@ func (i *tlsTypes) Instantiate(_ context.Context, h *wasip2.Host, builder wazero
 		inStream, inOk := sm.Pop(inputStream)
 		outStream, outOk := sm.Pop(outputStream)
 		if !inOk || !outOk {
+			// 只成功 Pop 其中一个时若不 Close，底层 TCP 流会泄漏且不再出现在 StreamManager 里
+			if inOk && inStream != nil && inStream.Closer != nil {
+				_ = inStream.Closer.Close()
+			}
+			if outOk && outStream != nil && outStream.Closer != nil {
+				_ = outStream.Closer.Close()
+			}
 			panic("invalid input or output stream for TLS handshake")
 		}
 
@@ -263,25 +279,33 @@ func (i *tlsTypes) Instantiate(_ context.Context, h *wasip2.Host, builder wazero
 		futureHandle := tm.FutureClientStreams.Add(future)
 		go func() {
 			defer future.Pollable.SetReady()
-
+			var tlsConn *tls.Conn
+			defer func() {
+				if rec := recover(); rec != nil {
+					// Handshake/streamConn panic 时必须唤醒 pollable 并记录错误，避免 future 泄漏
+					if tlsConn != nil {
+						_ = tlsConn.Close()
+					} else {
+						_ = handshake.Close()
+					}
+					future.StoreResult(manager_tls.Result{Err: fmt.Errorf("tls handshake panic: %v", rec)})
+				}
+			}()
 			underlyingConn := &streamConn{
 				in:     &handshake.Input,
 				out:    &handshake.Output,
 				closer: handshake,
 				dlCh:   make(chan struct{}),
 			}
-
-			tlsConn := tls.Client(underlyingConn, &tls.Config{
+			tlsConn = tls.Client(underlyingConn, &tls.Config{
 				ServerName: handshake.ServerName,
-				MinVersion: tls.VersionTLS12, // 默认 MinVersion 过低；保持校验证书（不设 InsecureSkipVerify）
+				MinVersion: tls.VersionTLS12,
 			})
-
 			if err := tlsConn.HandshakeContext(ctx); err != nil {
-				_ = tlsConn.Close() //  握手失败时关掉底层流，避免泄漏
+				_ = tlsConn.Close()
 				future.StoreResult(manager_tls.Result{Err: err})
 				return
 			}
-
 			future.StoreResult(manager_tls.Result{TlsConn: tlsConn})
 		}()
 
@@ -304,14 +328,16 @@ func (i *tlsTypes) Instantiate(_ context.Context, h *wasip2.Host, builder wazero
 	exporter.Export("[resource-drop]future-client-streams", tm.FutureClientStreams.Remove)
 	exporter.Export("[method]future-client-streams.subscribe", func(this FutureClientStreams) Pollable {
 		future, ok := tm.FutureClientStreams.Get(this)
-		if !ok {
+		if !ok || future == nil || future.Pollable == nil {
 			return h.PollManager().Add(manager_io.NewReadyPollable())
 		}
-		return h.PollManager().Add(future.Pollable)
+		// 直接 Add 内部 Pollable 时 drop subscribe 句柄会 SetReady，get 误判握手完成。
+		return h.PollManager().Add(manager_io.NewLevelPollable(future.Pollable.IsReady, future.Pollable))
 	})
 
 	exporter.Export("[method]future-client-streams.get", func(ctx context.Context, this FutureClientStreams) witgo.Option[witgo.Result[witgo.Result[witgo.Tuple3[ClientConnection, InputStream, OutputStream], WasiError], witgo.Unit]] {
 		none := witgo.None[witgo.Result[witgo.Result[witgo.Tuple3[ClientConnection, InputStream, OutputStream], WasiError], witgo.Unit]]()
+		_ = ctx // WASI get 非阻塞；不在 ctx 上等待，以免丢掉已就绪的握手结果
 
 		// 原先先 Pop 再等 Channel/ctx。ctx 取消时 future 已从管理器摘掉，
 		// 握手结果丢失且 tls.Conn 无人关闭。Get 保留句柄，允许取消后再次 get。
@@ -320,9 +346,7 @@ func (i *tlsTypes) Instantiate(_ context.Context, h *wasip2.Host, builder wazero
 			return none
 		}
 
-		select {
-		case <-future.Pollable.Channel():
-		case <-ctx.Done():
+		if future.Pollable == nil || !future.Pollable.IsReady() {
 			return none
 		}
 
@@ -347,21 +371,22 @@ func (i *tlsTypes) Instantiate(_ context.Context, h *wasip2.Host, builder wazero
 			))
 		}
 
-		// 默认 AsyncStream Close 会关掉整个 tls.Conn，先 drop input-stream 会毁掉 output-stream；
-		// 连接所有权交给 client-connection。
+		// 先把 tls.Conn 放进 ClientConnections。若先 Add 流再 Add conn，
+		// Host.Close 插在中间会得到 DontClose 的流且 tls.Conn 不在任何 manager 里。
+		conn := &manager_tls.ClientConnection{Conn: tlsConn}
+		connHandle := tm.ClientConnections.Add(conn)
+
 		inStreamEncrypted := manager_io.NewAsyncStreamForReader(tlsConn, manager_io.DontCloseReader())
 		outStreamEncrypted := manager_io.NewAsyncStreamForWriter(tlsConn, manager_io.DontCloseWriter())
 		inStreamHandle := sm.Add(inStreamEncrypted)
 		outStreamHandle := sm.Add(outStreamEncrypted)
-
-		conn := &manager_tls.ClientConnection{Conn: tlsConn}
-		connHandle := tm.ClientConnections.Add(conn)
 
 		tuple := witgo.Tuple3[ClientConnection, InputStream, OutputStream]{
 			F0: connHandle,
 			F1: inStreamHandle,
 			F2: outStreamHandle,
 		}
+
 		return witgo.Some(witgo.Ok[witgo.Result[witgo.Tuple3[ClientConnection, InputStream, OutputStream], WasiError], witgo.Unit](
 			witgo.Ok[witgo.Tuple3[ClientConnection, InputStream, OutputStream], WasiError](tuple),
 		))

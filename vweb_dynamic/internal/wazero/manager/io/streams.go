@@ -21,6 +21,12 @@ type CheckWriter interface {
 	CheckWrite() uint64
 }
 
+// StreamErrorer 用于把“流已关闭/失败”从 check-write==0（仅缓冲满）中区分出来。
+// 单独接口，避免给已导出的 CheckWriter 加方法而破坏外部实现。
+type StreamErrorer interface {
+	StreamErr() error
+}
+
 // Stream 结构体代表一个 WASI 流，封装了 Go 的 io 接口。
 type Stream struct {
 	// 可选的 Reader，用于输入流。

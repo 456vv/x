@@ -17,7 +17,7 @@ import (
 
 func (i *udpImpl) StartBind(_ context.Context, this UDPSocket, network Network, localAddress IPSocketAddress) witgo.Result[witgo.Unit, ErrorCode] {
 	sock, ok := i.host.UDPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 	if code := i.checkNetwork(network); code != 0 {
@@ -68,18 +68,16 @@ func (i *udpImpl) StartBind(_ context.Context, this UDPSocket, network Network, 
 	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
 }
 
-func (i *udpImpl) FinishBind(_ context.Context, this UDPSocket) witgo.Result[witgo.Unit, ErrorCode] {
-	// 我们的 start-bind 是同步的，所以这里直接成功返回
-	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
-}
-
 func (i *udpImpl) connectUDP(sock *sockets.UDPSocket, remoteAddress witgo.Option[IPSocketAddress]) error {
 	if sock == nil || sock.Conn == nil {
 		return syscall.EINVAL
 	}
 	if !remoteAddress.IsSome() || remoteAddress.Some == nil {
-		return nil
+		// WASI stream(none) 必须解除上次 connect 的默认远端；
+		// unix/windows 上对「空地址」syscall.Connect 不可移植，统一按原本地地址 Listen 恢复未连接。
+		return rebindUnconnectedUDP(sock)
 	}
+
 	sa, err := fromIPSocketAddressToSockaddr(*remoteAddress.Some)
 	if err != nil {
 		return err
@@ -140,9 +138,11 @@ func getUDPSockoptInt[T ~int | ~uint64 | ~uint32 | ~uint8](i *udpImpl, this UDPS
 	var val int
 	var getErr error
 
+	// 无锁读 sock.Conn/sock.Fd 与 bind/析构 data race。
+	conn, _, hasFd := sock.SnapshotConnOrFd()
 	switch {
-	case sock.Conn != nil:
-		rawConn, err := sock.Conn.SyscallConn()
+	case conn != nil:
+		rawConn, err := conn.SyscallConn()
 		if err != nil {
 			return witgo.Err[T, ErrorCode](mapOsError(err))
 		}
@@ -152,9 +152,13 @@ func getUDPSockoptInt[T ~int | ~uint64 | ~uint32 | ~uint8](i *udpImpl, this UDPS
 		if err != nil {
 			return witgo.Err[T, ErrorCode](mapOsError(err))
 		}
-	case sock.HasFd():
+	case hasFd:
 		// bind 前 WASI 允许读 hop-limit；此时还没有 net.UDPConn
-		val, getErr = unix.GetsockoptInt(sock.Fd, level, opt)
+		getErr = sock.ControlFd(func(fd int) error {
+			var err error
+			val, err = unix.GetsockoptInt(fd, level, opt)
+			return err
+		})
 	default:
 		return witgo.Err[T, ErrorCode](ErrorCodeInvalidArgument)
 	}
@@ -172,9 +176,10 @@ func setUDPSockoptInt(i *udpImpl, this UDPSocket, level, opt, value int) witgo.R
 	}
 
 	var setErr error
+	conn, _, hasFd := sock.SnapshotConnOrFd()
 	switch {
-	case sock.Conn != nil:
-		rawConn, err := sock.Conn.SyscallConn()
+	case conn != nil:
+		rawConn, err := conn.SyscallConn()
 		if err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
@@ -184,8 +189,10 @@ func setUDPSockoptInt(i *udpImpl, this UDPSocket, level, opt, value int) witgo.R
 		if err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
-	case sock.HasFd():
-		setErr = unix.SetsockoptInt(sock.Fd, level, opt, value)
+	case hasFd:
+		setErr = sock.ControlFd(func(fd int) error {
+			return unix.SetsockoptInt(fd, level, opt, value)
+		})
 	default:
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
@@ -194,4 +201,12 @@ func setUDPSockoptInt(i *udpImpl, this UDPSocket, level, opt, value int) witgo.R
 	}
 
 	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
+}
+
+func (i *udpImpl) setReceiveBufferUnconnected(this UDPSocket, value uint64) witgo.Result[witgo.Unit, ErrorCode] {
+	return setUDPSockoptInt(i, this, unix.SOL_SOCKET, unix.SO_RCVBUF, clampToInt(value))
+}
+
+func (i *udpImpl) setSendBufferUnconnected(this UDPSocket, value uint64) witgo.Result[witgo.Unit, ErrorCode] {
+	return setUDPSockoptInt(i, this, unix.SOL_SOCKET, unix.SO_SNDBUF, clampToInt(value))
 }

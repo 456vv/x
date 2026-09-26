@@ -19,30 +19,33 @@ import (
 
 func (i *typesImpl) GetFlags(ctx context.Context, this Descriptor) witgo.Result[DescriptorFlags, ErrorCode] {
 	d, ok := i.host.FilesystemManager().Get(this)
-	if !ok || d == nil || d.File == nil {
+	if !ok || d == nil {
 		return witgo.Err[DescriptorFlags, ErrorCode](ErrorCodeBadDescriptor)
-	}
-
-	raw, err := d.File.SyscallConn()
-	if err != nil {
-		return witgo.Err[DescriptorFlags, ErrorCode](mapOsError(err))
 	}
 	var sysErr error
 	var flags int
-	ctrlErr := raw.Control(func(fd uintptr) {
-		flags, sysErr = unix.FcntlInt(fd, unix.F_GETFL, 0)
+	var isDir bool
+	// 无锁 SyscallConn 与 Close 会在已关闭 fd 上 fcntl。
+	err := d.DoR(func(f *os.File) error {
+		if st, statErr := f.Stat(); statErr == nil {
+			isDir = st.IsDir()
+		}
+		raw, rawErr := f.SyscallConn()
+		if rawErr != nil {
+			return rawErr
+		}
+		return raw.Control(func(fd uintptr) {
+			flags, sysErr = unix.FcntlInt(fd, unix.F_GETFL, 0)
+		})
 	})
-	if ctrlErr != nil {
-		return witgo.Err[DescriptorFlags, ErrorCode](mapOsError(ctrlErr))
+	if err != nil {
+		return witgo.Err[DescriptorFlags, ErrorCode](mapOsError(err))
 	}
-
 	if sysErr != nil {
 		return witgo.Err[DescriptorFlags, ErrorCode](mapOsError(sysErr))
 	}
-
 	var wasiFlags DescriptorFlags
-	accmode := flags & unix.O_ACCMODE
-	switch accmode {
+	switch flags & unix.O_ACCMODE {
 	case unix.O_RDWR:
 		wasiFlags.Read = true
 		wasiFlags.Write = true
@@ -51,7 +54,6 @@ func (i *typesImpl) GetFlags(ctx context.Context, this Descriptor) witgo.Result[
 	default:
 		wasiFlags.Read = true
 	}
-
 	if flags&unix.O_DSYNC != 0 {
 		wasiFlags.DataIntegritySync = true
 	}
@@ -59,15 +61,11 @@ func (i *typesImpl) GetFlags(ctx context.Context, this Descriptor) witgo.Result[
 		wasiFlags.FileIntegritySync = true
 		wasiFlags.RequestedWriteSync = true
 	}
-
-	return witgo.Ok[DescriptorFlags, ErrorCode](wasiFlags)
-}
-
-func timeToDatetime(ts syscall.Timespec) Datetime {
-	return Datetime{
-		Seconds:     uint64(ts.Sec),
-		Nanoseconds: uint32(ts.Nsec),
+	// WASI get-flags 的 mutate-directory 在可写目录上应为 true；fcntl 看不到该位。
+	if isDir && wasiFlags.Write {
+		wasiFlags.MutateDirectory = true
 	}
+	return witgo.Ok[DescriptorFlags, ErrorCode](wasiFlags)
 }
 
 func goModeToDescriptorType(mode fs.FileMode) DescriptorType {
@@ -96,6 +94,9 @@ func mapOsError(err error) ErrorCode {
 	if err == nil {
 		return 0
 	}
+	if errors.Is(err, os.ErrClosed) {
+		return ErrorCodeBadDescriptor
+	}
 	if errors.Is(err, fs.ErrPermission) {
 		return ErrorCodeAccess
 	}
@@ -110,19 +111,31 @@ func mapOsError(err error) ErrorCode {
 	}
 	var errno syscall.Errno
 	if errors.As(err, &errno) {
+		// 部分 BSD 上 EAGAIN != EWOULDBLOCK；漏映射会变成 Unsupported
+		if errno == unix.EAGAIN || errno == unix.EWOULDBLOCK {
+			return ErrorCodeWouldBlock
+		}
 		switch errno {
 		case unix.EACCES:
 			return ErrorCodeAccess
-		case unix.EAGAIN:
-			return ErrorCodeWouldBlock
 		case unix.EBADF:
 			return ErrorCodeBadDescriptor
 		case unix.EBUSY:
 			return ErrorCodeBusy
+		case unix.EDEADLK:
+			return ErrorCodeDeadlock
+		case unix.EDQUOT:
+			return ErrorCodeQuota
 		case unix.EEXIST:
 			return ErrorCodeExist
 		case unix.EFBIG:
 			return ErrorCodeFileTooLarge
+		case unix.EILSEQ:
+			return ErrorCodeIllegalByteSequence
+		case unix.EALREADY:
+			return ErrorCodeAlready
+		case unix.EINPROGRESS:
+			return ErrorCodeInProgress
 		case unix.EINTR:
 			return ErrorCodeInterrupted
 		case unix.EINVAL:
@@ -135,6 +148,8 @@ func mapOsError(err error) ErrorCode {
 			return ErrorCodeLoop
 		case unix.EMLINK:
 			return ErrorCodeTooManyLinks
+		case unix.EMSGSIZE:
+			return ErrorCodeMessageSize
 		case unix.ENAMETOOLONG:
 			return ErrorCodeNameTooLong
 		case unix.ENODEV:
@@ -147,12 +162,16 @@ func mapOsError(err error) ErrorCode {
 			return ErrorCodeInsufficientMemory
 		case unix.ENOSPC:
 			return ErrorCodeInsufficientSpace
+		case unix.ENOSYS, unix.ENOTSUP:
+			return ErrorCodeUnsupported
 		case unix.ENOTDIR:
 			return ErrorCodeNotDirectory
 		case unix.ENOTEMPTY:
 			return ErrorCodeNotEmpty
-		case unix.ENOTSUP:
-			return ErrorCodeUnsupported
+		case unix.ENOTRECOVERABLE:
+			return ErrorCodeNotRecoverable
+		case unix.ENOTTY:
+			return ErrorCodeNoTty
 		case unix.ENXIO:
 			return ErrorCodeNoSuchDevice
 		case unix.EOVERFLOW:

@@ -140,6 +140,85 @@ func (s *TCPSocket) SetState(st TCPState) {
 	s.stateAtomic.Store(uint32(st))
 }
 
+// GetListener 在锁下拷贝 Listener，避免与析构并发读产生 data race。
+func (s *TCPSocket) GetListener() *net.TCPListener {
+	if s == nil {
+		return nil
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	return s.Listener
+}
+
+// TakeListener 取出并清空 Listener，供无原始 fd 平台在 connect 前释放 bind 占用的端口。
+// tcp_other 的 StartBind 只能 ListenTCP；不关掉 Listener 就 Dial 会 EADDRINUSE。
+// 必须导出：wasip2 与 manager 不同包。
+func (s *TCPSocket) TakeListener() *net.TCPListener {
+	if s == nil {
+		return nil
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	ln := s.Listener
+	s.Listener = nil
+	return ln
+}
+
+// GetConn 在锁下拷贝 Conn，避免与 drop/Claim 并发。
+func (s *TCPSocket) GetConn() *net.TCPConn {
+	if s == nil {
+		return nil
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	return s.Conn
+}
+
+// GetConnectDone 返回当前 connect 完成通道（只读），subscribe 不得无锁读 ConnectDone。
+func (s *TCPSocket) GetConnectDone() chan struct{} {
+	if s == nil {
+		return nil
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	return s.ConnectDone
+}
+
+// SnapshotFd 在锁下拷贝原始 fd。HasFd 不能再加锁（DoBind 已持 connectMu，会死锁）。
+func (s *TCPSocket) SnapshotFd() (fd int, ok bool) {
+	if s == nil {
+		return -1, false
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	return s.Fd, s.closeFd != nil
+}
+
+// SnapshotConnOrFd 在同一把锁下拷贝 Conn 与原始 fd。
+// GetConn 与 SnapshotFd 分两次加锁，中间可能完成 bind/connect/drop，两端都 miss。
+func (s *TCPSocket) SnapshotConnOrFd() (conn *net.TCPConn, fd int, hasFd bool) {
+	if s == nil {
+		return nil, -1, false
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	return s.Conn, s.Fd, s.closeFd != nil
+}
+
+// ControlFd 在 connectMu 内使用原始 fd。
+// SnapshotFd 放开锁后 fd 号可能已被 close 并复用。只适合短 syscall，不能在回调里阻塞。
+func (s *TCPSocket) ControlFd(fn func(fd int) error) error {
+	if s == nil || fn == nil {
+		return ErrInvalidSocketState
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	if s.closeFd == nil || s.Fd < 0 {
+		return ErrInvalidSocketState
+	}
+	return fn(s.Fd)
+}
+
 // ConnectContext 返回当前 connect 的可取消 context；无则 Background。
 // wasip2 与 manager 不同包，不能直接读未导出字段。
 func (s *TCPSocket) ConnectContext() context.Context {
@@ -368,6 +447,37 @@ func (s *UDPSocket) GetWriter() *AsyncUDPWriter {
 	return s.Writer
 }
 
+// GetConn 在锁下拷贝 UDPConn，避免与 Stream/析构并发。
+func (s *UDPSocket) GetConn() *net.UDPConn {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Conn
+}
+
+// SnapshotFd 在锁下拷贝原始 fd。HasFd 不能再加锁（DoBind 已持 mu，会死锁）。
+func (s *UDPSocket) SnapshotFd() (fd int, ok bool) {
+	if s == nil {
+		return -1, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Fd, s.closeFd != nil
+}
+
+// SnapshotConnOrFd 在同一把锁下拷贝 Conn 与原始 fd。
+// GetConn 后再无锁读 HasFd/Fd 会与 bind/析构 data race。
+func (s *UDPSocket) SnapshotConnOrFd() (conn *net.UDPConn, fd int, hasFd bool) {
+	if s == nil {
+		return nil, -1, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Conn, s.Fd, s.closeFd != nil
+}
+
 func (s *UDPSocket) TakeReader() *AsyncUDPReader {
 	if s == nil {
 		return nil
@@ -377,6 +487,19 @@ func (s *UDPSocket) TakeReader() *AsyncUDPReader {
 	s.Reader = nil
 	s.mu.Unlock()
 	return r
+}
+
+// ControlFd 在 UDP 的 mu 内使用原始 fd，原因同 TCP。
+func (s *UDPSocket) ControlFd(fn func(fd int) error) error {
+	if s == nil || fn == nil {
+		return ErrInvalidSocketState
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closeFd == nil || s.Fd < 0 {
+		return ErrInvalidSocketState
+	}
+	return fn(s.Fd)
 }
 
 func (s *UDPSocket) TakeWriter() *AsyncUDPWriter {
@@ -391,6 +514,7 @@ func (s *UDPSocket) TakeWriter() *AsyncUDPWriter {
 }
 
 // ReplaceDatagramStreams 在同一把锁下 connect + 停旧流 + 开新流，避免双 ReadFromUDP。
+// ReplaceDatagramStreams 在同一把锁下停旧流 + connect + 开新流，避免双 ReadFromUDP。
 func (s *UDPSocket) ReplaceDatagramStreams(connect func() error) error {
 	if s == nil {
 		return ErrInvalidSocketState
@@ -400,11 +524,8 @@ func (s *UDPSocket) ReplaceDatagramStreams(connect func() error) error {
 	if s.Conn == nil {
 		return ErrInvalidSocketState
 	}
-	if connect != nil {
-		if err := connect(); err != nil {
-			return err
-		}
-	}
+	// 原先先 connect 再停 Reader。syscall.Connect / Close+ListenUDP
+	// 与后台 ReadFromUDP/WriteToUDP 并发，行为未定义；stream(none) 重绑时还会对仍在用的 Conn Close。
 	if s.Reader != nil {
 		s.Reader.Close()
 		s.Reader.WaitExit()
@@ -416,9 +537,27 @@ func (s *UDPSocket) ReplaceDatagramStreams(connect func() error) error {
 		s.Writer = nil
 	}
 	if s.Conn != nil {
-		_ = s.Conn.SetReadDeadline(time.Time{})
-		_ = s.Conn.SetWriteDeadline(time.Time{})
+		s.Conn.SetReadDeadline(time.Time{})
+		s.Conn.SetWriteDeadline(time.Time{})
 	}
+	if connect != nil {
+		if err := connect(); err != nil {
+			// 进 connect 前已经停掉旧 Reader/Writer。失败直接返回会让已绑定的 UDP 永久没有数据报流。
+			if s.Conn != nil {
+				s.Conn.SetReadDeadline(time.Time{})
+				s.Conn.SetWriteDeadline(time.Time{})
+				s.Reader = NewAsyncUDPReader(s.Conn)
+				s.Writer = NewAsyncUDPWriter(s.Conn)
+			}
+			return err
+		}
+	}
+
+	if s.Conn == nil {
+		return ErrInvalidSocketState
+	}
+	s.Conn.SetReadDeadline(time.Time{})
+	s.Conn.SetWriteDeadline(time.Time{})
 	s.Reader = NewAsyncUDPReader(s.Conn)
 	s.Writer = NewAsyncUDPWriter(s.Conn)
 	return nil
@@ -521,6 +660,7 @@ func NewUDPSocketManager() *UDPSocketManager {
 		c := resource.Conn
 		resource.Reader = nil
 		resource.Writer = nil
+		resource.Conn = nil // 不置 nil 时 GetConn 仍返回已关闭连接，Stream/sockopt 会 ste 到死 fd。
 		resource.mu.Unlock()
 
 		if r != nil {

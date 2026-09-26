@@ -19,46 +19,27 @@ import (
 
 func (i *typesImpl) GetFlags(ctx context.Context, this Descriptor) witgo.Result[DescriptorFlags, ErrorCode] {
 	d, ok := i.host.FilesystemManager().Get(this)
-	if !ok || d == nil || d.File == nil {
+	if !ok || d == nil {
 		return witgo.Err[DescriptorFlags, ErrorCode](ErrorCodeBadDescriptor)
 	}
-
-	info, err := d.File.Stat()
+	info, err := d.Stat()
 	if err != nil {
 		return witgo.Err[DescriptorFlags, ErrorCode](mapOsError(err))
 	}
-
 	var wasiFlags DescriptorFlags
 	wasiFlags.Read = true
-	if info.Mode()&0o200 == 0 {
-		wasiFlags.Write = false
-	} else {
-		wasiFlags.Write = true
+	wasiFlags.Write = info.Mode()&0o200 != 0
+	if info.IsDir() && wasiFlags.Write {
+		wasiFlags.MutateDirectory = true
 	}
-	wasiFlags.FileIntegritySync = false
-	wasiFlags.DataIntegritySync = false
-	wasiFlags.RequestedWriteSync = false
-
 	return witgo.Ok[DescriptorFlags, ErrorCode](wasiFlags)
-}
-
-func timeToDatetime(ft syscall.Filetime) Datetime {
-	t := time.Unix(0, ft.Nanoseconds()).UTC()
-	return Datetime{
-		Seconds:     uint64(t.Unix()),
-		Nanoseconds: uint32(t.Nanosecond()),
-	}
 }
 
 func goFileInfoToDescriptorStat(info fs.FileInfo) DescriptorStat {
 	var stat DescriptorStat
 	stat.Type = goModeToDescriptorType(info.Mode())
 	stat.Size = Filesize(info.Size())
-	modTime := info.ModTime()
-	stat.DataModificationTimestamp = witgo.Some(Datetime{
-		Seconds:     uint64(modTime.Unix()),
-		Nanoseconds: uint32(modTime.Nanosecond()),
-	})
+	stat.DataModificationTimestamp = witgo.Some(datetimeFromTime(info.ModTime()))
 
 	if sys, ok := info.Sys().(*syscall.Win32FileAttributeData); ok {
 		stat.DataAccessTimestamp = witgo.Some(timeToDatetime(sys.LastAccessTime))
@@ -97,6 +78,9 @@ func goModeToDescriptorType(mode fs.FileMode) DescriptorType {
 func mapOsError(err error) ErrorCode {
 	if err == nil {
 		return 0
+	}
+	if errors.Is(err, os.ErrClosed) {
+		return ErrorCodeBadDescriptor
 	}
 	if errors.Is(err, fs.ErrPermission) {
 		return ErrorCodeAccess
@@ -195,4 +179,17 @@ func writePlatformFileIdentity(h hash.Hash, info fs.FileInfo) {
 		binary.LittleEndian.PutUint32(b[:], sys.FileAttributes)
 		_, _ = h.Write(b[:])
 	}
+}
+
+func syncDataFile(f *os.File) error {
+	if f == nil {
+		return os.ErrInvalid
+	}
+	// 退回 fsync，满足 sync-data 的落盘语义。
+	return f.Sync()
+}
+
+func timeToDatetime(ft syscall.Filetime) Datetime {
+	t := time.Unix(0, ft.Nanoseconds()).UTC()
+	return datetimeFromTime(t)
 }

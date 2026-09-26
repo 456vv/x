@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"math"
+	"net"
+	"os"
 	"time"
 
 	manager_io "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/io"
@@ -21,15 +23,12 @@ func newStreamsImpl(sm *manager_io.StreamManager, em *manager_io.ErrorManager, p
 	return &streamsImpl{sm: sm, em: em, pm: pm}
 }
 
-// subscribeToStream 是 SubscribeToInputStream 和 SubscribeToOutputStream 的通用实现。
 func (i *streamsImpl) subscribeToStream(this uint32) Pollable {
 	s, ok := i.sm.Get(this)
 	if !ok || s == nil {
-		// 无效的 stream 句柄，返回一个立即就绪的 pollable。
 		return i.pm.Add(manager_io.NewReadyPollable())
 	}
 
-	// 如果 stream 的创建者提供了 OnSubscribe 回调，则调用它。
 	if s.OnSubscribe != nil {
 		pollable := s.OnSubscribe()
 		if pollable != nil {
@@ -37,7 +36,6 @@ func (i *streamsImpl) subscribeToStream(this uint32) Pollable {
 		}
 	}
 
-	// 否则，回退到默认行为：为通用阻塞流创建一个立即就绪的 pollable。
 	return i.pm.Add(manager_io.NewReadyPollable())
 }
 
@@ -51,7 +49,6 @@ func (i *streamsImpl) DropOutputStream(_ context.Context, handle OutputStream) {
 
 func capReadLen(maxLen uint64) int {
 	const maxChunk = 8 << 20
-	// WIT 允许短读；32 位上 make([]byte, uint64) 会溢出 panic，超大分配会 OOM
 	if maxLen == 0 {
 		return 0
 	}
@@ -59,13 +56,6 @@ func capReadLen(maxLen uint64) int {
 		return maxChunk
 	}
 	return int(maxLen)
-}
-
-func minU64(a, b uint64) uint64 {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (i *streamsImpl) Read(_ context.Context, this InputStream, maxLen uint64) witgo.Result[[]byte, StreamError] {
@@ -80,7 +70,7 @@ func (i *streamsImpl) Read(_ context.Context, this InputStream, maxLen uint64) w
 	buf := make([]byte, ncap)
 	n, err := s.Reader.Read(buf)
 	if n == 0 && err != nil {
-		if err == io.EOF {
+		if isStreamClosedErr(err) {
 			return witgo.Err[[]byte, StreamError](StreamError{Closed: &witgo.Unit{}})
 		}
 		errHandle := i.em.Add(err)
@@ -115,64 +105,82 @@ func (i *streamsImpl) BlockingRead(ctx context.Context, this InputStream, maxLen
 			return witgo.Ok[[]byte, StreamError](buf[:n])
 		}
 		if err != nil {
-			if err == io.EOF {
+			if isStreamClosedErr(err) {
 				return witgo.Err[[]byte, StreamError](StreamError{Closed: &witgo.Unit{}})
 			}
 			errHandle := i.em.Add(err)
 			return witgo.Err[[]byte, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
-		// AsyncReadWrapper 无数据返回 (0,nil)；blocking-read 必须等到至少 1 字节或关闭
 	}
 }
 
-// Skip (非阻塞) 尝试跳过最多 maxLen 字节并立即返回。
 func (i *streamsImpl) Skip(ctx context.Context, this InputStream, maxLen uint64) witgo.Result[uint64, StreamError] {
 	s, ok := i.sm.Get(this)
 	if !ok || s == nil || s.Reader == nil {
 		return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
 	}
-
-	// 优先使用 Seeker 实现高效跳转。
-	if s.Seeker != nil {
-		currentPos, err := s.Seeker.Seek(0, io.SeekCurrent)
-		if err == nil {
-			skip := minU64(maxLen, uint64(math.MaxInt64))
-			newPos, err := s.Seeker.Seek(int64(skip), io.SeekCurrent)
-			if err == nil {
-				return witgo.Ok[uint64, StreamError](uint64(newPos - currentPos))
-			}
-		}
-	}
-
-	// 回退到读取和丢弃方法，并指定为非阻塞模式。
-	return i.skipByReading(ctx, s, maxLen, false) // blocking = false
+	return i.skipByReading(ctx, s, maxLen, false)
 }
 
-// BlockingSkip (阻塞) 会跳过 maxLen 字节，并在必要时等待数据。
 func (i *streamsImpl) BlockingSkip(ctx context.Context, this InputStream, maxLen uint64) witgo.Result[uint64, StreamError] {
 	s, ok := i.sm.Get(this)
 	if !ok || s == nil || s.Reader == nil {
 		return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
 	}
-
-	// 优先使用 Seeker 实现高效跳转。
-	if s.Seeker != nil {
-		currentPos, err := s.Seeker.Seek(0, io.SeekCurrent)
-		if err == nil {
-			skip := minU64(maxLen, uint64(math.MaxInt64))
-			newPos, err := s.Seeker.Seek(int64(skip), io.SeekCurrent)
-			if err == nil {
-				return witgo.Ok[uint64, StreamError](uint64(newPos - currentPos))
-			}
-		}
-	}
-
-	// 回退到读取和丢弃方法，并指定为阻塞模式。
-	return i.skipByReading(ctx, s, maxLen, true) // blocking = true
+	return i.skipByReading(ctx, s, maxLen, true)
 }
 
-// skipByReading 是跳过字节的核心实现，支持阻塞和非阻塞两种模式。
+// sectionRemaining 在 Seeker 实现了 Size()（如 io.SectionReader）时给出剩余字节。
+// read-via-stream 用 SectionReader；skip 若逐块读大偏移会浪费 CPU。
+// 不用任意 Seeker.Seek：*os.File 作为 Seeker 会移动共享 fd，干扰同 fd 上的 ReadAt 流。
+func sectionRemaining(s *manager_io.Stream) (remain int64, ok bool) {
+	if s == nil || s.Seeker == nil {
+		return 0, false
+	}
+	type sizer interface{ Size() int64 }
+	sz, ok := s.Seeker.(sizer)
+	if !ok {
+		return 0, false
+	}
+	cur, err := s.Seeker.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, false
+	}
+	size := sz.Size()
+	// 不知道真实文件长度时用 MaxInt64 占位。把它当成 section 末尾，skip 会报告跳过了不存在的字节。
+	if size < 0 || size >= math.MaxInt64/2 {
+		return 0, false
+	}
+	remain = size - cur
+	if remain < 0 {
+		remain = 0
+	}
+	return remain, true
+}
+
 func (i *streamsImpl) skipByReading(ctx context.Context, s *manager_io.Stream, maxLen uint64, blocking bool) witgo.Result[uint64, StreamError] {
+	if maxLen == 0 {
+		return witgo.Ok[uint64, StreamError](0)
+	}
+
+	if remain, ok := sectionRemaining(s); ok {
+		if remain == 0 {
+			return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+		}
+		n := remain
+		if maxLen <= uint64(math.MaxInt64) && int64(maxLen) < n {
+			n = int64(maxLen)
+		}
+		if _, err := s.Seeker.Seek(n, io.SeekCurrent); err != nil {
+			if isStreamClosedErr(err) {
+				return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+			}
+			errHandle := i.em.Add(err)
+			return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
+		}
+		return witgo.Ok[uint64, StreamError](uint64(n))
+	}
+
 	var totalSkipped uint64
 	buf := make([]byte, 32*1024)
 
@@ -188,14 +196,16 @@ func (i *streamsImpl) skipByReading(ctx context.Context, s *manager_io.Stream, m
 		}
 
 		if err != nil {
-			if err == io.EOF {
+			if isStreamClosedErr(err) {
+				if totalSkipped == 0 {
+					return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+				}
 				break
 			}
 			errHandle := i.em.Add(err)
 			return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
 
-		// 当 n == 0 时，根据 blocking 参数决定行为
 		if n == 0 {
 			if blocking {
 				if err := waitSubscribe(ctx, s); err != nil {
@@ -203,7 +213,6 @@ func (i *streamsImpl) skipByReading(ctx context.Context, s *manager_io.Stream, m
 					return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
 				}
 			} else {
-				// 非阻塞模式：立即停止
 				break
 			}
 		}
@@ -222,7 +231,19 @@ func (i *streamsImpl) CheckWrite(_ context.Context, this OutputStream) witgo.Res
 		return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
 	}
 	if s.CheckWriter != nil {
-		return witgo.Ok[uint64, StreamError](s.CheckWriter.CheckWrite())
+		avail := s.CheckWriter.CheckWrite()
+		if avail == 0 {
+			if se, ok := s.CheckWriter.(manager_io.StreamErrorer); ok {
+				if err := se.StreamErr(); err != nil {
+					if isStreamClosedErr(err) {
+						return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+					}
+					errHandle := i.em.Add(err)
+					return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
+				}
+			}
+		}
+		return witgo.Ok[uint64, StreamError](avail)
 	}
 	return witgo.Ok[uint64, StreamError](4096)
 }
@@ -236,13 +257,11 @@ func (i *streamsImpl) Write(_ context.Context, this OutputStream, contents []byt
 		return witgo.Ok[witgo.Unit, StreamError](witgo.Unit{})
 	}
 	if s.CheckWriter != nil {
-		// WASI 规定 write 长度不得超过 check-write 许可
 		if uint64(len(contents)) > s.CheckWriter.CheckWrite() {
 			errHandle := i.em.Add(errors.New("write exceeds check-write permit"))
 			return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
 	}
-	// io.Writer 允许短写且 err==nil；原先忽略 n 会丢数据。
 	off := 0
 	for off < len(contents) {
 		n, err := s.Writer.Write(contents[off:])
@@ -250,6 +269,9 @@ func (i *streamsImpl) Write(_ context.Context, this OutputStream, contents []byt
 			off += n
 		}
 		if err != nil {
+			if isStreamClosedErr(err) {
+				return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+			}
 			errHandle := i.em.Add(err)
 			return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
@@ -273,6 +295,15 @@ func (i *streamsImpl) BlockingWriteAndFlush(ctx context.Context, this OutputStre
 			writeSize = s.CheckWriter.CheckWrite()
 		}
 		if writeSize == 0 {
+			if se, ok := s.CheckWriter.(manager_io.StreamErrorer); ok {
+				if err := se.StreamErr(); err != nil {
+					if isStreamClosedErr(err) {
+						return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+					}
+					errHandle := i.em.Add(err)
+					return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+				}
+			}
 			if err := waitSubscribe(ctx, s); err != nil {
 				errHandle := i.em.Add(err)
 				return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
@@ -286,10 +317,12 @@ func (i *streamsImpl) BlockingWriteAndFlush(ctx context.Context, this OutputStre
 		}
 		n, err := s.Writer.Write(contents[:chunk])
 		if err != nil {
+			if isStreamClosedErr(err) {
+				return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+			}
 			errHandle := i.em.Add(err)
 			return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
-		// 短写时推进已写部分，避免死循环或丢数据
 		if n == 0 {
 			if err := waitSubscribe(ctx, s); err != nil {
 				errHandle := i.em.Add(err)
@@ -318,14 +351,31 @@ func (i *streamsImpl) Flush(_ context.Context, this OutputStream) witgo.Result[w
 	return witgo.Ok[witgo.Unit, StreamError](witgo.Unit{})
 }
 
+func isStreamClosedErr(err error) bool {
+	// 关闭文件是 os.ErrClosed，关闭管道是 ErrClosedPipe，关闭 TCP 是 net.ErrClosed。
+	// 只认 io.EOF 会让 guest 把正常结束当成失败并不停重试。
+	return err != nil && (errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, net.ErrClosed) || errors.Is(err, os.ErrClosed))
+}
+
 func (i *streamsImpl) BlockingFlush(ctx context.Context, this OutputStream) witgo.Result[witgo.Unit, StreamError] {
 	s, ok := i.sm.Get(this)
 	if !ok || s == nil || s.Writer == nil {
 		return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
 	}
-	// 原先直接调非阻塞 Flush，AsyncWriteWrapper 缓冲未排空就返回 Ok。
 	if s.BlockingFlusher != nil {
-		if err := s.BlockingFlusher.BlockingFlush(); err != nil {
+		var err error
+		type ctxFlusher interface {
+			BlockingFlushContext(context.Context) error
+		}
+		if cf, ok := s.BlockingFlusher.(ctxFlusher); ok {
+			err = cf.BlockingFlushContext(ctx)
+		} else {
+			err = s.BlockingFlusher.BlockingFlush()
+		}
+		if err != nil {
+			if isStreamClosedErr(err) {
+				return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+			}
 			errHandle := i.em.Add(err)
 			return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
@@ -339,38 +389,51 @@ func (i *streamsImpl) SubscribeToOutputStream(_ context.Context, this OutputStre
 }
 
 // Splice 将最多 maxLen 字节从 src 拷到 this。
-// 原先用 io.CopyN。AsyncReadWrapper 在无数据时返回 (0, nil)，
-// CopyN 会立刻重试，形成忙等。改为显式等待 src/dst 的 subscribe。
+// 修改原因：WASI splice 是非阻塞的；原先 waitSubscribe 等于 blocking-splice，
+// 会在 wasm 线程上挂死，且与 subscribe 轮询冲突。
 func (i *streamsImpl) Splice(ctx context.Context, this OutputStream, src InputStream, maxLen uint64) witgo.Result[uint64, StreamError] {
+	return i.splice(ctx, this, src, maxLen, false)
+}
+
+// BlockingSplice 在源无数据或目标不可写时等待 pollable。
+func (i *streamsImpl) BlockingSplice(ctx context.Context, this OutputStream, src InputStream, maxLen uint64) witgo.Result[uint64, StreamError] {
+	return i.splice(ctx, this, src, maxLen, true)
+}
+
+func (i *streamsImpl) splice(ctx context.Context, this OutputStream, src InputStream, maxLen uint64, blocking bool) witgo.Result[uint64, StreamError] {
 	dst, ok := i.sm.Get(this)
 	if !ok || dst == nil || dst.Writer == nil {
 		return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
 	}
 
-	var srcStream *manager_io.Stream
-	var srcReader io.Reader
-	if src == 0 {
-		// WriteZeroes 走这里：无穷零字节，不会 (0, nil)
-		srcReader = zeroReader{}
-	} else {
-		var okSrc bool
-		srcStream, okSrc = i.sm.Get(src)
-		if !okSrc || srcStream.Reader == nil {
-			return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
-		}
-		srcReader = srcStream.Reader
+	srcStream, okSrc := i.sm.Get(src)
+	// 修改原因：src==0 原是 WriteZeroes 内部 hack；句柄 0 非法，不能当成无限零流
+	if !okSrc || srcStream == nil || srcStream.Reader == nil {
+		return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
 	}
+	srcReader := srcStream.Reader
 
 	var totalWritten uint64
 	buf := make([]byte, 32*1024)
 
 	for totalWritten < maxLen {
-		// 1. 目标可写空间
 		writePermit := uint64(4096)
 		if dst.CheckWriter != nil {
 			writePermit = dst.CheckWriter.CheckWrite()
 		}
 		if writePermit == 0 {
+			if se, ok := dst.CheckWriter.(manager_io.StreamErrorer); ok {
+				if err := se.StreamErr(); err != nil {
+					if isStreamClosedErr(err) {
+						return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+					}
+					errHandle := i.em.Add(err)
+					return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
+				}
+			}
+			if !blocking {
+				break
+			}
 			if err := waitSubscribe(ctx, dst); err != nil {
 				errHandle := i.em.Add(err)
 				return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
@@ -387,29 +450,28 @@ func (i *streamsImpl) Splice(ctx context.Context, this OutputStream, src InputSt
 			chunk = uint64(len(buf))
 		}
 
-		// 2. 从源读取；n==0 && err==nil 表示暂时没数据，必须阻塞等待，不能忙等
 		n, err := srcReader.Read(buf[:chunk])
 		if n == 0 && err == nil {
-			if srcStream != nil {
-				if werr := waitSubscribe(ctx, srcStream); werr != nil {
-					errHandle := i.em.Add(werr)
-					return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
-				}
-			} else {
-				// zeroReader 不应走到这里
-				time.Sleep(20 * time.Millisecond)
+			if !blocking {
+				break
+			}
+			if werr := waitSubscribe(ctx, srcStream); werr != nil {
+				errHandle := i.em.Add(werr)
+				return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
 			}
 			continue
 		}
 		if n == 0 && err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) || isStreamClosedErr(err) {
+				if totalWritten == 0 {
+					return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+				}
 				break
 			}
 			errHandle := i.em.Add(err)
 			return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
 		}
 
-		// 3. 写入已读到的数据（可能短写，短写同样要等可写）
 		off := 0
 		for off < n {
 			wn, werr := dst.Writer.Write(buf[off:n])
@@ -418,10 +480,15 @@ func (i *streamsImpl) Splice(ctx context.Context, this OutputStream, src InputSt
 				totalWritten += uint64(wn)
 			}
 			if werr != nil {
+				if isStreamClosedErr(werr) {
+					return witgo.Err[uint64, StreamError](StreamError{Closed: &witgo.Unit{}})
+				}
 				errHandle := i.em.Add(werr)
 				return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
 			}
 			if wn == 0 {
+				// 修改原因：已从 src 读出的字节不能丢。即使 splice 非阻塞，
+				// 也必须把本轮已读数据写完；否则数据从源抽走却未送达。
 				if waitErr := waitSubscribe(ctx, dst); waitErr != nil {
 					errHandle := i.em.Add(waitErr)
 					return witgo.Err[uint64, StreamError](StreamError{LastOperationFailed: &errHandle})
@@ -429,7 +496,7 @@ func (i *streamsImpl) Splice(ctx context.Context, this OutputStream, src InputSt
 			}
 		}
 
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -454,13 +521,12 @@ func waitPollable(ctx context.Context, p manager_io.IPollable) error {
 		select {
 		case <-ch:
 		case <-ctx.Done():
-			return ctx.Err() // 阻塞 skip/splice/write 忽略 ctx 会在 guest 取消后挂死 host
+			return ctx.Err()
 		}
 	}
 	return nil
 }
 
-// waitSubscribe 阻塞到流就绪；无 OnSubscribe 时短睡眠兜底。
 func waitSubscribe(ctx context.Context, s *manager_io.Stream) error {
 	if s != nil && s.OnSubscribe != nil {
 		if p := s.OnSubscribe(); p != nil {
@@ -476,34 +542,106 @@ func waitSubscribe(ctx context.Context, s *manager_io.Stream) error {
 	return nil
 }
 
-// BlockingSplice 与 Splice 行为一致（写入路径已按 pollable 阻塞）。
-func (i *streamsImpl) BlockingSplice(ctx context.Context, this OutputStream, src InputStream, maxLen uint64) witgo.Result[uint64, StreamError] {
-	return i.Splice(ctx, this, src, maxLen)
-}
+// zeroChunk 全零且只读，并发 WriteZeroes 可共享，避免每次 make。
+var zeroChunk = make([]byte, 32*1024)
 
-// WriteZeroes 从 Splice 继承了新的阻塞行为。
-func (i *streamsImpl) WriteZeroes(ctx context.Context, this OutputStream, len uint64) witgo.Result[witgo.Unit, StreamError] {
-	// 调用阻塞式的 Splice，并使用一个虚拟的零字节流 (src=0) 作为源。
-	if spliceResult := i.Splice(ctx, this, 0, len); spliceResult.Err != nil {
-		return witgo.Err[witgo.Unit, StreamError](*spliceResult.Err)
+// WriteZeroes 与 write 相同：不得超过 check-write，不得阻塞等待。
+func (i *streamsImpl) WriteZeroes(ctx context.Context, this OutputStream, length uint64) witgo.Result[witgo.Unit, StreamError] {
+	s, ok := i.sm.Get(this)
+	if !ok || s == nil || s.Writer == nil {
+		return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+	}
+	if length == 0 {
+		return witgo.Ok[witgo.Unit, StreamError](witgo.Unit{})
+	}
+	if s.CheckWriter != nil {
+		permit := s.CheckWriter.CheckWrite()
+		if length > permit {
+			if permit == 0 {
+				if se, ok := s.CheckWriter.(manager_io.StreamErrorer); ok {
+					if err := se.StreamErr(); err != nil {
+						if isStreamClosedErr(err) {
+							return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+						}
+						errHandle := i.em.Add(err)
+						return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+					}
+				}
+			}
+			// 修改原因：write-zeroes 不返回写入计数；permit=0 且 len>0 不能 Ok（guest 会当成已写完）
+			errHandle := i.em.Add(errors.New("write-zeroes exceeds check-write permit"))
+			return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+		}
+	}
+	remaining := length
+	for remaining > 0 {
+		n := len(zeroChunk)
+		if remaining < uint64(n) {
+			n = int(remaining)
+		}
+		res := i.Write(ctx, this, zeroChunk[:n])
+		if res.Err != nil {
+			return witgo.Err[witgo.Unit, StreamError](*res.Err)
+		}
+		remaining -= uint64(n)
 	}
 	return witgo.Ok[witgo.Unit, StreamError](witgo.Unit{})
 }
 
-// BlockingWriteZeroesAndFlush
-func (i *streamsImpl) BlockingWriteZeroesAndFlush(ctx context.Context, this OutputStream, len uint64) witgo.Result[witgo.Unit, StreamError] {
-	if writeResult := i.WriteZeroes(ctx, this, len); writeResult.Err != nil {
-		return writeResult
+// BlockingWriteZeroesAndFlush 写满 len 个零字节并阻塞 flush。
+// 修改原因：不能再委托非阻塞 WriteZeroes，否则 check-write 不足时会失败而非等待。
+func (i *streamsImpl) BlockingWriteZeroesAndFlush(ctx context.Context, this OutputStream, length uint64) witgo.Result[witgo.Unit, StreamError] {
+	s, ok := i.sm.Get(this)
+	if !ok || s == nil || s.Writer == nil {
+		return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+	}
+
+	writeSize := uint64(4096)
+	remaining := length
+	for remaining > 0 {
+		if s.CheckWriter != nil {
+			writeSize = s.CheckWriter.CheckWrite()
+		}
+		if writeSize == 0 {
+			if se, ok := s.CheckWriter.(manager_io.StreamErrorer); ok {
+				if err := se.StreamErr(); err != nil {
+					if isStreamClosedErr(err) {
+						return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+					}
+					errHandle := i.em.Add(err)
+					return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+				}
+			}
+			if err := waitSubscribe(ctx, s); err != nil {
+				errHandle := i.em.Add(err)
+				return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+			}
+			continue
+		}
+
+		chunk := remaining
+		if chunk > writeSize {
+			chunk = writeSize
+		}
+		if chunk > uint64(len(zeroChunk)) {
+			chunk = uint64(len(zeroChunk))
+		}
+		n, err := s.Writer.Write(zeroChunk[:chunk])
+		if err != nil {
+			if isStreamClosedErr(err) {
+				return witgo.Err[witgo.Unit, StreamError](StreamError{Closed: &witgo.Unit{}})
+			}
+			errHandle := i.em.Add(err)
+			return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+		}
+		if n == 0 {
+			if err := waitSubscribe(ctx, s); err != nil {
+				errHandle := i.em.Add(err)
+				return witgo.Err[witgo.Unit, StreamError](StreamError{LastOperationFailed: &errHandle})
+			}
+			continue
+		}
+		remaining -= uint64(n)
 	}
 	return i.BlockingFlush(ctx, this)
-}
-
-type zeroReader struct{}
-
-func (z zeroReader) Read(p []byte) (n int, err error) {
-	// clear(p) 需要 Go 1.21；手写清零兼容更旧编译器
-	for i := range p {
-		p[i] = 0
-	}
-	return len(p), nil
 }

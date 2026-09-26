@@ -22,7 +22,7 @@ func (i *tcpImpl) DropTCPSocket(_ context.Context, handle TCPSocket) {
 
 func (i *tcpImpl) StartBind(_ context.Context, this TCPSocket, network Network, localAddress IPSocketAddress) witgo.Result[witgo.Unit, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 	if code := i.checkNetwork(network); code != 0 {
@@ -85,10 +85,14 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		network = "tcp6"
 	}
 	var local *net.TCPAddr
-	if sock.Listener != nil {
-		if la, ok := sock.Listener.Addr().(*net.TCPAddr); ok {
-			local = la
+	// 本平台 StartBind 只能 ListenTCP，端口被 Listener 占住；
+	// 必须先取出并关闭 Listener，再按原本地地址 Dial，否则 connect 会 EADDRINUSE。
+	if ln := sock.TakeListener(); ln != nil {
+		if la, ok := ln.Addr().(*net.TCPAddr); ok && la != nil {
+			ip := append(net.IP(nil), la.IP...)
+			local = &net.TCPAddr{IP: ip, Port: la.Port, Zone: la.Zone}
 		}
+		_ = ln.Close()
 	}
 	// drop 时 ConnectContext 取消才能打断无原始 fd 平台上的拨号
 	d := net.Dialer{LocalAddr: local}
@@ -105,12 +109,13 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 }
 
 func (i *tcpImpl) acceptTCP(sock *sockets.TCPSocket) (*net.TCPConn, error) {
-	if sock == nil || sock.Listener == nil {
+	ln := sock.GetListener()
+	if ln == nil {
 		return nil, syscall.EINVAL
 	}
-	_ = sock.Listener.SetDeadline(time.Now().Add(time.Millisecond))
-	conn, err := sock.Listener.AcceptTCP()
-	_ = sock.Listener.SetDeadline(time.Time{})
+	_ = ln.SetDeadline(time.Now().Add(time.Millisecond))
+	conn, err := ln.AcceptTCP()
+	_ = ln.SetDeadline(time.Time{})
 	return conn, err
 }
 
@@ -197,12 +202,13 @@ func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
 	})
 	handle := i.host.PollManager().Add(p)
 
-	if sock == nil || sock.Listener == nil {
+	ln := sock.GetListener()
+	if ln == nil {
 		p.SetReady()
 		return handle
 	}
 
-	sc, ok := any(sock.Listener).(syscall.Conn)
+	sc, ok := any(ln).(syscall.Conn)
 	if !ok {
 		p.SetReady()
 		return handle
@@ -213,29 +219,38 @@ func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
 		return handle
 	}
 
-	ln := sock.Listener
 	go func() {
 		waitDone := make(chan struct{})
 		go func() {
 			defer close(waitDone)
-			_ = raw.Read(func(_ uintptr) bool {
+			armed := false
+			readErr := raw.Read(func(_ uintptr) bool {
 				select {
 				case <-done:
 					return true
 				default:
-					p.SetReady()
-					return true
 				}
+				if !armed {
+					// 第一次回调发生在开始等待之前。这里返回 true 会立刻结束，订阅永远显示就绪。
+					armed = true
+					return false
+				}
+				p.SetReady()
+				return true
 			})
+			// fd 关闭时回调可能不再进来，否则 pollable 一直不就绪。
+			if readErr != nil {
+				p.SetReady()
+			}
 		}()
 		select {
 		case <-waitDone:
 		case <-done:
-			// RawConn.Read 可能一直阻塞；用短 deadline 唤醒，再清掉，避免影响后续 Accept
-			_ = ln.SetDeadline(time.Now())
+			ln.SetDeadline(time.Now())
 			<-waitDone
-			_ = ln.SetDeadline(time.Time{})
+			ln.SetDeadline(time.Time{})
 		}
 	}()
+
 	return handle
 }

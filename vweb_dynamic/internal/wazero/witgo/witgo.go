@@ -24,6 +24,9 @@ import (
 type Host struct {
 	module    api.Module      // Wasm 模块
 	allocator *GuestAllocator // Guest 内存分配器
+	// 同一 wasm 实例的线性内存与 ExportedFunction.Call 都不是并发安全的。
+	// 仅串行化 Host.Call。不可重入：host export 内禁止再 Call 同一 Host，否则会死锁。
+	callMu sync.Mutex
 }
 
 var hostCache sync.Map // api.Module -> *Host，复用 Host 实例避免重复初始化
@@ -83,7 +86,12 @@ var ErrNotExportFunc = errors.New("guest function not exports")
 // 用于 decodeResult 中将 Wasm 返回值直接写入标量类型。
 func setScalarFromU64(outVal reflect.Value, resultValue uint64) {
 	switch outVal.Kind() {
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		// reflect.SetUint 在超出目标位宽时 panic。Wasm 返回槽是 uint64，窄整数必须先截断。
+		bits := outVal.Type().Bits()
+		if bits < 64 {
+			resultValue &= (uint64(1) << uint(bits)) - 1
+		}
 		outVal.SetUint(resultValue)
 	case reflect.Int8:
 		outVal.SetInt(int64(int8(resultValue)))
@@ -98,12 +106,6 @@ func setScalarFromU64(outVal reflect.Value, resultValue uint64) {
 			outVal.SetInt(int64(int32(resultValue)))
 		} else {
 			outVal.SetInt(int64(resultValue))
-		}
-	case reflect.Uint:
-		if outVal.Type().Size() == 4 {
-			outVal.SetUint(uint64(uint32(resultValue)))
-		} else {
-			outVal.SetUint(resultValue)
 		}
 	case reflect.Float32:
 		outVal.SetFloat(float64(math.Float32frombits(uint32(resultValue))))
@@ -202,6 +204,9 @@ func (h *Host) Call(ctx context.Context, funcName string, resultPtr interface{},
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
+	h.callMu.Lock()
+	defer h.callMu.Unlock()
 
 	// 获取 Guest 函数
 	fn := h.module.ExportedFunction(funcName)
@@ -334,7 +339,10 @@ func (h *Host) decodeResult(ctx context.Context, results []uint64, outVal reflec
 		outVal.Set(val)
 		return nil
 	}
-
+	if len(results) == 0 {
+		// 当扁平化匹配失败时无条件 results[0]，guest 没有核心返回值会 panic。
+		return fmt.Errorf("函数期望有返回值，但实际没有返回")
+	}
 	// 回退到指针模式（单个指针结果）
 	return Lower(ctx, h, uint32(results[0]), outVal)
 }

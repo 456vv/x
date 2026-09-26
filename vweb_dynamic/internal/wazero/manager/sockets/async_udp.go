@@ -13,6 +13,13 @@ import (
 
 const defaultUDPBufferSize = 256 // 默认缓冲 256 个数据报
 
+var udpReadBufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 65535)
+		return &b
+	},
+}
+
 // cloneIPSocketAddress 深拷贝地址，避免与 guest 复用结构体指针形成 data race。
 func cloneIPSocketAddress(a IPSocketAddress) IPSocketAddress {
 	var out IPSocketAddress
@@ -52,6 +59,14 @@ func NewAsyncUDPReader(conn *net.UDPConn) *AsyncUDPReader {
 		exited:        make(chan struct{}),
 	}
 	wrapper.cond = sync.NewCond(&wrapper.mutex)
+	// nil *UDPConn 会在后台 ReadFromUDP 解引用 panic
+	if conn == nil {
+		wrapper.err = net.ErrClosed
+		close(wrapper.done)
+		close(wrapper.exited)
+		wrapper.ready.SetReady()
+		return wrapper
+	}
 	go wrapper.run()
 	return wrapper
 }
@@ -95,7 +110,10 @@ func (ar *AsyncUDPReader) run() {
 		ar.mutex.Unlock()
 	}()
 
-	buf := make([]byte, 65535)
+	bufp := udpReadBufPool.Get().(*[]byte)
+	buf := *bufp
+	defer udpReadBufPool.Put(bufp) // 每条 UDP 流常驻 64KiB；退出时归还，降低 GC 压力
+
 	for {
 		ar.mutex.Lock()
 		// 队列已满时不再收包，避免 buffer 无限增长导致 OOM
@@ -119,6 +137,12 @@ func (ar *AsyncUDPReader) run() {
 			ar.err = err
 			ar.ready.SetReady()
 			ar.cond.Broadcast()
+			ar.mutex.Unlock()
+			return
+		}
+
+		// Close 之后迟到的成功收包不应再入队，否则 drop 后仍占内存
+		if ar.closed() {
 			ar.mutex.Unlock()
 			return
 		}
@@ -247,6 +271,14 @@ func NewAsyncUDPWriter(conn *net.UDPConn) *AsyncUDPWriter {
 		exited:        make(chan struct{}),
 	}
 	wrapper.cond = sync.NewCond(&wrapper.mutex)
+	// nil *UDPConn 会在后台 Write/WriteToUDP 解引用 panic；cond 必须非 nil，Close 会 Broadcast
+	if conn == nil {
+		wrapper.err = net.ErrClosed
+		wrapper.closed = true
+		close(wrapper.done)
+		close(wrapper.exited)
+		return wrapper
+	}
 	wrapper.ready.SetReady()
 	go wrapper.run()
 	return wrapper
@@ -311,10 +343,15 @@ func (aw *AsyncUDPWriter) run() {
 					break
 				}
 			}
+			var n int
 			if remoteAddr != nil {
-				_, writeErr = aw.conn.WriteToUDP(dg.Data, remoteAddr)
+				n, writeErr = aw.conn.WriteToUDP(dg.Data, remoteAddr)
 			} else {
-				_, writeErr = aw.conn.Write(dg.Data)
+				n, writeErr = aw.conn.Write(dg.Data)
+			}
+			// 空数据报 n==0 且 len==0 仍然是成功。
+			if writeErr == nil && n < len(dg.Data) {
+				writeErr = io.ErrShortWrite
 			}
 			if writeErr != nil {
 				failAt = i
@@ -348,7 +385,7 @@ func (aw *AsyncUDPWriter) Send(datagrams []OutgoingDatagram) (uint64, error) {
 	defer aw.mutex.Unlock()
 
 	if aw.closed {
-		return 0, errors.New("udp writer closed")
+		return 0, net.ErrClosed
 	}
 	if aw.err != nil {
 		return 0, aw.err
@@ -396,6 +433,23 @@ func (aw *AsyncUDPWriter) AvailableSpace() uint64 {
 		return 0
 	}
 	return uint64(avail)
+}
+
+// ClosedOrErr 在 writer 已关闭或失败时返回错误，供 check-send 映射 InvalidState。
+// 关闭后 AvailableSpace()==0 且 Subscribe 仍就绪，guest 会当成“暂无空间”空转。
+func (aw *AsyncUDPWriter) ClosedOrErr() error {
+	if aw == nil {
+		return net.ErrClosed
+	}
+	aw.mutex.Lock()
+	defer aw.mutex.Unlock()
+	if aw.err != nil {
+		return aw.err
+	}
+	if aw.closed {
+		return net.ErrClosed
+	}
+	return nil
 }
 
 func (aw *AsyncUDPWriter) Subscribe() manager_io.IPollable {

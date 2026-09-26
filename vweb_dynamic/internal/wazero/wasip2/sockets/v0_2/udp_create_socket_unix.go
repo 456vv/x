@@ -29,6 +29,10 @@ func (i *udpCreateSocketImpl) CreateUDPSocket(_ context.Context, addressFamily I
 		return witgo.Err[UDPSocket, ErrorCode](mapOsError(sockErr))
 	}
 
+	// fork/exec 默认继承 fd，子进程会泄漏套接字。Socket 与 CloseOnExec 之间仍有窗口，
+	// 但 SOCK_CLOEXEC 并非所有 unix 都可用，CloseOnExec 可移植。
+	unix.CloseOnExec(sockFd)
+
 	// Then, we use fcntl to set the O_NONBLOCK flag to make it non-blocking.
 	err = unix.SetNonblock(sockFd, true)
 	if err != nil {

@@ -1,7 +1,6 @@
 package v0_2
 
 import (
-	"bytes"
 	"context"
 	"io"
 
@@ -30,21 +29,42 @@ func (i *incomingBodyImpl) Stream(_ context.Context, this IncomingBody) witgo.Re
 	if !ok || body == nil {
 		return witgo.Err[InputStream, witgo.Unit](witgo.Unit{})
 	}
-
-	if !body.Consumed.CompareAndSwap(false, true) {
-		// 原先误写为 Err[OutgoingBody, Unit]，与方法返回类型 Result[InputStream, Unit] 不一致
+	// CAS、创建异步流、写 StreamHandle 必须原子完成。
+	handle, ok := body.InstallStream(func(r io.Reader) (uint32, *manager_io.Stream) {
+		stream := manager_io.NewAsyncStreamForReader(r, manager_io.DontCloseReader())
+		return i.hm.Streams.Add(stream), stream
+	})
+	if !ok {
 		return witgo.Err[InputStream, witgo.Unit](witgo.Unit{})
 	}
+	return witgo.Ok[InputStream, witgo.Unit](handle)
+}
 
-	// Stream 和 IncomingBody 生命周期绑定，这里不 Close 底层 Reader
-	reader := body.Stream
-	if reader == nil {
-		// 空 body 给出立即 EOF 的 Reader，避免后台异步读 goroutine 对 nil 解引用
-		reader = bytes.NewReader(nil)
+// drainIncomingStream 阻塞读到 EOF，让 net/http 填好 Trailer。
+// stream() 使用 DontCloseReader 的异步包装，Read 非阻塞且独占底层 Body；
+// 原先只在未调用 stream() 时 Copy，走 stream() 后直接 Close，Trailer 经常为空。
+func drainIncomingStream(s *manager_io.Stream) {
+	if s == nil || s.Reader == nil {
+		return
 	}
-	stream := manager_io.NewAsyncStreamForReader(reader, manager_io.DontCloseReader())
-	body.StreamHandle = i.hm.Streams.Add(stream)
-	return witgo.Ok[InputStream, witgo.Unit](body.StreamHandle)
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := s.Reader.Read(buf)
+		if n == 0 && err == nil {
+			if s.OnSubscribe == nil {
+				return
+			}
+			p := s.OnSubscribe()
+			if p == nil {
+				return
+			}
+			p.Block()
+			continue
+		}
+		if err != nil {
+			return
+		}
+	}
 }
 
 // Finish 是一个静态方法，消费 incoming-body 并返回 future-trailers。
@@ -57,19 +77,23 @@ func (i *incomingBodyImpl) Finish(_ context.Context, this IncomingBody) FutureTr
 		panic("invalid incoming-body handle")
 	}
 
-	// 必须先 Close 底层 body 才能打断 DontCloseReader 的 Read，再 Remove stream，否则死锁
-	if body.StreamHandle != 0 {
-		body.Close()
-		i.hm.Streams.Remove(body.StreamHandle)
-		body.StreamHandle = 0
+	// 不能无锁读 StreamHandle；未调用 stream() 时仍排空原始 Body。
+	if h, st := body.TakeStreamHandleForDrop(); h != 0 {
+		// 句柄复用后 Get(h) 会 drain 并关掉另一个 guest 的 input-stream。
+		if st != nil {
+			if cur, ok := i.hm.Streams.Get(h); ok && cur == st {
+				drainIncomingStream(st)
+			}
+			body.Close()
+			i.hm.Streams.RemoveIf(h, func(cur *manager_io.Stream) bool { return cur == st })
+		} else {
+			body.Close()
+		}
 	} else if body.Stream != nil {
-		// net/http Trailer 要在 body 读到 EOF 后才填充
 		io.Copy(io.Discard, body.Stream)
-	}
-	body.Close()
-
-	if body.Consumed.CompareAndSwap(false, true) {
-		// 根据 WIT，流仍存活时应 trap；此处为兼容不报错
+		body.Close()
+	} else {
+		body.Close()
 	}
 
 	future := &manager_http.FutureTrailers{

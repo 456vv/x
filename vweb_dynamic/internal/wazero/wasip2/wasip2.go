@@ -3,6 +3,8 @@ package wasip2
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
 
 	"github.com/456vv/x/vweb_dynamic/internal/wazero/manager/filesystem"
 	"github.com/456vv/x/vweb_dynamic/internal/wazero/manager/http"
@@ -43,6 +45,7 @@ type Host struct {
 	// 未来可以在这里添加 httpManager 等其他状态管理器
 
 	implementations []Implementation
+	implMu          sync.Mutex // AddImplementation 与 Instantiate 并发会踩切片
 }
 
 // ModuleOption 是用于配置 Host 的选项函数。
@@ -75,10 +78,12 @@ func NewHost(opts ...ModuleOption) *Host {
 }
 
 func (h *Host) AddImplementation(impl Implementation) {
-	if impl == nil {
+	if h == nil || impl == nil {
 		return
 	}
+	h.implMu.Lock()
 	h.implementations = append(h.implementations, impl)
+	h.implMu.Unlock()
 }
 
 // Instantiate 将所有已配置的模块实例化到 wazero 运行时。
@@ -86,7 +91,10 @@ func (h *Host) Instantiate(ctx context.Context, r wazero.Runtime) error {
 	if r == nil {
 		return fmt.Errorf("wazero runtime is nil")
 	}
-	for _, impl := range h.implementations {
+	h.implMu.Lock()
+	impls := append([]Implementation(nil), h.implementations...)
+	h.implMu.Unlock()
+	for _, impl := range impls {
 		for _, version := range impl.Versions() {
 			moduleName := impl.Name() + "@" + version
 			builder := r.NewHostModuleBuilder(moduleName)
@@ -124,6 +132,17 @@ func (h *Host) FilesystemManager() *filesystem.Manager {
 	return h.filesystemManager
 }
 
+// AddPreopen 登记一个预打开目录，供 wasi:filesystem/preopens.get-directories 返回。
+// guestPath 是 guest 看到的路径（常见 "/" 或 "."），不是宿主绝对路径。
+// 注意：调用方原先 fsm.Add(&Descriptor{File, Path}) 不会置 IsPreopen，
+// ForPreopen 修正后 get-directories 会漏掉全部预打开项。
+func (h *Host) AddPreopen(file *os.File, guestPath string) uint32 {
+	if h == nil || h.filesystemManager == nil || file == nil {
+		return 0
+	}
+	return h.filesystemManager.Add(filesystem.NewPreopenDescriptor(file, guestPath))
+}
+
 // DirectoryEntryStreamManager 返回目录条目流管理器。
 func (h *Host) DirectoryEntryStreamManager() *filesystem.DirectoryEntryStreamManager {
 	return h.directoryEntryStreamManager
@@ -158,14 +177,20 @@ func (h *Host) Close() {
 	if h.httpManager != nil {
 		h.httpManager.CloseIdleConnections()
 		h.httpManager.ClearImmutableFields()
+		// 先取消并等待 in-flight Client.Do，再关 pipe body。
+		// finish() 已 Pop 的 request 不在 OutgoingRequests 里，Bodies.Clear 先关 Writer
+		// 会把未发完的请求截断；Futures.Clear 的 Cancel+Block 才能按取消路径结束 Do。
+		if h.httpManager.Futures != nil {
+			h.httpManager.Futures.Clear()
+		}
+		if h.httpManager.FutureTrailers != nil {
+			h.httpManager.FutureTrailers.Clear()
+		}
 		if h.httpManager.IncomingBodies != nil {
 			h.httpManager.IncomingBodies.Clear()
 		}
 		if h.httpManager.Bodies != nil {
 			h.httpManager.Bodies.Clear()
-		}
-		if h.httpManager.Futures != nil {
-			h.httpManager.Futures.Clear()
 		}
 		if h.httpManager.Responses != nil {
 			h.httpManager.Responses.Clear()
@@ -182,9 +207,6 @@ func (h *Host) Close() {
 		if h.httpManager.ResponseOutparams != nil {
 			h.httpManager.ResponseOutparams.Clear()
 		}
-		if h.httpManager.FutureTrailers != nil {
-			h.httpManager.FutureTrailers.Clear()
-		}
 		if h.httpManager.Options != nil {
 			h.httpManager.Options.Clear()
 		}
@@ -193,14 +215,17 @@ func (h *Host) Close() {
 		}
 	}
 	if h.tlsManager != nil {
-		if h.tlsManager.ClientHandshakes != nil {
-			h.tlsManager.ClientHandshakes.Clear()
+		// handshake.finish 已 Pop ClientHandshake，真正需要先取消的是 future。
+		// 先 Clear handshakes 对 in-flight 握手无影响，但已 Consumed 的连接应先于 future 关闭，
+		// 避免 future 与 connection 双关。未 Consumed 的 TlsConn 仍在 future 里。
+		if h.tlsManager.FutureClientStreams != nil {
+			h.tlsManager.FutureClientStreams.Clear()
 		}
 		if h.tlsManager.ClientConnections != nil {
 			h.tlsManager.ClientConnections.Clear()
 		}
-		if h.tlsManager.FutureClientStreams != nil {
-			h.tlsManager.FutureClientStreams.Clear()
+		if h.tlsManager.ClientHandshakes != nil {
+			h.tlsManager.ClientHandshakes.Clear()
 		}
 	}
 

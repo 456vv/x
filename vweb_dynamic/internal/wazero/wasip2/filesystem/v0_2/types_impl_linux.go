@@ -17,11 +17,7 @@ func goFileInfoToDescriptorStat(info fs.FileInfo) DescriptorStat {
 	var stat DescriptorStat
 	stat.Type = goModeToDescriptorType(info.Mode())
 	stat.Size = Filesize(info.Size())
-	modTime := info.ModTime()
-	stat.DataModificationTimestamp = witgo.Some(Datetime{
-		Seconds:     uint64(modTime.Unix()),
-		Nanoseconds: uint32(modTime.Nanosecond()),
-	})
+	stat.DataModificationTimestamp = witgo.Some(datetimeFromTime(info.ModTime()))
 
 	if sys, ok := info.Sys().(*syscall.Stat_t); ok {
 		stat.LinkCount = uint64(sys.Nlink)
@@ -79,4 +75,27 @@ func adviseFile(f *os.File, offset Filesize, length Filesize, advice Advice) err
 		return ctrlErr
 	}
 	return sysErr
+}
+
+func syncDataFile(f *os.File) error {
+	if f == nil {
+		return os.ErrInvalid
+	}
+	raw, err := f.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var sysErr error
+	// 修改原因：不用 f.Fd()，以免把文件改成阻塞模式。WASI sync-data = fdatasync。
+	ctrlErr := raw.Control(func(fd uintptr) {
+		sysErr = unix.Fdatasync(int(fd))
+	})
+	if ctrlErr != nil {
+		return ctrlErr
+	}
+	return sysErr
+}
+
+func timeToDatetime(ts syscall.Timespec) Datetime {
+	return datetimeFromUnix(int64(ts.Sec), int64(ts.Nsec))
 }

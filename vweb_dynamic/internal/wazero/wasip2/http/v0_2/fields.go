@@ -18,14 +18,21 @@ func newFieldsImpl(hm *manager_http.HTTPManager) *fieldsImpl {
 	return &fieldsImpl{hm: hm}
 }
 
+// 对每个字符 ContainsRune 扫描分隔符串；256 表在 fields.set/append 热路径上更便宜，行为一致
+var invalidFieldNameChar = func() (t [256]bool) {
+	for _, c := range []byte("()<>@,;:\\\"/[]?={}") {
+		t[c] = true
+	}
+	return t
+}()
+
 func validFieldName(name string) bool {
 	if name == "" {
 		return false
 	}
 	for i := 0; i < len(name); i++ {
 		c := name[i]
-		// 拒绝 CTL、分隔符，避免非法 HTTP 头进入 net/http
-		if c <= 32 || c >= 127 || strings.ContainsRune("()<>@,;:\\\"/[]?={}", rune(c)) {
+		if c <= 32 || c >= 127 || invalidFieldNameChar[c] {
 			return false
 		}
 	}

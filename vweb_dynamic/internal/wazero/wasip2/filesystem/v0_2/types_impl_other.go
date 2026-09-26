@@ -21,11 +21,7 @@ func goFileInfoToDescriptorStat(info fs.FileInfo) DescriptorStat {
 	var stat DescriptorStat
 	stat.Type = goModeToDescriptorType(info.Mode())
 	stat.Size = Filesize(info.Size())
-	modTime := info.ModTime()
-	stat.DataModificationTimestamp = witgo.Some(Datetime{
-		Seconds:     uint64(modTime.Unix()),
-		Nanoseconds: uint32(modTime.Nanosecond()),
-	})
+	stat.DataModificationTimestamp = witgo.Some(datetimeFromTime(info.ModTime()))
 
 	// For non-Unix platforms, we provide best-effort information.
 	stat.DataAccessTimestamp = witgo.None[Datetime]()
@@ -61,6 +57,9 @@ func goModeToDescriptorType(mode fs.FileMode) DescriptorType {
 func mapOsError(err error) ErrorCode {
 	if err == nil {
 		return 0
+	}
+	if errors.Is(err, os.ErrClosed) {
+		return ErrorCodeBadDescriptor
 	}
 	if errors.Is(err, fs.ErrPermission) {
 		return ErrorCodeAccess
@@ -105,3 +104,10 @@ func chtimesFile(f *os.File, atime, mtime time.Time) error {
 }
 
 func writePlatformFileIdentity(_ hash.Hash, _ fs.FileInfo) {}
+func syncDataFile(f *os.File) error {
+	if f == nil {
+		return os.ErrInvalid
+	}
+	// 退回 fsync，满足 sync-data 的落盘语义。
+	return f.Sync()
+}

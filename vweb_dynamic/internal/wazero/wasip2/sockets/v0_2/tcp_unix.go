@@ -25,7 +25,7 @@ func (i *tcpImpl) DropTCPSocket(_ context.Context, handle TCPSocket) {
 
 func (i *tcpImpl) StartBind(_ context.Context, this TCPSocket, network Network, localAddress IPSocketAddress) witgo.Result[witgo.Unit, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 	if code := i.checkNetwork(network); code != 0 {
@@ -82,18 +82,25 @@ func (i *tcpImpl) listenTCP(sock *sockets.TCPSocket) error {
 	}
 	nfd, err := unix.Dup(sock.Fd)
 	if err != nil {
-		return err
+		// listen 已经生效。这里再返回错误的话，DoListen 不会进入 Listening，但内核队列已经存在。
+		// acceptTCP 在 Listener 为空时会改走原始 fd。
+		return nil
 	}
+	unix.CloseOnExec(nfd) // Dup 默认可继承，fork/exec 会把 listener 漏给子进程。
 	file := os.NewFile(uintptr(nfd), "")
+	if file == nil {
+		unix.Close(nfd)
+		return nil
+	}
 	ln, err := net.FileListener(file)
-	_ = file.Close() // FileListener 已再 dup；关 file 不关 listener
+	file.Close() // FileListener 已再 dup；关 file 不关 listener
 	if err != nil {
-		return err
+		return nil
 	}
 	tl, ok := ln.(*net.TCPListener)
 	if !ok {
-		_ = ln.Close()
-		return syscall.EINVAL
+		ln.Close()
+		return nil
 	}
 	sock.Listener = tl
 	return nil
@@ -102,7 +109,8 @@ func (i *tcpImpl) listenTCP(sock *sockets.TCPSocket) error {
 // connectTCP 在已有 fd（可能已 bind）上 Connect，再 Dup+FileConn。
 // 禁止 net.DialTCP 另开套接字，否则 start-bind 的本地地址丢失。
 func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddress) (*net.TCPConn, error) {
-	if !sock.HasFd() {
+	fd, hasFd := sock.SnapshotFd()
+	if !hasFd {
 		addr, err := fromIPSocketAddressToTCPAddr(remoteAddress)
 		if err != nil {
 			return nil, err
@@ -111,7 +119,6 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		if sock.Family == sockets.IPAddressFamilyIPV6 {
 			network = "tcp6"
 		}
-		// drop 必须能取消拨号
 		c, err := (&net.Dialer{}).DialContext(sock.ConnectContext(), network, addr.String())
 		if err != nil {
 			return nil, err
@@ -124,22 +131,32 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		return tc, nil
 	}
 
+	fd, err := sock.DupOwnedFd()
+	if err != nil {
+		return nil, err
+	}
+	owned := true
+	defer func() {
+		if owned {
+			_ = unix.Close(fd)
+		}
+	}()
+
 	sa, err := fromIPSocketAddressToSockaddr(remoteAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	for {
-		cerr := syscall.Connect(sock.Fd, sa)
+		cerr := syscall.Connect(fd, sa)
 		if cerr == nil {
 			break
 		}
 		if cerr == unix.EINTR {
 			continue
 		}
-		// 非阻塞 socket：Connect 返回 EINPROGRESS，poll 可写后再读 SO_ERROR
 		if cerr == unix.EINPROGRESS || cerr == unix.EAGAIN || cerr == unix.EWOULDBLOCK {
-			fds := []unix.PollFd{{Fd: int32(sock.Fd), Events: unix.POLLOUT}}
+			fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLOUT}}
 			ctx := sock.ConnectContext()
 			for {
 				if ctx != nil {
@@ -147,7 +164,7 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 						return nil, err
 					}
 				}
-				n, perr := unix.Poll(fds, 200) // imeout=-1 无法在 drop 时退出
+				n, perr := unix.Poll(fds, 200)
 				if perr == unix.EINTR {
 					continue
 				}
@@ -158,7 +175,7 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 					break
 				}
 			}
-			soerr, gerr := unix.GetsockoptInt(sock.Fd, unix.SOL_SOCKET, unix.SO_ERROR)
+			soerr, gerr := unix.GetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_ERROR)
 			if gerr != nil {
 				return nil, gerr
 			}
@@ -167,15 +184,15 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 			}
 			break
 		}
-
 		return nil, cerr
 	}
 
-	nfd, err := unix.Dup(sock.Fd)
-	if err != nil {
-		return nil, err
+	// 这是锁内 Dup 出来的私有 fd，可以交给 NewFile。不要再对原 fd 做第二次 Dup。
+	file := os.NewFile(uintptr(fd), "")
+	if file == nil {
+		return nil, syscall.EINVAL
 	}
-	file := os.NewFile(uintptr(nfd), "")
+	owned = false
 	c, err := net.FileConn(file)
 	_ = file.Close()
 	if err != nil {
@@ -190,19 +207,30 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 }
 
 func (i *tcpImpl) acceptTCP(sock *sockets.TCPSocket) (*net.TCPConn, error) {
-	if sock == nil || sock.Listener == nil {
+	if sock == nil {
 		return nil, syscall.EINVAL
 	}
-	if sock.HasFd() {
-		nfd, _, err := unix.Accept(sock.Fd)
+	_, hasFd := sock.SnapshotFd()
+	if hasFd {
+		fd, err := sock.DupOwnedFd()
 		if err != nil {
 			return nil, err
 		}
+		defer unix.Close(fd) // 修改原因：Accept 用私有 dup，原 fd 的关闭与号码复用不再影响这次调用
+		nfd, _, err := unix.Accept(fd)
+		if err != nil {
+			return nil, err
+		}
+		unix.CloseOnExec(nfd)
 		if err := unix.SetNonblock(nfd, true); err != nil {
 			_ = unix.Close(nfd)
 			return nil, err
 		}
 		file := os.NewFile(uintptr(nfd), "")
+		if file == nil {
+			_ = unix.Close(nfd)
+			return nil, syscall.EINVAL
+		}
 		c, err := net.FileConn(file)
 		_ = file.Close()
 		if err != nil {
@@ -215,18 +243,25 @@ func (i *tcpImpl) acceptTCP(sock *sockets.TCPSocket) (*net.TCPConn, error) {
 		}
 		return tc, nil
 	}
+
+	ln := sock.GetListener()
+	if ln == nil {
+		return nil, syscall.EINVAL
+	}
 	// SetDeadline(time.Now()) 在队列非空时仍会立刻 timeout
-	_ = sock.Listener.SetDeadline(time.Now().Add(time.Millisecond))
-	conn, err := sock.Listener.AcceptTCP()
-	_ = sock.Listener.SetDeadline(time.Time{})
+	_ = ln.SetDeadline(time.Now().Add(time.Millisecond))
+	conn, err := ln.AcceptTCP()
+	_ = ln.SetDeadline(time.Time{})
 	return conn, err
 }
 
 func (i *tcpImpl) localAddrFromFd(sock *sockets.TCPSocket) (net.Addr, error) {
-	if !sock.HasFd() {
-		return nil, syscall.EBADF
-	}
-	sa, err := unix.Getsockname(sock.Fd)
+	var sa unix.Sockaddr
+	err := sock.ControlFd(func(fd int) error {
+		var gerr error
+		sa, gerr = unix.Getsockname(fd)
+		return gerr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -261,24 +296,28 @@ func (i *tcpImpl) SetListenBacklogSize(ctx context.Context, this TCPSocket, valu
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 	n := clampToInt(value)
-	var listenErr error
-	switch {
-	case sock.Listener != nil:
-		//  Listener.File() 会把 fd 改成阻塞模式
-		raw, err := sock.Listener.SyscallConn()
-		if err != nil {
-			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
-		}
-		ctrlErr := raw.Control(func(fd uintptr) {
-			listenErr = unix.Listen(int(fd), n)
-		})
-		if ctrlErr != nil {
-			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(ctrlErr))
-		}
-	case sock.HasFd():
-		listenErr = unix.Listen(sock.Fd, n)
-	default:
+	ctrlErr := sock.ControlFd(func(fd int) error {
+		return unix.Listen(fd, n)
+	})
+	if ctrlErr == nil {
+		return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
+	}
+	if !errors.Is(ctrlErr, sockets.ErrInvalidSocketState) {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(ctrlErr))
+	}
+	ln := sock.GetListener()
+	if ln == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
+	}
+	raw, err := ln.SyscallConn()
+	if err != nil {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
+	}
+	var listenErr error
+	if ctrlErr = raw.Control(func(fd uintptr) {
+		listenErr = unix.Listen(int(fd), n)
+	}); ctrlErr != nil {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(ctrlErr))
 	}
 	if listenErr != nil {
 		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(listenErr))
@@ -363,14 +402,14 @@ func (i *tcpImpl) setSendBufferUnconnected(this TCPSocket, value uint64) witgo.R
 //
 // unix.Poll 在 linux/darwin/BSD/solaris 行为一致，Darwin 无 SOCK_NONBLOCK 也不影响 poll。
 func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
-	if sock == nil || !sock.HasFd() {
+	fd, err := sock.DupOwnedFd()
+	if err != nil {
 		p := manager_io.NewPollable(nil)
 		handle := i.host.PollManager().Add(p)
 		p.SetReady()
 		return handle
 	}
 
-	fd := sock.Fd
 	done := make(chan struct{})
 	var once sync.Once
 	p := manager_io.NewPollable(func() {
@@ -379,6 +418,10 @@ func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
 	handle := i.host.PollManager().Add(p)
 
 	go func() {
+		// 不要在 Poll 进行中 close(fd)，否则号码复用会让 Poll 观察别的 socket。
+		// 200ms 超时用来观察 done，退出后再关闭私有 dup。
+		defer unix.Close(fd)
+		defer p.SetReady()
 		fds := []unix.PollFd{{
 			Fd:     int32(fd),
 			Events: unix.POLLIN | unix.POLLERR | unix.POLLHUP | unix.POLLNVAL,
@@ -389,12 +432,11 @@ func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
 				return
 			default:
 			}
-			n, err := unix.Poll(fds, 200) // 200ms：可被 drop 取消
+			n, err := unix.Poll(fds, 200)
 			if err == unix.EINTR {
 				continue
 			}
 			if err != nil || n > 0 {
-				p.SetReady()
 				return
 			}
 		}
@@ -404,16 +446,17 @@ func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
 
 func getsockoptInt[T ~int | ~uint64 | ~uint32 | ~uint8](i *tcpImpl, this TCPSocket, level, opt int) witgo.Result[T, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[T, ErrorCode](ErrorCodeInvalidArgument)
 	}
 
 	var val int
 	var getErr error
-
+	// GetConn 与 SnapshotFd 分两次加锁，中间 bind/connect/drop 会造成两端都 miss 或对已关 fd 调 getsockopt。
+	conn, _, hasFd := sock.SnapshotConnOrFd()
 	switch {
-	case sock.Conn != nil:
-		rawConn, err := sock.Conn.SyscallConn()
+	case conn != nil:
+		rawConn, err := conn.SyscallConn()
 		if err != nil {
 			return witgo.Err[T, ErrorCode](mapOsError(err))
 		}
@@ -423,9 +466,13 @@ func getsockoptInt[T ~int | ~uint64 | ~uint32 | ~uint8](i *tcpImpl, this TCPSock
 		if err != nil {
 			return witgo.Err[T, ErrorCode](mapOsError(err))
 		}
-	case sock.HasFd():
+	case hasFd:
 		// WASI 允许在 bind/connect 前读 hop-limit 等；此时还没有 net.TCPConn
-		val, getErr = unix.GetsockoptInt(sock.Fd, level, opt)
+		getErr = sock.ControlFd(func(fd int) error {
+			var err error
+			val, err = unix.GetsockoptInt(fd, level, opt)
+			return err
+		})
 	default:
 		return witgo.Err[T, ErrorCode](ErrorCodeInvalidArgument)
 	}
@@ -438,14 +485,16 @@ func getsockoptInt[T ~int | ~uint64 | ~uint32 | ~uint8](i *tcpImpl, this TCPSock
 
 func setsockoptInt(i *tcpImpl, this TCPSocket, level, opt, value int) witgo.Result[witgo.Unit, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 
 	var setErr error
+	// 与 getsockoptInt 相同，必须在同一快照上选 Conn 或 fd。
+	conn, _, hasFd := sock.SnapshotConnOrFd()
 	switch {
-	case sock.Conn != nil:
-		rawConn, err := sock.Conn.SyscallConn()
+	case conn != nil:
+		rawConn, err := conn.SyscallConn()
 		if err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
@@ -455,9 +504,11 @@ func setsockoptInt(i *tcpImpl, this TCPSocket, level, opt, value int) witgo.Resu
 		if err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
-	case sock.HasFd():
+	case hasFd:
 		// 与 getsockoptInt 对称，connect 前设置 TTL/缓冲区/keepalive
-		setErr = unix.SetsockoptInt(sock.Fd, level, opt, value)
+		setErr = sock.ControlFd(func(fd int) error {
+			return unix.SetsockoptInt(fd, level, opt, value)
+		})
 	default:
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}

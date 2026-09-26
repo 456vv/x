@@ -2,6 +2,7 @@ package v0_2
 
 import (
 	"context"
+	"io"
 
 	manager_http "github.com/456vv/x/vweb_dynamic/internal/wazero/manager/http"
 	witgo "github.com/456vv/x/vweb_dynamic/internal/wazero/witgo"
@@ -26,7 +27,8 @@ func (i *incomingResponseImpl) Status(_ context.Context, this IncomingResponse) 
 	if !ok || resp == nil || resp.Response == nil {
 		panic("invalid incoming-respone handle")
 	}
-	return uint16(resp.Response.StatusCode)
+	// consume 会写 Response.Body；与读 StatusCode 并发是 data race。创建时已拷到 StatusCode。
+	return uint16(resp.StatusCode)
 }
 
 // Headers 实现了 [method]incoming-response.headers。
@@ -38,16 +40,21 @@ func (i *incomingResponseImpl) Headers(_ context.Context, this IncomingResponse)
 
 	// WASI 规定 headers 是 child resource，多次调用必须返回同一句柄。
 	resp.EnsureHeaderHandle(func() {
-		if resp.HeaderHandle != 0 {
+		if resp.LoadHeaderHandle() != 0 {
 			return
 		}
-		// http.Header.Clone 保留规范键，fields.Get 用 ToLower 会 miss
-		cloned := cloneFieldsLower(resp.Response.Header)
-		handle := i.hm.Fields.Add(cloned)
+		src := resp.Headers
+		if src == nil && resp.Response != nil {
+			src = cloneFieldsLower(resp.Response.Header)
+		} else {
+			src = cloneFieldsLower(src)
+		}
+		handle := i.hm.Fields.Add(src)
 		i.hm.MarkFieldsImmutable(handle)
-		resp.HeaderHandle = handle
+		// 表里是 clone，不能用 resp.Headers 做 RemoveIf 身份。
+		resp.StoreHeaderHandle(handle, src)
 	})
-	return resp.HeaderHandle
+	return resp.LoadHeaderHandle()
 }
 
 // Consume 实现了 [method]incoming-response.consume。
@@ -57,20 +64,22 @@ func (i *incomingResponseImpl) Consume(_ context.Context, this IncomingResponse)
 	if !ok || resp == nil || resp.Response == nil {
 		return witgo.Err[IncomingBody, witgo.Unit](witgo.Unit{})
 	}
-	if !resp.Consumed.CompareAndSwap(false, true) {
-		// 原先误写为 Err[OutgoingBody, Unit]，与方法返回类型 Result[IncomingBody, Unit] 不一致
+
+	// 与 incoming-request.consume 相同，锁内移交 Body。
+	handle, ok := resp.InstallIncomingBody(func(rc io.ReadCloser) uint32 {
+		body := &manager_http.IncomingBody{
+			Stream: rc,
+			GetTrailers: func() (trailers manager_http.Fields) {
+				if resp.Response == nil {
+					return nil
+				}
+				return cloneFieldsLower(resp.Response.Trailer)
+			},
+		}
+		return i.hm.IncomingBodies.Add(body)
+	})
+	if !ok {
 		return witgo.Err[IncomingBody, witgo.Unit](witgo.Unit{})
 	}
-
-	body := &manager_http.IncomingBody{
-		Stream: resp.Response.Body,
-		GetTrailers: func() (trailers manager_http.Fields) {
-			if resp.Response == nil {
-				return nil
-			}
-			return cloneFieldsLower(resp.Response.Trailer)
-		},
-	}
-	resp.BodyHandle = i.hm.IncomingBodies.Add(body)
-	return witgo.Ok[IncomingBody, witgo.Unit](resp.BodyHandle)
+	return witgo.Ok[IncomingBody, witgo.Unit](handle)
 }

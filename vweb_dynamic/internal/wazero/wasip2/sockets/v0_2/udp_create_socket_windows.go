@@ -28,6 +28,9 @@ func (i *udpCreateSocketImpl) CreateUDPSocket(_ context.Context, addressFamily I
 		return witgo.Err[UDPSocket, ErrorCode](mapOsError(err))
 	}
 
+	// Windows SOCKET 默认可继承，子进程会泄漏句柄。
+	windows.SetHandleInformation(handle, windows.HANDLE_FLAG_INHERIT, 0)
+
 	// 使用 WSAIoctl 将套接字设置为非阻塞模式
 	var nonBlockingMode uint32 = 1
 	var bytesReturned uint32

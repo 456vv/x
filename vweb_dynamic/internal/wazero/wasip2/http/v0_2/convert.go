@@ -94,10 +94,10 @@ func toWasiScheme(scheme string) Scheme {
 	}
 }
 
-// mapGoErrToWasiHttpErr 将 Go 的 net/http 和 net 错误映射到 wasi:http 的 ErrorCode。
-func mapGoErrToWasiHttpErr(err error) ErrorCode {
+// mapGoErerToWasiHTTPErr 将 Go 的 net/http 和 net 错误映射到 wasi:http 的 ErrorCode。
+func mapGoErerToWasiHTTPErr(err error) ErrorCode {
 	if err == nil {
-		return ErrorCode{} // Should not happen for an actual error
+		return ErrorCode{}
 	}
 
 	var dnsErr *net.DNSError
@@ -106,7 +106,6 @@ func mapGoErrToWasiHttpErr(err error) ErrorCode {
 			return ErrorCode{DNSTimeout: &witgo.Unit{}}
 		}
 		if dnsErr.IsNotFound {
-			// This could be a more specific DNS error, but DestinationNotFound is a safe bet.
 			return ErrorCode{DestinationNotFound: &witgo.Unit{}}
 		}
 		return ErrorCode{DNSError: &DNSErrorPayload{
@@ -115,13 +114,24 @@ func mapGoErrToWasiHttpErr(err error) ErrorCode {
 		}}
 	}
 
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
+	for i := 0; i < 8 && err != nil; i++ {
+		var opErr *net.OpError
+		if !errors.As(err, &opErr) {
+			break
+		}
 		if opErr.Timeout() {
 			return ErrorCode{ConnectionTimeout: &witgo.Unit{}}
 		}
-		// Further inspect the wrapped error
-		return mapGoErrToWasiHttpErr(opErr.Err)
+		// Err 为空时再递归会得到空 ErrorCode；Err 指向自己会爆栈。
+		if opErr.Err == nil || opErr.Err == error(opErr) {
+			break
+		}
+		err = opErr.Err
+	}
+
+	var nerr net.Error
+	if errors.As(err, &nerr) && nerr.Timeout() {
+		return ErrorCode{ConnectionTimeout: &witgo.Unit{}}
 	}
 
 	var syscallErr *os.SyscallError
@@ -134,7 +144,6 @@ func mapGoErrToWasiHttpErr(err error) ErrorCode {
 		return code
 	}
 
-	// Fallback for generic errors
 	errMsg := err.Error()
 	return ErrorCode{InternalError: witgo.SomePtr(errMsg)}
 }

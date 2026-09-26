@@ -3,6 +3,7 @@ package v0_2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -54,7 +55,18 @@ func (i *tcpImpl) StartConnect(ctx context.Context, this TCPSocket, network Netw
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
 	}
 	go func() {
-		conn, dialErr := i.connectTCP(sock, remoteAddress)
+		var conn *net.TCPConn
+		var dialErr error
+		defer func() {
+			if rec := recover(); rec != nil {
+				// connect 路径 panic 若不 StoreResult，subscribe 会永久阻塞；已拨通的 Conn 必须关掉
+				if conn != nil {
+					_ = conn.Close()
+				}
+				sock.StoreConnectResult(sockets.ConnectResult{Err: fmt.Errorf("tcp connect panic: %v", rec)})
+			}
+		}()
+		conn, dialErr = i.connectTCP(sock, remoteAddress)
 		sock.StoreConnectResult(sockets.ConnectResult{Conn: conn, Err: dialErr})
 	}()
 	return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
@@ -84,17 +96,20 @@ func (i *tcpImpl) FinishConnect(ctx context.Context, this TCPSocket) witgo.Resul
 		return witgo.Err[witgo.Tuple[wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeUnknown)
 	}
 
-	if !sock.ClaimConnectSuccess(result.Conn) {
+	conn := result.Conn
+	// 从 channel 取出结果时，可能被其他 goroutine 先一步关闭了 socket，导致 Claim 失败
+	if !sock.ClaimConnectSuccess(conn) {
 		// drop 抢先 Closed 时 Claim 失败，result.Conn 可能尚未被析构拷走
-		if result.Conn != nil && sock.GetState() != sockets.TCPStateConnected {
-			_ = result.Conn.Close()
+		if conn != nil && sock.GetState() != sockets.TCPStateConnected {
+			_ = conn.Close()
 		}
 		return witgo.Err[witgo.Tuple[wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeNotInProgress)
 	}
 
-	inStream := manager_io.NewAsyncStreamForReader(sock.Conn, manager_io.DontCloseReader())
+	// Claim 释放锁后析构可能把 sock.Conn 置 nil；用局部 conn 绑流，避免空 reader 且把真正连接关掉无人读。
+	inStream := manager_io.NewAsyncStreamForReader(conn, manager_io.DontCloseReader())
 	inStreamHandle := i.host.StreamManager().Add(inStream)
-	outStream := manager_io.NewAsyncStreamForWriter(sock.Conn, manager_io.DontCloseWriter())
+	outStream := manager_io.NewAsyncStreamForWriter(conn, manager_io.DontCloseWriter())
 	outStreamHandle := i.host.StreamManager().Add(outStream)
 
 	return witgo.Ok[witgo.Tuple[wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](witgo.Tuple[wasip2_io.InputStream, wasip2_io.OutputStream]{
@@ -134,14 +149,21 @@ func (i *tcpImpl) Accept(ctx context.Context, this TCPSocket) witgo.Result[witgo
 	if !ok {
 		return witgo.Err[witgo.Tuple3[TCPSocket, wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeInvalidArgument)
 	}
-	if sock.GetState() != sockets.TCPStateListening || sock.Listener == nil {
+	if sock.GetState() != sockets.TCPStateListening {
 		return witgo.Err[witgo.Tuple3[TCPSocket, wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeInvalidState)
+	}
+	// unix accept 可走原始 fd；原先强制 Listener!=nil，FileListener 失败或仅 listen(2) 成功时无法 accept。
+	if sock.GetListener() == nil {
+		if _, hasFd := sock.SnapshotFd(); !hasFd {
+			return witgo.Err[witgo.Tuple3[TCPSocket, wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeInvalidState)
+		}
 	}
 
 	// 走平台 acceptTCP（unix 可从原 fd Accept；deadline=Now 在队列非空时仍会立刻超时）
 	conn, err := i.acceptTCP(sock)
 	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
 			return witgo.Err[witgo.Tuple3[TCPSocket, wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](ErrorCodeWouldBlock)
 		}
 		return witgo.Err[witgo.Tuple3[TCPSocket, wasip2_io.InputStream, wasip2_io.OutputStream], ErrorCode](mapOsError(err))
@@ -172,21 +194,26 @@ func (i *tcpImpl) Shutdown(ctx context.Context, this TCPSocket, shutdownType Shu
 	if !ok {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
+	conn := sock.GetConn()
 	if sock.GetState() != sockets.TCPStateConnected {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
 	}
-	if sock.Conn == nil {
+	if conn == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
 	}
 
 	var err error
 	switch shutdownType {
 	case ShutdownTypeReceive:
-		err = sock.Conn.CloseRead()
+		err = conn.CloseRead()
 	case ShutdownTypeSend:
-		err = sock.Conn.CloseWrite()
+		err = conn.CloseWrite()
 	case ShutdownTypeBoth:
-		err = sock.Conn.Close() // Close会同时关闭读和写
+		// WASI shutdown 不应释放 tcp-socket；Conn.Close 会关掉 fd，后续 local-address/drop 未定义
+		err = conn.CloseRead()
+		if err2 := conn.CloseWrite(); err == nil {
+			err = err2
+		}
 	default:
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
@@ -205,11 +232,13 @@ func (i *tcpImpl) LocalAddress(ctx context.Context, this TCPSocket) witgo.Result
 
 	st := sock.GetState()
 	var addr net.Addr
+	listen := sock.GetListener()
+	conn := sock.GetConn()
 	switch {
-	case sock.Listener != nil && st >= sockets.TCPStateBound:
-		addr = sock.Listener.Addr()
-	case sock.Conn != nil && st == sockets.TCPStateConnected:
-		addr = sock.Conn.LocalAddr()
+	case listen != nil && st >= sockets.TCPStateBound:
+		addr = listen.Addr()
+	case conn != nil && st == sockets.TCPStateConnected:
+		addr = conn.LocalAddr()
 	default:
 		// bind 之后尚未 listen/connect 时只有 Fd，必须 getsockname
 		a, err := i.localAddrFromFd(sock)
@@ -231,11 +260,12 @@ func (i *tcpImpl) RemoteAddress(ctx context.Context, this TCPSocket) witgo.Resul
 	if !ok {
 		return witgo.Err[IPSocketAddress, ErrorCode](ErrorCodeInvalidArgument)
 	}
-	if sock.GetState() != sockets.TCPStateConnected || sock.Conn == nil {
+	conn := sock.GetConn()
+	if sock.GetState() != sockets.TCPStateConnected || conn == nil {
 		return witgo.Err[IPSocketAddress, ErrorCode](ErrorCodeInvalidState)
 	}
 
-	wasiAddr, err := toIPSocketAddress(sock.Conn.RemoteAddr())
+	wasiAddr, err := toIPSocketAddress(conn.RemoteAddr())
 	if err != nil {
 		return witgo.Err[IPSocketAddress, ErrorCode](mapOsError(err))
 	}
@@ -265,8 +295,9 @@ func (i *tcpImpl) SetKeepAliveEnabled(ctx context.Context, this TCPSocket, value
 	if !ok {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
-	if sock.Conn != nil {
-		if err := sock.Conn.SetKeepAlive(value); err != nil {
+	conn := sock.GetConn()
+	if conn != nil {
+		if err := conn.SetKeepAlive(value); err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
 		return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
@@ -285,8 +316,9 @@ func (i *tcpImpl) SetReceiveBufferSize(ctx context.Context, this TCPSocket, valu
 	if !ok {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
-	if sock.Conn != nil {
-		if err := sock.Conn.SetReadBuffer(clampToInt(value)); err != nil {
+	conn := sock.GetConn()
+	if conn != nil {
+		if err := conn.SetReadBuffer(clampToInt(value)); err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
 		return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
@@ -300,8 +332,9 @@ func (i *tcpImpl) SetSendBufferSize(ctx context.Context, this TCPSocket, value u
 	if !ok {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
-	if sock.Conn != nil {
-		if err := sock.Conn.SetWriteBuffer(clampToInt(value)); err != nil {
+	conn := sock.GetConn()
+	if conn != nil {
+		if err := conn.SetWriteBuffer(clampToInt(value)); err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
 		return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
@@ -321,8 +354,8 @@ func (i *tcpImpl) Subscribe(pctx context.Context, this TCPSocket) wasip2_io.Poll
 
 	switch sock.GetState() {
 	case sockets.TCPStateConnecting:
-		if sock.ConnectDone != nil {
-			return i.host.PollManager().Add(manager_io.NewPollableByChan(sock.ConnectDone, nil))
+		if ch := sock.GetConnectDone(); ch != nil {
+			return i.host.PollManager().Add(manager_io.NewPollableByChan(ch, nil))
 		}
 	case sockets.TCPStateListening:
 		// listening 的 subscribe 必须在“有连接可 accept”时才就绪；

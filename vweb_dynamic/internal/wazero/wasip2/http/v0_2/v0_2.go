@@ -144,7 +144,7 @@ func (i *httpTypes) Instantiate(_ context.Context, h *wasip2.Host, builder wazer
 		}
 
 		// Map the Go error to a wasi:http ErrorCode
-		httpErr := mapGoErrToWasiHttpErr(goErr)
+		httpErr := mapGoErerToWasiHTTPErr(goErr)
 
 		// Check if it's an unclassified "internal error"
 		if httpErr.InternalError != nil && httpErr.InternalError.Some != nil && *httpErr.InternalError.Some == goErr.Error() {

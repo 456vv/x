@@ -26,43 +26,54 @@ type timeoutConfig struct {
 
 // outgoingHandlerImpl 封装了 wasi:http/outgoing-handler 的所有操作。
 type outgoingHandlerImpl struct {
-	hm          *manager_http.HTTPManager
-	clientCache *lru.Cache[timeoutConfig, *gohttp.Client]
-	clientMu    sync.Mutex // hashicorp/lru 默认非并发安全
+	hm              *manager_http.HTTPManager
+	clientCache     *lru.Cache[timeoutConfig, *gohttp.Client]
+	clientMu        sync.Mutex
+	fallbackClients map[timeoutConfig]*gohttp.Client // 修改原因：lru 创建失败时仍按超时配置复用 Client，避免每次 Handle 泄漏 Transport
 }
 
 func newOutgoingHandlerImpl(hm *manager_http.HTTPManager) *outgoingHandlerImpl {
 	impl := &outgoingHandlerImpl{hm: hm}
-	clientCache, _ := lru.NewWithEvict[timeoutConfig, *gohttp.Client](32, func(_ timeoutConfig, c *gohttp.Client) {
-		// 如果 LRU 淘汰不 Untrack 会导致 Transport 只增不减
+	clientCache, err := lru.NewWithEvict[timeoutConfig, *gohttp.Client](32, func(_ timeoutConfig, c *gohttp.Client) {
 		if c != nil {
 			hm.UntrackClient(c)
 			c.CloseIdleConnections()
 		}
 	})
-	impl.clientCache = clientCache
+	if err == nil {
+		impl.clientCache = clientCache
+	} else {
+		impl.fallbackClients = make(map[timeoutConfig]*gohttp.Client)
+	}
 	return impl
 }
 
 func (i *outgoingHandlerImpl) getClient(opts *manager_http.RequestOptions) *gohttp.Client {
 	var cfg timeoutConfig
 	if opts != nil {
-		if opts.ConnectTimeout != nil {
-			cfg.connect = *opts.ConnectTimeout
+		c, f, b := opts.CopyTimeouts()
+		if c != nil {
+			cfg.connect = *c
 		}
-		if opts.FirstByteTimeout != nil {
-			cfg.firstByte = *opts.FirstByteTimeout
+		if f != nil {
+			cfg.firstByte = *f
 		}
-		if opts.BetweenBytesTimeout != nil {
-			cfg.betweenBytes = *opts.BetweenBytesTimeout
+		if b != nil {
+			cfg.betweenBytes = *b
 		}
 	}
 
 	i.clientMu.Lock()
 	defer i.clientMu.Unlock()
 
-	if client, ok := i.clientCache.Get(cfg); ok {
-		return client
+	if i.clientCache != nil {
+		if client, ok := i.clientCache.Get(cfg); ok {
+			return client
+		}
+	} else if i.fallbackClients != nil {
+		if client, ok := i.fallbackClients[cfg]; ok {
+			return client
+		}
 	}
 
 	transport, ok := gohttp.DefaultTransport.(*gohttp.Transport)
@@ -72,9 +83,6 @@ func (i *outgoingHandlerImpl) getClient(opts *manager_http.RequestOptions) *goht
 		transport = &gohttp.Transport{Proxy: gohttp.ProxyFromEnvironment}
 	}
 
-	// 保留原始代码中的代理和 TLS 设置
-	// p, _ := url.Parse("http://192.168.3.121:8888")
-	// transport.Proxy = gohttp.ProxyURL(p)
 	transport.Proxy = gohttp.ProxyFromEnvironment
 	if transport.TLSClientConfig == nil {
 		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12}
@@ -103,56 +111,79 @@ func (i *outgoingHandlerImpl) getClient(opts *manager_http.RequestOptions) *goht
 		CheckRedirect: func(req *gohttp.Request, via []*gohttp.Request) error { return gohttp.ErrUseLastResponse },
 	}
 
-	i.clientCache.Add(cfg, client)
-	i.hm.TrackClient(client) // Host.Close 需要 CloseIdleConnections
+	if i.clientCache != nil {
+		i.clientCache.Add(cfg, client)
+	} else {
+		if i.fallbackClients == nil {
+			i.fallbackClients = make(map[timeoutConfig]*gohttp.Client)
+		}
+		// 修改原因：fallback map 无 LRU；超过 32 淘汰一条，避免 timeout 组合把 Transport 撑爆
+		if len(i.fallbackClients) >= 32 {
+			for k, c := range i.fallbackClients {
+				delete(i.fallbackClients, k)
+				i.hm.UntrackClient(c)
+				if c != nil {
+					c.CloseIdleConnections()
+				}
+				break
+			}
+		}
+		i.fallbackClients[cfg] = client
+	}
+	i.hm.TrackClient(client)
 	return client
 }
 
 // Handle 实现了 outgoing-handler.handle 接口。
 // 这是执行 HTTP 请求的核心。
-// 调用后会消耗掉request和options
+// 调用后会消耗掉 request 和 options（WIT 按值移动，Ok/Err 都不再归 guest）。
 func (i *outgoingHandlerImpl) Handle(
 	request OutgoingRequest,
-	options witgo.Option[RequestOptions], // options 是可选的
+	options witgo.Option[RequestOptions],
 ) witgo.Result[FutureIncomingResponse, ErrorCode] {
-	var opts *manager_http.RequestOptions
-	var optHandle uint32
-	if options.IsSome() && options.Some != nil {
-		optHandle = *options.Some
-		opts, _ = i.hm.Options.Pop(optHandle)
-	}
-
 	req, ok := i.hm.OutgoingRequests.Pop(request)
 	if !ok {
-		// 已 Pop 的 options 必须塞回，否则 Handle 失败泄漏
-		if optHandle != 0 && opts != nil {
-			i.hm.Options.Set(optHandle, opts)
+		if options.IsSome() && options.Some != nil {
+			i.hm.Options.Remove(*options.Some)
 		}
 		return witgo.Err[FutureIncomingResponse, ErrorCode](ErrorCode{InternalError: witgo.SomePtr("invalid request handle")})
 	}
 
+	var opts *manager_http.RequestOptions
+	if options.IsSome() && options.Some != nil {
+		opts, _ = i.hm.Options.Pop(*options.Some)
+	}
+
 	goReq, err := i.buildGoRequest(req)
 	if err != nil {
-		// Pop 不再调用 destructor，失败时必须回收 headers/body 子句柄
-		if req.HeadersHandle != 0 {
-			i.hm.Fields.Remove(req.HeadersHandle)
-			req.HeadersHandle = 0
+		if h, hdr := req.TakeHeadersHandleForDrop(); h != 0 {
+			i.hm.Fields.RemoveIf(h, func(cur manager_http.Fields) bool {
+				return manager_http.SameFields(cur, hdr)
+			})
 		}
+		// Do 没跑，Body 没有消费者。不 Remove 会泄漏 Pipe 和 outgoing-body。
 		if req.BodyHandle != 0 {
-			i.hm.Bodies.Remove(req.BodyHandle)
+			pw := req.BodyWriter
+			i.hm.Bodies.RemoveIf(req.BodyHandle, func(cur *manager_http.OutgoingBody) bool {
+				return cur != nil && pw != nil && cur.BodyWriter == pw
+			})
 			req.BodyHandle = 0
 		}
 		req.Close()
 		return witgo.Err[FutureIncomingResponse, ErrorCode](ErrorCode{InternalError: witgo.SomePtr(err.Error())})
 	}
 
-	// Pop 不跑 destructor，headers() 分配的 Fields 子句柄会一直留在 Fields 表里。
-	// 头部已拷进 goReq.Header，可以立刻 Remove。
-	// 不能 Bodies.Remove(BodyHandle)：Client.Do 仍通过 req.Body（PipeReader）读 guest 写入的 body。
-	if req.HeadersHandle != 0 {
-		i.hm.Fields.Remove(req.HeadersHandle)
-		req.HeadersHandle = 0
+	// —— 成功路径 —— headers 已拷进 goReq，按身份回收 Fields。
+	// Body 仍由 guest 的 finish()/resource-drop 负责。
+	if h, hdr := req.TakeHeadersHandleForDrop(); h != 0 {
+		i.hm.Fields.RemoveIf(h, func(cur manager_http.Fields) bool {
+			return manager_http.SameFields(cur, hdr)
+		})
 	}
+	// 禁止 i.hm.Bodies.Remove(req.BodyHandle)：
+	// goReq.Body 就是 body() 创建的 PipeReader；executeRequest → Client.Do 还在读。
+	// Remove 会走 OutgoingBody 析构，CloseWithError(ErrUnexpectedEOF)，把未写完的请求截断。
+	// outgoing-body 仍由 guest 的 finish()/resource-drop 负责回收。
 
 	client := i.getClient(opts)
 
@@ -174,6 +205,28 @@ func (i *outgoingHandlerImpl) Handle(
 // executeRequest 在一个单独的 goroutine 中运行。
 func (i *outgoingHandlerImpl) executeRequest(client *gohttp.Client, goReq *gohttp.Request, future *manager_http.FutureIncomingResponse) {
 	defer future.Pollable.SetReady()
+	defer func() {
+		if rec := recover(); rec != nil {
+			// Do/回调 panic 时仍须 StoreResult，否则 future.get/drop 会死等
+			future.StoreResult(manager_http.Result{Err: fmt.Errorf("http roundtrip panic: %v", rec)})
+		}
+	}()
+
+	// drop future 只 Cancel context；Client.Do 在部分路径仍等待 Body EOF，
+	// 与 Futures destructor 里 Pollable.Block() 死锁。取消时关掉 PipeReader 唤醒 Do。
+	reqDone := make(chan struct{})
+	defer close(reqDone)
+	if goReq.Body != nil {
+		body := goReq.Body
+		go func() {
+			select {
+			case <-goReq.Context().Done():
+				_ = body.Close()
+			case <-reqDone:
+			}
+		}()
+	}
+
 	resp, err := client.Do(goReq)
 	if err != nil {
 		if resp != nil && resp.Body != nil {
@@ -187,26 +240,40 @@ func (i *outgoingHandlerImpl) executeRequest(client *gohttp.Client, goReq *gohtt
 
 // buildGoRequest 是一个辅助函数，用于将 wasi-http 请求转换为 Go 的 http.Request。
 func (i *outgoingHandlerImpl) buildGoRequest(req *manager_http.OutgoingRequest) (*gohttp.Request, error) {
-	// 构造 URL
+	method, path, schemePtr, authority := req.LoadRequestLine()
+	if authority == nil || !validRequestAuthority(*authority) {
+		return nil, fmt.Errorf("request authority is invalid")
+	}
+	if method == "" {
+		method = gohttp.MethodGet
+	}
+	if !validHTTPToken(method) {
+		return nil, fmt.Errorf("invalid method")
+	}
+
 	scheme := "https"
-	if req.Scheme != nil && *req.Scheme == "http" {
-		scheme = "http"
+	if schemePtr != nil {
+		switch strings.ToLower(strings.TrimSpace(*schemePtr)) {
+		case "", "https":
+			scheme = "https"
+		case "http":
+			scheme = "http"
+		default:
+			return nil, fmt.Errorf("unsupported scheme %q", *schemePtr)
+		}
 	}
-	if req.Authority == nil {
-		return nil, fmt.Errorf("request authority cannot be empty")
-	}
-	path := req.Path
+
 	if path == "" {
 		path = "/"
-	} else if !strings.HasPrefix(path, "/") {
-		// 缺 leading slash 时会拼成 https://hostfoo 而不是 https://host/foo
-		path = "/" + path
+	} else if !validRequestPath(path) {
+		// 不再把缺少前导 / 的字符串偷偷改成路径，避免和 set-path 的失败语义不一致。
+		return nil, fmt.Errorf("invalid path")
 	}
-	url := fmt.Sprintf("%s://%s%s", scheme, *req.Authority, path)
+	rawURL := fmt.Sprintf("%s://%s%s", scheme, *authority, path)
 
 	// 创建 Go 的 http.Request。req.Body 是一个 io.PipeReader，
 	// 当 Guest 向 outgoing-body 写入数据时，这里就能读到。
-	goReq, err := gohttp.NewRequest(req.Method, url, req.Body)
+	goReq, err := gohttp.NewRequest(method, rawURL, req.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +294,7 @@ func (i *outgoingHandlerImpl) buildGoRequest(req *manager_http.OutgoingRequest) 
 		}
 	}
 
-	req.Request = goReq
+	req.BindRequest(goReq)
 	return goReq, nil
 }
 

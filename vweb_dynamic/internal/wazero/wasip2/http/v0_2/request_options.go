@@ -41,55 +41,65 @@ func durationFromOption(duration witgo.Option[Duration]) *time.Duration {
 	return &d
 }
 
-// --- Getters ---
 func (i *requestOptionsImpl) ConnectTimeout(_ context.Context, this RequestOptions) witgo.Option[Duration] {
 	opts, ok := i.hm.Options.Get(this)
-	if !ok || opts.ConnectTimeout == nil {
+	if !ok || opts == nil {
 		return witgo.None[Duration]()
 	}
-	return witgo.Some(Duration(*opts.ConnectTimeout))
+	c, _, _ := opts.CopyTimeouts()
+	if c == nil {
+		return witgo.None[Duration]()
+	}
+	return witgo.Some(Duration(*c))
 }
 
 func (i *requestOptionsImpl) FirstByteTimeout(_ context.Context, this RequestOptions) witgo.Option[Duration] {
 	opts, ok := i.hm.Options.Get(this)
-	if !ok || opts.FirstByteTimeout == nil {
+	if !ok || opts == nil {
 		return witgo.None[Duration]()
 	}
-	return witgo.Some(Duration(*opts.FirstByteTimeout))
+	_, c, _ := opts.CopyTimeouts()
+	if c == nil {
+		return witgo.None[Duration]()
+	}
+	return witgo.Some(Duration(*c))
 }
 
 func (i *requestOptionsImpl) BetweenBytesTimeout(_ context.Context, this RequestOptions) witgo.Option[Duration] {
 	opts, ok := i.hm.Options.Get(this)
-	if !ok || opts.BetweenBytesTimeout == nil {
+	if !ok || opts == nil {
 		return witgo.None[Duration]()
 	}
-	return witgo.Some(Duration(*opts.BetweenBytesTimeout))
+	_, _, c := opts.CopyTimeouts()
+	if c == nil {
+		return witgo.None[Duration]()
+	}
+	return witgo.Some(Duration(*c))
 }
 
-// --- Setters ---
 func (i *requestOptionsImpl) SetConnectTimeout(_ context.Context, this RequestOptions, duration witgo.Option[Duration]) witgo.UnitResult {
 	opts, ok := i.hm.Options.Get(this)
-	if !ok {
+	if !ok || opts == nil {
 		return witgo.UintErr()
 	}
-	opts.ConnectTimeout = durationFromOption(duration)
+	opts.StoreConnectTimeout(durationFromOption(duration))
 	return witgo.UintOk()
 }
 
 func (i *requestOptionsImpl) SetFirstByteTimeout(_ context.Context, this RequestOptions, duration witgo.Option[Duration]) witgo.UnitResult {
 	opts, ok := i.hm.Options.Get(this)
-	if !ok {
+	if !ok || opts == nil {
 		return witgo.UintErr()
 	}
-	opts.FirstByteTimeout = durationFromOption(duration)
+	opts.StoreFirstByteTimeout(durationFromOption(duration))
 	return witgo.UintOk()
 }
 
 func (i *requestOptionsImpl) SetBetweenBytesTimeout(_ context.Context, this RequestOptions, duration witgo.Option[Duration]) witgo.UnitResult {
 	opts, ok := i.hm.Options.Get(this)
-	if !ok {
+	if !ok || opts == nil {
 		return witgo.UintErr()
 	}
-	opts.BetweenBytesTimeout = durationFromOption(duration)
+	opts.StoreBetweenBytesTimeout(durationFromOption(duration))
 	return witgo.UintOk()
 }

@@ -237,6 +237,10 @@ func (h *Host) flattenVariant(ctx context.Context, val reflect.Value, flatParams
 	}
 
 	if val.IsZero() {
+		// Result 的 case(0) 是 Ok。零值两边都是 nil，不能编码成 Ok(零值)。
+		if isResult(typ) {
+			return fmt.Errorf("invalid result: no case set for %v", typ)
+		}
 		*flatParams = append(*flatParams, make([]uint64, 1+maxPayloadLen)...)
 		return nil
 	}

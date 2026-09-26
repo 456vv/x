@@ -23,7 +23,7 @@ type Server struct {
 	wasiHost   *wasip2.Host
 	witHost    *witgo.Host
 	handleFunc api.Function
-	// 同一 wazero Module 不是并发安全的；只在 Call 期间互斥，不要覆盖 setDone/copy
+	// 同一 wazero Module 不是并发安全的；只在 Call 期间互斥，不要覆盖后续等待。
 	guestMu sync.Mutex
 }
 
@@ -53,18 +53,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	hm := s.wasiHost.HTTPManager()
 
-	reqHandle, err := s.createIncomingRequest(ctx, r)
+	req, reqHandle, err := s.createIncomingRequest(ctx, r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create incoming-request: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	respChan := make(chan any, 1)
-	outparamHandle := hm.ResponseOutparams.Add(&manager_http.ResponseOutparam{ResultChan: respChan})
+	out := &manager_http.ResponseOutparam{ResultChan: respChan}
+	outparamHandle := hm.ResponseOutparams.Add(out)
 
 	// WASI 规范路径是先 response-outparam.set 再写 body。
 	// io.Pipe 无缓冲，必须在 handle() 返回前就开始 Copy，否则 guest 写体会阻塞 wasm 线程。
-	// 先写后 set 仍可能死锁，那是 guest 违反规范。
 	var started atomic.Bool
 	copyDone := make(chan struct{})
 	startWrite := func(v any) {
@@ -87,27 +87,38 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	setDone := make(chan struct{})
 	go func() {
 		defer close(setDone)
-		select {
-		case respResult, ok := <-respChan:
-			if ok {
-				startWrite(respResult)
-			}
-		case <-ctx.Done():
-			// 不在这里 http.Error。若随后已经 set，由 startWrite 写响应。
+		// 不能和 ctx.Done() 一起 select。两者同时就绪时可能丢掉已经 set 的响应，主流程再误报 503。
+		// 一直等到 set 投递，或 Remove/Drop 关闭 channel。
+		respResult, ok := <-respChan
+		if ok {
+			startWrite(respResult)
 		}
 	}()
 
-	s.guestMu.Lock()
-	_, callErr := s.handleFunc.Call(ctx, uint64(reqHandle), uint64(outparamHandle))
-	s.guestMu.Unlock()
+	// Call panic 时原先没有 Unlock，后续请求会全部堵在 guestMu 上。
+	// 锁只包住 Call，不能盖住后面的 setDone/copyDone，否则响应写完之前别的请求进不了 wasm。
+	callErr := func() (callErr error) {
+		s.guestMu.Lock()
+		defer s.guestMu.Unlock()
+		defer func() {
+			if rec := recover(); rec != nil {
+				callErr = fmt.Errorf("guest handle panic: %v", rec)
+			}
+		}()
+		_, callErr = s.handleFunc.Call(ctx, uint64(reqHandle), uint64(outparamHandle))
+		return callErr
+	}()
 	if callErr != nil {
-		// handle 成功后 incoming-request 所有权在 guest，不能 Remove；
-		// 仅 trap 时 guest 未 drop，才由宿主回收，避免拆掉仍在读的 body。
-		hm.IncomingRequests.Remove(reqHandle)
+		// trap 时 guest 可能已经 drop；句柄号会被复用。只移除仍是本次请求的那一项。
+		hm.IncomingRequests.RemoveIf(reqHandle, func(cur *manager_http.IncomingRequest) bool {
+			return cur == req
+		})
 	}
 
-	// 未 set 时关闭 ResultChan，让上面的接收结束
-	hm.ResponseOutparams.Remove(outparamHandle)
+	// 无条件 Remove(outparamHandle) 会在句柄复用后关掉另一个请求的 ResultChan。
+	hm.ResponseOutparams.RemoveIf(outparamHandle, func(cur *manager_http.ResponseOutparam) bool {
+		return cur == out
+	})
 	<-setDone
 
 	if !started.Load() {
@@ -124,8 +135,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	<-copyDone
 }
 
-// createIncomingRequest 将 http.Request 转换为 wasi:http/types.incoming-request 资源
-func (s *Server) createIncomingRequest(ctx context.Context, r *http.Request) (v0_2.IncomingRequest, error) {
+// createIncomingRequest 将 http.Request 转换为 wasi:http/types.incoming-request 资源。
+// 返回对象指针，供 trap 路径按身份 RemoveIf，避免句柄复用误删。
+func (s *Server) createIncomingRequest(ctx context.Context, r *http.Request) (*manager_http.IncomingRequest, v0_2.IncomingRequest, error) {
+	_ = ctx
 	hm := s.wasiHost.HTTPManager()
 
 	headers := make(manager_http.Fields, len(r.Header))
@@ -143,20 +156,31 @@ func (s *Server) createIncomingRequest(ctx context.Context, r *http.Request) (v0
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	req := &manager_http.IncomingRequest{
-		Request:   r,
-		Method:    r.Method,
-		Path:      r.URL.Path,
-		Query:     r.URL.RawQuery,
-		Scheme:    &scheme,
-		Authority: &r.Host,
-		Headers:   headersHandle,
-		Body:      r.Body,
+	path := r.URL.EscapedPath()
+	if path == "" {
+		// 星号等请求没有转义路径时退回解码路径，避免得到空 path。
+		path = r.URL.Path
 	}
-	return hm.IncomingRequests.Add(req), nil
+	var authority *string
+	if r.Host != "" {
+		host := r.Host
+		authority = &host
+	}
+	req := &manager_http.IncomingRequest{
+		Request:     r,
+		Method:      r.Method,
+		Path:        path,
+		Query:       r.URL.RawQuery,
+		Scheme:      &scheme,
+		Authority:   authority,
+		Headers:     headersHandle,
+		HeadersData: headers, // drop 时用 map 身份 RemoveIf，避免句柄复用误删
+		Body:        r.Body,
+	}
+	return req, hm.IncomingRequests.Add(req), nil
 }
 
-// writeOutgoingResponse 将 guest 返回的 OutgoingResponse 写入 http.ResponseWriter
+// writeOutgoingResponse 将 guest 返回的 OutgoingResponse 写入 http.ResponseWriter。
 func (s *Server) writeOutgoingResponse(ctx context.Context, w http.ResponseWriter, respHandle v0_2.OutgoingResponse) {
 	hm := s.wasiHost.HTTPManager()
 	resp, ok := hm.OutgoingResponses.Pop(respHandle)
@@ -164,55 +188,79 @@ func (s *Server) writeOutgoingResponse(ctx context.Context, w http.ResponseWrite
 		http.Error(w, "internal error: invalid outgoing-response handle", http.StatusInternalServerError)
 		return
 	}
-	// Pop 不跑 destructor，必须回收 headers/body 子句柄，否则长驻 server 泄漏
 	defer func() {
-		if resp.HeadersHandle != 0 {
-			hm.Fields.Remove(resp.HeadersHandle)
-			resp.HeadersHandle = 0
+		// Pop 父资源不会清 child；guest 已 drop/finish 后编号会复用。
+		if h, hdr := resp.TakeHeadersHandleForDrop(); h != 0 {
+			hm.Fields.RemoveIf(h, func(cur manager_http.Fields) bool {
+				return manager_http.SameFields(cur, hdr)
+			})
 		}
-		if resp.BodyHandle != 0 {
-			hm.Bodies.Remove(resp.BodyHandle)
-			resp.BodyHandle = 0
+
+		if h := resp.TakeBodyHandleForDrop(); h != 0 {
+			pw := resp.BodyWriter
+			hm.Bodies.RemoveIf(h, func(cur *manager_http.OutgoingBody) bool {
+				return cur != nil && pw != nil && cur.BodyWriter == pw
+			})
 		}
 	}()
 	resp.Response = w
 	if resp.Headers != nil {
+		hm.LockFields()
+		hdrs := make(manager_http.Fields, len(resp.Headers))
 		for k, vv := range resp.Headers {
+			cp := make([]string, len(vv))
+			copy(cp, vv)
+			hdrs[k] = cp
+		}
+		hm.UnlockFields()
+		for k, vv := range hdrs {
 			for _, v := range vv {
-				w.Header().Add(k, v) // 规范化
+				w.Header().Add(k, v)
 			}
 		}
 	}
-	status := resp.StatusCode
-	if status < 100 || status > 999 {
+
+	var bodyBuf []byte
+	if resp.Body != nil {
+		errCh := make(chan error, 1)
+		go func() {
+			var copyErr error
+			bodyBuf, copyErr = io.ReadAll(resp.Body)
+			errCh <- copyErr
+		}()
+		var copyErr error
+		aborted := false
+		select {
+		case copyErr = <-errCh:
+		case <-ctx.Done():
+			aborted = true
+			if c, ok := resp.Body.(io.Closer); ok {
+				c.Close()
+			}
+			copyErr = <-errCh
+		}
+		if c, ok := resp.Body.(io.Closer); ok {
+			c.Close()
+		}
+		// 必须先读完 body（finish 在 EOF 时写入 trailer），再 TakeTrailers + WriteHeader。
+		// 上一轮流式 Copy 会在 trailer 到达前 WriteHeader，trailer 丢失。
+		if aborted || copyErr != nil {
+			http.Error(w, "failed to read guest response body", http.StatusBadGateway)
+			return
+		}
+	}
+
+	for k, vv := range resp.TakeTrailers() {
+		for _, v := range vv {
+			w.Header().Add(http.TrailerPrefix+k, v)
+		}
+	}
+	status := resp.LoadStatus()
+	if status < 100 || status > 599 {
 		status = http.StatusOK
 	}
 	w.WriteHeader(status)
-	if resp.Body != nil {
-		// 客户端取消时 io.Copy 会一直等到 guest finish；关 Body 打断 Pipe
-		errCh := make(chan error, 1)
-		go func() {
-			_, copyErr := io.Copy(w, resp.Body)
-			errCh <- copyErr
-		}()
-		select {
-		case <-errCh:
-		case <-ctx.Done():
-			if c, ok := resp.Body.(io.Closer); ok {
-				_ = c.Close()
-			}
-			<-errCh
-		}
-		if c, ok := resp.Body.(io.Closer); ok {
-			_ = c.Close()
-		}
+	if len(bodyBuf) > 0 {
+		w.Write(bodyBuf)
 	}
-}
-
-// Close 释放与 guest 模块绑定的 witgo.Host 缓存，避免模块销毁后分配器泄漏。
-func (s *Server) Close() {
-	if s == nil || s.guest == nil {
-		return
-	}
-	witgo.ReleaseHost(s.guest)
 }

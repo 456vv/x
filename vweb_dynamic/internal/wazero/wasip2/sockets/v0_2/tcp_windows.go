@@ -26,7 +26,7 @@ func (i *tcpImpl) DropTCPSocket(_ context.Context, handle TCPSocket) {
 
 func (i *tcpImpl) StartBind(_ context.Context, this TCPSocket, network Network, localAddress IPSocketAddress) witgo.Result[witgo.Unit, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 	if code := i.checkNetwork(network); code != 0 {
@@ -69,9 +69,14 @@ func (i *tcpImpl) listenTCP(sock *sockets.TCPSocket) error {
 	var nfd windows.Handle
 	p := windows.CurrentProcess()
 	if err := windows.DuplicateHandle(p, windows.Handle(sock.Fd), p, &nfd, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
-		return err
+		return nil
 	}
 	file := os.NewFile(uintptr(nfd), "")
+	if file == nil {
+		// NewFile 失败必须 Closesocket(nfd)，否则泄漏 SOCKET。
+		windows.Closesocket(nfd)
+		return syscall.EINVAL
+	}
 	ln, err := net.FileListener(file)
 	_ = file.Close()
 	if err != nil {
@@ -102,7 +107,28 @@ type winFdSet struct {
 var (
 	modws2_32  = windows.NewLazySystemDLL("ws2_32.dll")
 	procSelect = modws2_32.NewProc("select")
+	procAccept = modws2_32.NewProc("accept") // syscall/windows.Accept 在 Windows 上都是 EWINDOWS 桩。
 )
+
+// acceptOnHandle 调用 ws2_32.accept。rsa 仅占位，对端地址由后续 FileConn 再取。
+func acceptOnHandle(fd windows.Handle) (windows.Handle, error) {
+	var rsa windows.RawSockaddrAny
+	addrlen := int32(unsafe.Sizeof(rsa))
+	r1, _, callErr := procAccept.Call(
+		uintptr(fd),
+		uintptr(unsafe.Pointer(&rsa)),
+		uintptr(unsafe.Pointer(&addrlen)),
+	)
+	nfd := windows.Handle(r1)
+	// Winsock：失败返回 INVALID_SOCKET（^Handle(0)），不是 Unix 的 -1 语义下的 0。
+	if nfd == windows.InvalidHandle {
+		if callErr != nil {
+			return windows.InvalidHandle, callErr
+		}
+		return windows.InvalidHandle, syscall.EINVAL
+	}
+	return nfd, nil
+}
 
 // waitTCPConnect 等待非阻塞 connect 完成（可写或 except）。
 // select 失败时用 Call 的 lastErr；SOCKET_ERROR 恒为 -1。
@@ -143,7 +169,8 @@ func waitTCPConnect(fd windows.Handle, ctx context.Context) error {
 }
 
 func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddress) (*net.TCPConn, error) {
-	if !sock.HasFd() {
+	_, hasFd := sock.SnapshotFd()
+	if !hasFd {
 		addr, err := fromIPSocketAddressToTCPAddr(remoteAddress)
 		if err != nil {
 			return nil, err
@@ -164,11 +191,18 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		}
 		return tc, nil
 	}
+
+	fd, err := sock.DupOwnedFd()
+	if err != nil {
+		return nil, err
+	}
+	defer windows.Closesocket(windows.Handle(fd))
+
 	sa, err := fromIPSocketAddressToSockaddr(remoteAddress)
 	if err != nil {
 		return nil, err
 	}
-	cerr := syscall.Connect(syscall.Handle(sock.Fd), sa)
+	cerr := syscall.Connect(syscall.Handle(fd), sa)
 	if cerr != nil &&
 		cerr != syscall.EWOULDBLOCK &&
 		cerr != windows.WSAEWOULDBLOCK &&
@@ -177,10 +211,10 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 		return nil, cerr
 	}
 	if cerr != nil {
-		if err := waitTCPConnect(windows.Handle(sock.Fd), sock.ConnectContext()); err != nil {
+		if err := waitTCPConnect(windows.Handle(fd), sock.ConnectContext()); err != nil {
 			return nil, err
 		}
-		soerr, gerr := windows.GetsockoptInt(windows.Handle(sock.Fd), windows.SOL_SOCKET, soError)
+		soerr, gerr := windows.GetsockoptInt(windows.Handle(fd), windows.SOL_SOCKET, soError)
 		if gerr != nil {
 			return nil, gerr
 		}
@@ -190,10 +224,15 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 	}
 	var nfd windows.Handle
 	p := windows.CurrentProcess()
-	if err := windows.DuplicateHandle(p, windows.Handle(sock.Fd), p, &nfd, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
+	if err := windows.DuplicateHandle(p, windows.Handle(fd), p, &nfd, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
 		return nil, err
 	}
 	file := os.NewFile(uintptr(nfd), "")
+	if file == nil {
+		// NewFile 失败必须关 duplicated SOCKET
+		windows.Closesocket(nfd)
+		return nil, syscall.EINVAL
+	}
 	c, err := net.FileConn(file)
 	_ = file.Close()
 	if err != nil {
@@ -208,28 +247,89 @@ func (i *tcpImpl) connectTCP(sock *sockets.TCPSocket, remoteAddress IPSocketAddr
 }
 
 func (i *tcpImpl) acceptTCP(sock *sockets.TCPSocket) (*net.TCPConn, error) {
-	if sock == nil || sock.Listener == nil {
+	if sock == nil {
 		return nil, syscall.EINVAL
 	}
-	_ = sock.Listener.SetDeadline(time.Now().Add(time.Millisecond))
-	conn, err := sock.Listener.AcceptTCP()
-	_ = sock.Listener.SetDeadline(time.Time{})
-	return conn, err
+
+	ln := sock.GetListener()
+	if ln != nil {
+		ln.SetDeadline(time.Now().Add(time.Millisecond))
+		conn, err := ln.AcceptTCP()
+		ln.SetDeadline(time.Time{})
+		return conn, err
+	}
+
+	_, hasFd := sock.SnapshotFd()
+	if !hasFd {
+		return nil, syscall.EINVAL
+	}
+	fd, err := sock.DupOwnedFd()
+	if err != nil {
+		return nil, err
+	}
+	defer windows.Closesocket(windows.Handle(fd))
+
+	// 不能用 windows.Accept / syscall.Accept，两者在 Windows 上都是 EWINDOWS 桩。
+	accepted, err := acceptOnHandle(windows.Handle(fd))
+	if err != nil {
+		return nil, err
+	}
+
+	windows.SetHandleInformation(accepted, windows.HANDLE_FLAG_INHERIT, 0)
+	var nonBlockingMode uint32 = 1
+	var bytesReturned uint32
+	if ioctlErr := windows.WSAIoctl(
+		accepted,
+		FIONBIO,
+		(*byte)(unsafe.Pointer(&nonBlockingMode)),
+		uint32(unsafe.Sizeof(nonBlockingMode)),
+		nil,
+		0,
+		&bytesReturned,
+		nil,
+		0,
+	); ioctlErr != nil {
+		_ = windows.Closesocket(accepted)
+		return nil, ioctlErr
+	}
+
+	file := os.NewFile(uintptr(accepted), "")
+	if file == nil {
+		windows.Closesocket(accepted)
+		return nil, syscall.EINVAL
+	}
+	c, err := net.FileConn(file)
+	file.Close() // FileConn 再 dup；关 file 不关连接
+	if err != nil {
+		return nil, err
+	}
+	tc, ok := c.(*net.TCPConn)
+	if !ok {
+		c.Close()
+		return nil, syscall.EINVAL
+	}
+	return tc, nil
 }
 
 func (i *tcpImpl) localAddrFromFd(sock *sockets.TCPSocket) (net.Addr, error) {
-	if !sock.HasFd() {
-		return nil, syscall.EBADF
-	}
-	sa, err := windows.Getsockname(windows.Handle(sock.Fd))
+	var sa windows.Sockaddr
+	err := sock.ControlFd(func(fd int) error {
+		var gerr error
+		sa, gerr = windows.Getsockname(windows.Handle(fd))
+		return gerr
+	})
 	if err != nil {
 		return nil, err
 	}
 	switch a := sa.(type) {
 	case *windows.SockaddrInet4:
-		return &net.TCPAddr{IP: net.IP(a.Addr[:]), Port: a.Port}, nil
+		ip := make(net.IP, net.IPv4len)
+		copy(ip, a.Addr[:])
+		return &net.TCPAddr{IP: ip, Port: a.Port}, nil
 	case *windows.SockaddrInet6:
-		return &net.TCPAddr{IP: net.IP(a.Addr[:]), Port: a.Port, Zone: zoneFromScopeID(a.ZoneId)}, nil
+		ip := make(net.IP, net.IPv6len)
+		copy(ip, a.Addr[:])
+		return &net.TCPAddr{IP: ip, Port: a.Port, Zone: zoneFromScopeID(a.ZoneId)}, nil
 	default:
 		return nil, syscall.EAFNOSUPPORT
 	}
@@ -252,24 +352,28 @@ func (i *tcpImpl) SetListenBacklogSize(ctx context.Context, this TCPSocket, valu
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 	n := clampToInt(value)
-	var listenErr error
-	switch {
-	case sock.Listener != nil:
-		// Listener.File() 会把 SOCKET 改成阻塞模式
-		raw, err := sock.Listener.SyscallConn()
-		if err != nil {
-			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
-		}
-		ctrlErr := raw.Control(func(fd uintptr) {
-			listenErr = windows.Listen(windows.Handle(fd), n)
-		})
-		if ctrlErr != nil {
-			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(ctrlErr))
-		}
-	case sock.HasFd():
-		listenErr = windows.Listen(windows.Handle(sock.Fd), n)
-	default:
+	ctrlErr := sock.ControlFd(func(fd int) error {
+		return windows.Listen(windows.Handle(fd), n)
+	})
+	if ctrlErr == nil {
+		return witgo.Ok[witgo.Unit, ErrorCode](witgo.Unit{})
+	}
+	if !errors.Is(ctrlErr, sockets.ErrInvalidSocketState) {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(ctrlErr))
+	}
+	ln := sock.GetListener()
+	if ln == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidState)
+	}
+	raw, err := ln.SyscallConn()
+	if err != nil {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
+	}
+	var listenErr error
+	if ctrlErr = raw.Control(func(fd uintptr) {
+		listenErr = windows.Listen(windows.Handle(fd), n)
+	}); ctrlErr != nil {
+		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(ctrlErr))
 	}
 	if listenErr != nil {
 		return witgo.Err[witgo.Unit, ErrorCode](mapOsError(listenErr))
@@ -362,16 +466,16 @@ func (i *tcpImpl) setSendBufferUnconnected(this TCPSocket, value uint64) witgo.R
 
 func getTCPSockopt[T ~int | ~uint64 | ~uint32 | ~uint8](i *tcpImpl, this TCPSocket, level, opt int) witgo.Result[T, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[T, ErrorCode](ErrorCodeInvalidArgument)
 	}
 
 	var val int
 	var getErr error
-
+	conn, _, hasFd := sock.SnapshotConnOrFd()
 	switch {
-	case sock.Conn != nil:
-		rawConn, err := sock.Conn.SyscallConn()
+	case conn != nil:
+		rawConn, err := conn.SyscallConn()
 		if err != nil {
 			return witgo.Err[T, ErrorCode](mapOsError(err))
 		}
@@ -381,8 +485,12 @@ func getTCPSockopt[T ~int | ~uint64 | ~uint32 | ~uint8](i *tcpImpl, this TCPSock
 		if err != nil {
 			return witgo.Err[T, ErrorCode](mapOsError(err))
 		}
-	case sock.HasFd():
-		val, getErr = windows.GetsockoptInt(windows.Handle(sock.Fd), level, opt)
+	case hasFd:
+		getErr = sock.ControlFd(func(fd int) error {
+			var err error
+			val, err = windows.GetsockoptInt(windows.Handle(fd), level, opt)
+			return err
+		})
 	default:
 		return witgo.Err[T, ErrorCode](ErrorCodeInvalidArgument)
 	}
@@ -394,14 +502,15 @@ func getTCPSockopt[T ~int | ~uint64 | ~uint32 | ~uint8](i *tcpImpl, this TCPSock
 
 func setTCPSockopt(i *tcpImpl, this TCPSocket, level, opt, value int) witgo.Result[witgo.Unit, ErrorCode] {
 	sock, ok := i.host.TCPSocketManager().Get(this)
-	if !ok {
+	if !ok || sock == nil {
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
 
 	var setErr error
+	conn, _, hasFd := sock.SnapshotConnOrFd()
 	switch {
-	case sock.Conn != nil:
-		rawConn, err := sock.Conn.SyscallConn()
+	case conn != nil:
+		rawConn, err := conn.SyscallConn()
 		if err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
@@ -411,8 +520,10 @@ func setTCPSockopt(i *tcpImpl, this TCPSocket, level, opt, value int) witgo.Resu
 		if err != nil {
 			return witgo.Err[witgo.Unit, ErrorCode](mapOsError(err))
 		}
-	case sock.HasFd():
-		setErr = windows.SetsockoptInt(windows.Handle(sock.Fd), level, opt, value)
+	case hasFd:
+		setErr = sock.ControlFd(func(fd int) error {
+			return windows.SetsockoptInt(windows.Handle(fd), level, opt, value)
+		})
 	default:
 		return witgo.Err[witgo.Unit, ErrorCode](ErrorCodeInvalidArgument)
 	}
@@ -459,14 +570,15 @@ func waitTCPAccept(fd windows.Handle, done <-chan struct{}) {
 }
 
 func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
-	if sock == nil || !sock.HasFd() {
+	fdInt, err := sock.DupOwnedFd()
+	if err != nil {
 		p := manager_io.NewPollable(nil)
 		handle := i.host.PollManager().Add(p)
 		p.SetReady()
 		return handle
 	}
+	fd := windows.Handle(fdInt)
 
-	fd := windows.Handle(sock.Fd)
 	done := make(chan struct{})
 	var once sync.Once
 	p := manager_io.NewPollable(func() {
@@ -475,8 +587,9 @@ func (i *tcpImpl) subscribeListen(sock *sockets.TCPSocket) wasip2_io.Pollable {
 	handle := i.host.PollManager().Add(p)
 
 	go func() {
+		defer windows.Closesocket(fd)
+		defer p.SetReady()
 		waitTCPAccept(fd, done)
-		p.SetReady()
 	}()
 	return handle
 }

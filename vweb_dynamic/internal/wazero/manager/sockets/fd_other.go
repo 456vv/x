@@ -16,3 +16,8 @@ func (s *UDPSocket) AttachFd(fd int) {
 		s.closeFd = nil
 	}
 }
+
+// DupOwnedFd 本平台没有可安全复制的原始 fd。
+func (s *TCPSocket) DupOwnedFd() (int, error) {
+	return -1, ErrInvalidSocketState
+}

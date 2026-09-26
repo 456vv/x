@@ -121,6 +121,7 @@ func NewTLSManager() *TLSManager {
 			// drop 时取消握手，否则 Handshake 可能一直阻塞在底层 Read。
 			if resource.Cancel != nil {
 				resource.Cancel()
+				resource.Cancel = nil // 与 HTTP future 对齐，避免二次析构重复观察 Cancel
 			}
 			if resource.Pollable != nil {
 				resource.Pollable.Block()

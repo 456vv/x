@@ -294,7 +294,12 @@ func normalizeAlign(alignment uint32) uint32 {
 	a |= a >> 4
 	a |= a >> 8
 	a |= a >> 16
-	return a + 1
+	a++
+	if a == 0 {
+		// 当 alignment 接近 2^32 时 +1 溢出成 0，cabi_realloc 对齐 0 未定义
+		return 1 << 31
+	}
+	return a
 }
 
 // callU32 调用给定的 api.Function，将参数转换为 uint64 切片，并返回第一个结果（uint32）。
@@ -329,21 +334,6 @@ func (a *GuestAllocator) callU32(ctx context.Context, fn api.Function, name stri
 
 // Allocate 在 Guest 中分配一块内存，自动选择正确的分配方式。
 // 分配记录会自动添加到当前 context 的作用域，以便调用结束后自动释放。
-//
-// 参数:
-//   - ctx:         上下文（可为 nil，自动使用 Background）
-//   - size:        请求分配的字节数
-//   - alignment:   对齐要求（字节数，自动规范化为 2 的幂）
-//
-// 返回:
-//   - uint32: 分配到的内存指针（Guest 地址空间），NULL(0) 表示失败
-//   - error:  分配失败时的错误
-//
-// 示例:
-//
-//	ptr, err := alloc.Allocate(ctx, 256, 8)
-//	if err != nil { panic(err) }
-//	defer alloc.Free(ctx, ptr, 256, 8)
 func (a *GuestAllocator) Allocate(ctx context.Context, size, alignment uint32) (uint32, error) {
 	if a == nil {
 		return 0, fmt.Errorf("GuestAllocator 实例不能为 nil")
@@ -360,24 +350,21 @@ func (a *GuestAllocator) Allocate(ctx context.Context, size, alignment uint32) (
 
 	alignment = normalizeAlign(alignment)
 
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	var (
 		ptr uint32
 		err error
 	)
 
+	// 原先整段 Allocate（含 cabi_realloc/malloc 的 fn.Call）持 a.mu。
+	// Host.Call 进入 guest 后，guest 再调 host export 并 Allocate，会在同一把锁上自死锁。
+	// mode 与函数指针在 NewGuestAllocator 之后只读；只有 aligned 映射需要锁。
 	switch a.mode {
 	case modeCabiRealloc:
-		// cabi_realloc(null, 0, align, size) 等价于 malloc(size) with alignment
 		ptr, err = a.callU32(ctx, a.realloc, "cabi_realloc for allocate", 0, 0, uint64(alignment), uint64(size))
 	case modeRealloc:
-		// realloc 模式：需要手动处理对齐（过量分配）
-		ptr, err = a.allocAlignedLocked(ctx, size, alignment, true)
+		ptr, err = a.allocAligned(ctx, size, alignment, true)
 	case modeMallocFree:
-		// malloc 模式：同样需要手动处理对齐
-		ptr, err = a.allocAlignedLocked(ctx, size, alignment, false)
+		ptr, err = a.allocAligned(ctx, size, alignment, false)
 	default:
 		return 0, fmt.Errorf("不支持的分配器模式")
 	}
@@ -388,25 +375,12 @@ func (a *GuestAllocator) Allocate(ctx context.Context, size, alignment uint32) (
 		return 0, fmt.Errorf("guest allocator returned NULL for size=%d align=%d", size, alignment)
 	}
 
-	// 记录到当前 context 的作用域，便于统一释放
 	scopeFromCtx(ctx).add(allocRec{ptr: ptr, size: size, align: alignment})
 	return ptr, nil
 }
 
-// allocAlignedLocked 在 realloc/malloc 模式下过量分配并返回对齐指针（调用方已持锁）。
-// 分配 rawSize = size + alignment - 1 字节，然后计算对齐后的偏移。
-//
-// 参数:
-//   - ctx:         上下文
-//   - size:        请求的有效字节数
-//   - alignment:   对齐要求（已是 2 的幂）
-//   - useRealloc:  true=使用 realloc，false=使用 malloc
-//
-// 返回:
-//   - uint32: 对齐后的指针
-//   - error:  分配失败时的错误
-func (a *GuestAllocator) allocAlignedLocked(ctx context.Context, size, alignment uint32, useRealloc bool) (uint32, error) {
-	// 过量分配：保证有足够的空间进行对齐调整
+// allocAligned 在 realloc/malloc 模式下过量分配并返回对齐指针。
+func (a *GuestAllocator) allocAligned(ctx context.Context, size, alignment uint32, useRealloc bool) (uint32, error) {
 	need := uint64(size) + uint64(alignment) - 1
 	if need > uint64(^uint32(0)) {
 		return 0, fmt.Errorf("aligned allocation size overflow: size=%d align=%d", size, alignment)
@@ -428,32 +402,17 @@ func (a *GuestAllocator) allocAlignedLocked(ctx context.Context, size, alignment
 	if raw == 0 {
 		return 0, fmt.Errorf("guest allocator returned NULL")
 	}
-	// 计算对齐后的指针
 	aligned := align(raw, alignment)
-	// 记录原始指针，Free 时需要还回
+	a.mu.Lock()
 	if a.aligned == nil {
 		a.aligned = make(map[uint32]rawAlloc)
 	}
 	a.aligned[aligned] = rawAlloc{raw: raw, size: rawSize, align: alignment}
+	a.mu.Unlock()
 	return aligned, nil
 }
 
 // Free 在 Guest 中释放一块内存，自动选择正确的释放方式。
-// 参数 ptr, size, alignment 应与分配时一致。若 ptr 为 0 则直接返回 nil。
-// 显式调用 Free 会从当前作用域中移除记录，避免 double-free。
-//
-// 参数:
-//   - ctx:         上下文
-//   - ptr:         要释放的指针（Guest 地址），0 表示空指针直接返回
-//   - size:        分配时请求的大小
-//   - alignment:   分配时的对齐要求
-//
-// 返回:
-//   - error: 释放失败时的错误
-//
-// 示例:
-//
-//	err := alloc.Free(ctx, ptr, 256, 8)
 func (a *GuestAllocator) Free(ctx context.Context, ptr, size, alignment uint32) error {
 	if a == nil {
 		return fmt.Errorf("GuestAllocator 实例不能为 nil")
@@ -469,37 +428,35 @@ func (a *GuestAllocator) Free(ctx context.Context, ptr, size, alignment uint32) 
 	scopeFromCtx(ctx).remove(ptr)
 
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	mode := a.mode
+	realloc := a.realloc
+	freeFn := a.free
+	freePtr := ptr
+	if rec, ok := a.aligned[ptr]; ok {
+		freePtr = rec.raw
+		delete(a.aligned, ptr)
+	}
+	a.mu.Unlock()
 
-	switch a.mode {
+	// 与 Allocate 对称，fn.Call 必须在锁外，避免嵌套 host 分配死锁。
+	switch mode {
 	case modeCabiRealloc:
-		_, err := a.callU32(ctx, a.realloc, "cabi_realloc for free", uint64(ptr), uint64(size), uint64(alignment), 0)
+		_, err := a.callU32(ctx, realloc, "cabi_realloc for free", uint64(ptr), uint64(size), uint64(alignment), 0)
 		return err
 
 	case modeRealloc:
-		freePtr := ptr
-		if rec, ok := a.aligned[ptr]; ok {
-			freePtr = rec.raw
-			delete(a.aligned, ptr)
-		}
-		if a.free != nil {
-			if _, err := a.free.Call(ctx, uint64(freePtr)); err != nil {
+		if freeFn != nil {
+			if _, err := freeFn.Call(ctx, uint64(freePtr)); err != nil {
 				return fmt.Errorf("free (paired with realloc) failed: %w", err)
 			}
 		}
-		// 即使 free==nil（TinyGo GC 场景），也必须清理 aligned 映射，防止长期泄漏。
 		return nil
 
 	case modeMallocFree:
-		freePtr := ptr
-		if rec, ok := a.aligned[ptr]; ok {
-			freePtr = rec.raw
-			delete(a.aligned, ptr)
-		}
-		if a.free == nil {
+		if freeFn == nil {
 			return fmt.Errorf("free function is nil")
 		}
-		if _, err := a.free.Call(ctx, uint64(freePtr)); err != nil {
+		if _, err := freeFn.Call(ctx, uint64(freePtr)); err != nil {
 			return fmt.Errorf("free failed: %w", err)
 		}
 		return nil

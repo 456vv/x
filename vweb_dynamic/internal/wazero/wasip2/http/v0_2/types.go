@@ -7,30 +7,36 @@ import (
 )
 
 // 从 wasi:io 导入类型
-type InputStream = wasip2_io.InputStream
-type OutputStream = wasip2_io.OutputStream
-type WasiError = wasip2_io.Error
-type Pollable = wasip2_io.Pollable
-type Duration = wasip2_clocks.Duration
+type (
+	InputStream  = wasip2_io.InputStream
+	OutputStream = wasip2_io.OutputStream
+	WasiError    = wasip2_io.Error
+	Pollable     = wasip2_io.Pollable
+	Duration     = wasip2_clocks.Duration
+)
 
-type FieldKey = string
-type FieldValue = []byte
-type StatusCode = uint16
+type (
+	FieldKey   = string
+	FieldValue = []byte
+	StatusCode = uint16
+)
 
 // HTTP 资源句柄
-type Fields = uint32
-type Headers = uint32
-type IncomingRequest = uint32
-type OutgoingRequest = uint32
-type RequestOptions = uint32
-type IncomingResponse = uint32
-type OutgoingResponse = uint32
-type IncomingBody = uint32
-type FutureTrailers = uint32
-type OutgoingBody = uint32
-type FutureIncomingResponse = uint32
-type Trailers = uint32
-type ResponseOutparam = uint32
+type (
+	Fields                 = uint32
+	Headers                = uint32
+	IncomingRequest        = uint32
+	OutgoingRequest        = uint32
+	RequestOptions         = uint32
+	IncomingResponse       = uint32
+	OutgoingResponse       = uint32
+	IncomingBody           = uint32
+	FutureTrailers         = uint32
+	OutgoingBody           = uint32
+	FutureIncomingResponse = uint32
+	Trailers               = uint32
+	ResponseOutparam       = uint32
+)
 
 // Method 对应 WIT 中的 method variant
 type Method struct {
@@ -97,13 +103,13 @@ type ErrorCode struct {
 	HTTPRequestHeaderSectionSize   *witgo.Option[uint32]           `wit:"case(21)"`
 	HTTPRequestHeaderSize          *witgo.Option[FieldSizePayload] `wit:"case(22)"`
 	HTTPRequestTrailerSectionSize  *witgo.Option[uint32]           `wit:"case(23)"`
-	HTTPRequestTrailerSize         *FieldSizePayload               `wit:"case(24)"`
+	HTTPRequestTrailerSize         *witgo.Option[FieldSizePayload] `wit:"case(24)"`
 	HTTPResponseIncomplete         *witgo.Unit                     `wit:"case(25)"`
 	HTTPResponseHeaderSectionSize  *witgo.Option[uint32]           `wit:"case(26)"`
-	HTTPResponseHeaderSize         *FieldSizePayload               `wit:"case(27)"`
+	HTTPResponseHeaderSize         *witgo.Option[FieldSizePayload] `wit:"case(27)"`
 	HTTPResponseBodySize           *witgo.Option[uint64]           `wit:"case(28)"`
 	HTTPResponseTrailerSectionSize *witgo.Option[uint32]           `wit:"case(29)"`
-	HTTPResponseTrailerSize        *FieldSizePayload               `wit:"case(30)"`
+	HTTPResponseTrailerSize        *witgo.Option[FieldSizePayload] `wit:"case(30)"`
 	HTTPResponseTransferCoding     *witgo.Option[string]           `wit:"case(31)"`
 	HTTPResponseContentCoding      *witgo.Option[string]           `wit:"case(32)"`
 	HTTPResponseTimeout            *witgo.Unit                     `wit:"case(33)"`

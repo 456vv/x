@@ -17,9 +17,7 @@ func (s *TCPSocket) AttachFd(fd int) {
 		return
 	}
 	s.closeFd = func() error {
-		err := windows.Closesocket(windows.Handle(fd))
-		s.Fd = -1
-		return err
+		return windows.Closesocket(windows.Handle(fd))
 	}
 }
 
@@ -33,8 +31,25 @@ func (s *UDPSocket) AttachFd(fd int) {
 		return
 	}
 	s.closeFd = func() error {
-		err := windows.Closesocket(windows.Handle(fd))
-		s.Fd = -1
-		return err
+		return windows.Closesocket(windows.Handle(fd))
 	}
+}
+
+// DupOwnedFd 在锁内 DuplicateHandle。调用方必须 Closesocket 返回值。
+// 同 unix，避免锁外使用已被关闭并复用的 SOCKET。
+func (s *TCPSocket) DupOwnedFd() (int, error) {
+	if s == nil {
+		return -1, ErrInvalidSocketState
+	}
+	s.connectMu.Lock()
+	defer s.connectMu.Unlock()
+	if s.closeFd == nil || s.Fd < 0 {
+		return -1, ErrInvalidSocketState
+	}
+	var nfd windows.Handle
+	p := windows.CurrentProcess()
+	if err := windows.DuplicateHandle(p, windows.Handle(s.Fd), p, &nfd, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
+		return -1, err
+	}
+	return int(nfd), nil
 }
