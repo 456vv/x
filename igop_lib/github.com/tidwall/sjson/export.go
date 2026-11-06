@@ -33,6 +33,8 @@ func init() {
 		Funcs: map[string]reflect.Value{
 			"Delete":             reflect.ValueOf(q.Delete),
 			"DeleteBytes":        reflect.ValueOf(q.DeleteBytes),
+			"DeleteBytesOptions": reflect.ValueOf(q.DeleteBytesOptions),
+			"DeleteOptions":      reflect.ValueOf(q.DeleteOptions),
 			"Set":                reflect.ValueOf(q.Set),
 			"SetBytes":           reflect.ValueOf(q.SetBytes),
 			"SetBytesOptions":    reflect.ValueOf(q.SetBytesOptions),
