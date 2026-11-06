@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/456vv/vweb/v3 v3.5.0
-	github.com/456vv/x/igop_lib v0.0.0-20261106014445-eee347fde283
-	github.com/456vv/x/yaegi_lib v0.0.0-20261106014445-eee347fde283
+	github.com/456vv/x/igop_lib v0.0.0-20261106045935-fca8faada593
+	github.com/456vv/x/yaegi_lib v0.0.0-20261106045935-fca8faada593
 	github.com/goplus/ixgo v1.2.6
 	github.com/goplus/reflectx v1.8.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
@@ -24,11 +24,11 @@ require (
 	github.com/456vv/verifycode v1.0.3 // indirect
 	github.com/456vv/vforward/v2 v2.0.1 // indirect
 	github.com/456vv/vmap/v2 v2.4.2 // indirect
-	github.com/456vv/x/db v0.0.0-20260926132016-140df78a12e2 // indirect
-	github.com/456vv/x/smtp v0.0.0-20260926132016-140df78a12e2 // indirect
-	github.com/456vv/x/sqltable v0.0.0-20260926132016-140df78a12e2 // indirect
-	github.com/456vv/x/ticker v0.0.0-20260926132016-140df78a12e2 // indirect
-	github.com/456vv/x/watch v0.0.0-20260926132016-140df78a12e2 // indirect
+	github.com/456vv/x/db v0.0.0-20261106045935-fca8faada593
+	github.com/456vv/x/smtp v0.0.0-20261106045935-fca8faada593
+	github.com/456vv/x/sqltable v0.0.0-20261106045935-fca8faada593
+	github.com/456vv/x/ticker v0.0.0-20261106045935-fca8faada593
+	github.com/456vv/x/watch v0.0.0-20261106045935-fca8faada593
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
