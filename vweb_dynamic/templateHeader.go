@@ -22,10 +22,8 @@ type TemplateHeader struct {
 //	map[string][]byte   内容，map[文件名]文件内容
 //	error               错误，如果文件不能打开读取
 //
-// 修改原因：
-//  1. 空路径直接跳过，防止索引越界 panic；
-//  2. 使用 filepath.IsAbs 作为主要绝对路径判断，同时保留首字符检查以兼容历史行为；
-//  3. 统一用 filepath.Join / Clean 保证跨平台路径正确性。
+// 说明：无论 v 是否为绝对路径，最终都会以 rootPath 为根解析；
+// 这与“沙箱内视图”的语义一致。若需真正访问宿主绝对路径，请显式配置 preopen。
 func (T *TemplateHeader) OpenFile(rootPath, pagePath string) (map[string]string, error) {
 	dirPath := filepath.Dir(pagePath)
 	fileContent := make(map[string]string, len(T.File))

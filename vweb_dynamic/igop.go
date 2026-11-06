@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+	"sync/atomic"
 
 	_ "github.com/456vv/x/igop_lib"
 	"github.com/goplus/ixgo"
@@ -21,16 +22,32 @@ import (
 
 var ixgoOnce sync.Once
 
-// Ixgo 动态页面执行引擎（基于 ixgo 解释器）
+// ixgoRuntime 是 parse 成功后发布的不可变运行快照：
+// 解释器上下文、SSA 包、入口函数名，以及串行化并发执行的 execMu。
+//
+// execMu 串行化 RunFunc：ixgo.Context 内部的解释器运行时状态（栈、临时对象表等）
+// 不是并发安全的；同一快照上多个 Execute 必须串行执行 RunFunc。
+type ixgoRuntime struct {
+	ctx       *ixgo.Context
+	mainPkg   *ssa.Package
+	entryName string
+	execMu    sync.Mutex
+}
+
+// Ixgo 动态页面执行引擎（基于 ixgo 解释器）。
+//
+// 并发安全说明：
+//   - SetPath 与 Execute 可并发；Execute 使用快照，不受路径切换影响。
+//   - Parse / ParseFile / ParseText 成功后原子发布新快照；失败保留旧快照，
+//     已开始的 Execute 继续持有旧快照直到完成，不受影响。
+//   - Close 清空快照；已在执行的 Execute 继续持有旧快照直到完成。
+//   - 同一快照上的多个 Execute 通过 ixgoRuntime.execMu 串行执行 RunFunc。
 type Ixgo struct {
-	rootPath  string // 文件根目录
-	pagePath  string // 当前页面文件路径
-	entryName string // 入口函数名
+	rootPath string // 文件根目录
+	pagePath string // 当前页面文件路径
 
-	ctx     *ixgo.Context
-	mainPkg *ssa.Package
-
-	mu sync.RWMutex // 保护 ctx / mainPkg / entryName 等可变状态
+	mu  sync.RWMutex                // 保护 rootPath / pagePath
+	cur atomic.Pointer[ixgoRuntime] // 原子发布当前运行快照；nil 表示未解析/已关闭
 }
 
 // init 注册内置函数到 ixgo（只执行一次）
@@ -82,33 +99,39 @@ func (T *Ixgo) Parse(r io.Reader) (err error) {
 	return T.parse("main.go", buf)
 }
 
-// parse 核心解析逻辑
+// parse 核心解析逻辑。
+// 解析成功后通过 cur.Store 原子发布新快照；失败时不修改 cur（保留旧快照）。
 func (T *Ixgo) parse(filename string, buf *bytes.Buffer) error {
 	T.init()
 
-	T.mu.Lock()
-	defer T.mu.Unlock()
+	// 读取 rootPath/pagePath 快照，parse 全程使用局部变量；
+	// 与 SetPath 并发时不需持有 Ixgo.mu，也不再串行化整个解析过程。
+	T.mu.RLock()
+	root := T.rootPath
+	page := T.pagePath
+	T.mu.RUnlock()
 
 	ctx := ixgo.NewContext(ixgo.EnableNoStrict)
-	// 加载外部模块
-	ctx.Lookup = T.lookup
+	// Lookup 闭包捕获 parse 时的 root 快照，避免 SetPath 后续切换导致旧 ctx 加载新路径。
+	ctx.Lookup = func(_, p string) (dir string, found bool) {
+		return T.lookup(root, p)
+	}
 
 	th := T.setHeaderLine(buf)
-	T.entryName = th.EntryName
+	entryName := th.EntryName
 
 	apkg := &ast.Package{
 		Name:  "main",
 		Files: map[string]*ast.File{},
 	}
 
-	// 加载扩展文件
-	dir := filepath.Dir(T.pagePath)
+	dir := filepath.Dir(page)
 	for _, f := range th.File {
 		var p string
 		if path.IsAbs(f) {
-			p = filepath.Join(T.rootPath, f)
+			p = filepath.Join(root, f)
 		} else {
-			p = filepath.Join(T.rootPath, dir, f)
+			p = filepath.Join(root, dir, f)
 		}
 		p = filepath.Clean(p)
 
@@ -131,34 +154,44 @@ func (T *Ixgo) parse(filename string, buf *bytes.Buffer) error {
 		return fmt.Errorf("load ast package: %w", err)
 	}
 
-	T.ctx = ctx
-	T.mainPkg = sPkg
+	T.cur.Store(&ixgoRuntime{
+		ctx:       ctx,
+		mainPkg:   sPkg,
+		entryName: entryName,
+	})
 	return nil
 }
 
-// lookup 查找外部模块目录（用于 ixgo 加载）
+// lookup 查找外部模块目录。
+// root 由 parse 闭包传入（解析时快照），不读取 T.rootPath，因此并发安全。
 func (T *Ixgo) lookup(root, path string) (dir string, found bool) {
-	dir = filepath.Join(T.rootPath, "src", filepath.FromSlash(path))
+	if root == "" {
+		return "", false
+	}
+	dir = filepath.Join(root, "src", filepath.FromSlash(path))
 	if info, err := os.Stat(dir); err == nil && info.IsDir() {
 		found = true
 	}
 	return
 }
 
-// Execute 执行入口函数并将结果写入 out
+// Execute 执行入口函数并将结果写入 out。
+// 入口处加载一次 cur 快照并全程持有；Parse/Close 并发切换不影响本次调用。
 func (T *Ixgo) Execute(entryName string, out io.Writer, in ...any) (err error) {
-	T.mu.RLock()
-	mainPkg := T.mainPkg
-	ctx := T.ctx
-	defaultEntry := T.entryName
-	T.mu.RUnlock()
-
-	if mainPkg == nil || ctx == nil {
+	rt := T.cur.Load()
+	if rt == nil {
 		return errTemplateNotParse
 	}
 
-	entryName = entryname(defaultEntry, entryName)
-	retn, err := ctx.RunFunc(mainPkg, entryName, in...)
+	entryName = entryname(rt.entryName, entryName)
+
+	// RunFunc 修改 ixgo.Context 内部状态，非并发安全；串行化同一快照上的执行。
+	// 局部函数 + defer 保证 RunFunc panic 时锁必释放，避免后续 Execute 永久阻塞。
+	retn, err := func() (any, error) {
+		rt.execMu.Lock()
+		defer rt.execMu.Unlock()
+		return rt.ctx.RunFunc(rt.mainPkg, entryName, in...)
+	}()
 	if err != nil {
 		return err
 	}
@@ -182,11 +215,9 @@ func (T *Ixgo) Execute(entryName string, out io.Writer, in ...any) (err error) {
 	return err
 }
 
-// Close 释放资源（当前 ixgo 无显式释放需求，预留接口）
+// Close 释放资源（当前 ixgo 无显式释放需求，预留接口）。
+// 清空 cur 快照；已在执行的 Execute 继续持有旧快照直到完成。
 func (T *Ixgo) Close() error {
-	T.mu.Lock()
-	defer T.mu.Unlock()
-	T.ctx = nil
-	T.mainPkg = nil
+	T.cur.Store(nil)
 	return nil
 }

@@ -286,11 +286,12 @@ func (s *TCPSocket) StoreConnectResult(res ConnectResult) {
 	defer s.connectMu.Unlock()
 	if s.connectReady.Load() {
 		// 二次结果不能覆盖已保存的 Conn，否则旧/新连接泄漏或被误关
-		if res.Conn != nil && res.Conn != s.connectStored.Conn {
+		if res.Conn != nil && res.Conn != s.connectStored.Conn && res.Conn != s.Conn {
 			_ = res.Conn.Close()
 		}
 		return
 	}
+
 	if s.GetState() != TCPStateConnecting {
 		// drop 已 Closed 时 finish 不会再 Claim，Conn 必须当场关
 		if res.Conn != nil {

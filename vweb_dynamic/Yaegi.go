@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
+	"sync/atomic"
 
 	"github.com/456vv/x/yaegi_lib"
 	"github.com/traefik/yaegi/interp"
@@ -24,14 +25,26 @@ var (
 )
 
 // Yaegi 动态页面解释器，基于 Yaegi 实现 Go 模板/脚本执行。
+//
+// 并发安全说明：
+//   - 同一 *Yaegi 实例在 Parse / ParseFile / ParseText / Close 等写操作期间，
+//     不得被其他 goroutine 并发调用 Execute。
+//   - 解析完成后，多个 goroutine 可安全并发调用 Execute 执行不同入口函数：
+//     Execute 在入口处通过 atomic.Pointer 加载解释器快照，并持有该快照直到本次调用结束；
+//     后续 Parse 替换解释器时，旧快照由 mainFunc 闭包引用保持存活，不会被提前回收。
+//   - mainFunc 缓存与解释器快照强相关：Parse 更新 interpreRef 时同步清空 mainFunc，
+//     确保新调用不会复用旧解释器产生的入口函数。
 type Yaegi struct {
 	rootPath  string // 文件根目录（GoPath）
 	pagePath  string // 当前页面文件路径
 	entryName string // 默认入口函数名
 	inited    bool
 	m         sync.Mutex
-	mainFunc  map[string]reflect.Value // 入口函数缓存（并发安全）
-	interpre  *interp.Interpreter
+	mainFunc  map[string]reflect.Value // 入口函数缓存（与当前 interpreRef 对应）
+
+	// interpreRef 原子保存当前解释器快照；Execute 在入口处 Load 一次并全程持有，
+	// 避免读写 T.interpre 字段的 data race，也让 parse/Close 与 Execute 无需长期互斥。
+	interpreRef atomic.Pointer[interp.Interpreter]
 }
 
 // init 初始化解释器内部状态（全程加锁，消除竞态）
@@ -157,7 +170,10 @@ func (T *Yaegi) parse(src []byte) error {
 
 	T.m.Lock()
 	T.entryName = th.EntryName
-	T.interpre = interpre
+	// 切换解释器快照并让旧 mainFunc 缓存作废：
+	// 缓存项与旧解释器强绑定，必须整体替换，避免 Execute 在新快照下复用旧入口函数。
+	T.interpreRef.Store(interpre)
+	T.mainFunc = make(map[string]reflect.Value)
 	T.m.Unlock()
 	return nil
 }
@@ -165,8 +181,14 @@ func (T *Yaegi) parse(src []byte) error {
 // Execute 执行指定入口函数，并将结果写入 out。
 // 支持返回 string / []byte / io.Reader / fmt.Stringer / error 等常见类型。
 // 若函数返回 (T, error) 且 error 非 nil，则直接返回该 error。
+//
+// 执行期间持有 interpreRef 的一次快照，Parse/Close 并发切换解释器不会影响本次调用；
+// 旧解释器由本地 mainFunc 的闭包引用保持存活，直到本次调用结束。
 func (T *Yaegi) Execute(entryName string, out io.Writer, in ...any) (err error) {
-	if T.interpre == nil {
+	// 快照解释器：把"解释器生命周期"从互斥锁保护中解耦，
+	// 后续 Parse/Close 通过 Store 覆盖引用不影响本 goroutine 已持有的旧快照。
+	interpre := T.interpreRef.Load()
+	if interpre == nil {
 		return errTemplateNotParse
 	}
 
@@ -174,7 +196,7 @@ func (T *Yaegi) Execute(entryName string, out io.Writer, in ...any) (err error) 
 	entryName = entryname(T.entryName, entryName)
 	mainFunc, ok := T.mainFunc[entryName]
 	if !ok {
-		mainFunc, err = T.interpre.Eval(entryName)
+		mainFunc, err = interpre.Eval(entryName)
 		if err != nil {
 			T.m.Unlock()
 			return err
@@ -213,6 +235,9 @@ func (T *Yaegi) Execute(entryName string, out io.Writer, in ...any) (err error) 
 
 	// 取第一个有效返回值进行输出
 	rv := retn[0]
+	if rv == nil {
+		return nil
+	}
 	switch v := rv.(type) {
 	case string:
 		_, err = io.WriteString(out, v)
@@ -234,11 +259,12 @@ func (T *Yaegi) Execute(entryName string, out io.Writer, in ...any) (err error) 
 	return err
 }
 
-// Close 关闭解释器（当前无状态资源，保留接口兼容性）
+// Close 关闭解释器（当前无状态资源，保留接口兼容性）。
+// 关闭后 interpreRef 置空、mainFunc 缓存清空；已在执行中的 Execute 继续持有旧快照直到完成。
 func (T *Yaegi) Close() error {
 	T.m.Lock()
 	defer T.m.Unlock()
-	T.interpre = nil
+	T.interpreRef.Store(nil)
 	T.mainFunc = nil
 	T.inited = false
 	return nil

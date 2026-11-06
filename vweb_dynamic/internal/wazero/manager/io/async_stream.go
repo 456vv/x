@@ -609,7 +609,9 @@ func (aww *AsyncWriteWrapper) Close() error {
 	if !aww.closeUnderlying {
 		// HTTP pipe（DontCloseWriter）必须先排空，读端在 Copy；
 		// 会关底层 writer 时若先 Flush，对端不读则 Write 卡住，Flush 与 Close 死锁。
-		flushErr = aww.BlockingFlush()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		flushErr = aww.BlockingFlushContext(ctx)
+		cancel()
 	}
 	closeErr := aww.closeInternal()
 	if flushErr != nil {

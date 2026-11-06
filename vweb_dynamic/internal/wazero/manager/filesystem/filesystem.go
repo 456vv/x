@@ -45,9 +45,6 @@ func (d *Descriptor) ForPreopen() bool {
 	if d.closed || !d.IsPreopen || d.File == nil {
 		return false
 	}
-	if d.File == nil {
-		return true
-	}
 	st, err := d.File.Stat()
 	return err == nil && st.IsDir()
 }

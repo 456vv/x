@@ -33,7 +33,10 @@ var (
 //	name string				包名
 //	deputy map[string]any 	函数集
 func ExtendPackage(name string, deputy template.FuncMap) {
-	dotPackage[name] = addFuncs(deputy)
+	fm := addFuncs(deputy)
+	dotPackageMu.Lock()
+	dotPackage[name] = fm
+	dotPackageMu.Unlock()
 }
 
 func addFuncs(funcMap template.FuncMap) template.FuncMap {
@@ -63,7 +66,7 @@ func templateFuncMapError(v any) error {
 				return nil
 			}
 		}
-		return fmt.Errorf("the last argument is not of the wrong type: %v", err)
+		return fmt.Errorf("the last argument is not of the correct type: %v", err)
 	}
 	if err, ok := v.(error); ok {
 		return err
@@ -248,27 +251,6 @@ func importPkg(name string) template.FuncMap {
 	return fm
 }
 
-type wasmFuncType int
-
-const (
-	wasmFuncTypeImport wasmFuncType = iota
-	ForMethod
-	ForType
-	DepthField
-	CopyStruct
-	CopyStructDeep
-	Convert
-	Init
-	Value
-	Call
-	CallMethod
-)
-
-var wasmFunc = map[wasmFuncType]any{
-	Call:       call,
-	CallMethod: callMethod,
-}
-
 // TemplateFunc 模板函数映射（可导出）。只读使用，初始化后不再修改，并发读安全。
 var TemplateFunc = template.FuncMap{
 	"Import":         importPkg,
@@ -355,11 +337,13 @@ func entryname(name1, name2 string) string {
 			return "Main"
 		}
 	}
-
-	// 首字母大写（ASCII）
+	if base[0] >= '0' && base[0] <= '9' {
+		return "Main" // 文件 stem 以数字开头，非法 Go 标识符，回退默认入口
+	}
 	if base[0] >= 'a' && base[0] <= 'z' {
 		return string(base[0]-32) + base[1:]
 	}
+
 	return base
 }
 

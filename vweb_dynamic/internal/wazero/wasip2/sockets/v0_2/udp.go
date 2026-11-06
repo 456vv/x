@@ -169,6 +169,18 @@ func (i *udpImpl) SetSendBufferSize(ctx context.Context, this UDPSocket, value u
 }
 
 func (i *udpImpl) Subscribe(ctx context.Context, this UDPSocket) wasip2_io.Pollable {
+	sock, ok := i.host.UDPSocketManager().Get(this)
+	if !ok || sock == nil {
+		return i.host.PollManager().Add(manager_io.NewReadyPollable())
+	}
+	// 已绑定但未 stream 时返回 Reader/Writer 的 LevelPollable
+	if r := sock.GetReader(); r != nil {
+		return i.host.PollManager().Add(r.Subscribe())
+	}
+	if w := sock.GetWriter(); w != nil {
+		return i.host.PollManager().Add(w.Subscribe())
+	}
+	// 未建立数据报流时返回就绪，避免 guest 永久等待
 	return i.host.PollManager().Add(manager_io.NewReadyPollable())
 }
 

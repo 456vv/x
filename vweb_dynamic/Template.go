@@ -15,7 +15,7 @@ import (
 	"github.com/456vv/vweb/v3"
 )
 
-// 并发安全说明：
+// Template 并发安全说明：
 //   - 同一 *Template 实例在 Parse / ParseFile / ParseText / SetPath 等写操作期间
 //     不得被其他 goroutine 并发调用 Execute。
 //   - 解析完成后，多个 goroutine 可安全并发调用 Execute（text/template 本身支持）。
