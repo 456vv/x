@@ -13,7 +13,9 @@ import (
 func init() {
 	Symbols["github.com/456vv/vmap/v2/vmap"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"NewMap": reflect.ValueOf(vmap.NewMap),
+		"NewMap":          reflect.ValueOf(vmap.NewMap),
+		"NewMapSize":      reflect.ValueOf(vmap.NewMapSize),
+		"SetPanicHandler": reflect.ValueOf(vmap.SetPanicHandler),
 
 		// type definitions
 		"Map": reflect.ValueOf((*vmap.Map)(nil)),

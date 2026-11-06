@@ -50,6 +50,7 @@ func init() {
 		"ExitCall":             reflect.ValueOf((*vweb.ExitCall)(nil)),
 		"Forward":              reflect.ValueOf((*vweb.Forward)(nil)),
 		"ForwardRewriter":      reflect.ValueOf((*vweb.ForwardRewriter)(nil)),
+		"Global":               reflect.ValueOf((*vweb.Global)(nil)),
 		"Globaler":             reflect.ValueOf((*vweb.Globaler)(nil)),
 		"HandleFunc":           reflect.ValueOf((*vweb.HandleFunc)(nil)),
 		"PluginHTTP":           reflect.ValueOf((*vweb.PluginHTTP)(nil)),
@@ -210,11 +211,14 @@ type _github_com_456vv_vweb_v3_Globaler struct {
 	IValue          interface{}
 	WDel            func(key any)
 	WGet            func(key any) any
+	WGetHas         func(key any) (val any, ok bool)
 	WHas            func(key any) bool
+	WRange          func(f func(key any, value any) bool)
 	WReset          func()
 	WSet            func(key any, val any)
 	WSetExpired     func(key any, d time.Duration)
 	WSetExpiredCall func(key any, d time.Duration, f func(any))
+	WTTL            func(key any) (time.Duration, bool)
 }
 
 func (W _github_com_456vv_vweb_v3_Globaler) Del(key any) {
@@ -223,8 +227,14 @@ func (W _github_com_456vv_vweb_v3_Globaler) Del(key any) {
 func (W _github_com_456vv_vweb_v3_Globaler) Get(key any) any {
 	return W.WGet(key)
 }
+func (W _github_com_456vv_vweb_v3_Globaler) GetHas(key any) (val any, ok bool) {
+	return W.WGetHas(key)
+}
 func (W _github_com_456vv_vweb_v3_Globaler) Has(key any) bool {
 	return W.WHas(key)
+}
+func (W _github_com_456vv_vweb_v3_Globaler) Range(f func(key any, value any) bool) {
+	W.WRange(f)
 }
 func (W _github_com_456vv_vweb_v3_Globaler) Reset() {
 	W.WReset()
@@ -237,6 +247,9 @@ func (W _github_com_456vv_vweb_v3_Globaler) SetExpired(key any, d time.Duration)
 }
 func (W _github_com_456vv_vweb_v3_Globaler) SetExpiredCall(key any, d time.Duration, f func(any)) {
 	W.WSetExpiredCall(key, d, f)
+}
+func (W _github_com_456vv_vweb_v3_Globaler) TTL(key any) (time.Duration, bool) {
+	return W.WTTL(key)
 }
 
 // _github_com_456vv_vweb_v3_PluginHTTP is an interface wrapper for PluginHTTP type
@@ -272,15 +285,15 @@ func (W _github_com_456vv_vweb_v3_PluginHTTP) Type() vweb.PluginType {
 // _github_com_456vv_vweb_v3_PluginRPC is an interface wrapper for PluginRPC type
 type _github_com_456vv_vweb_v3_PluginRPC struct {
 	IValue    interface{}
-	WCall     func(name string, arg any) (any, error)
+	WCall     func(name string, arg any, reply any) error
 	WClose    func() error
 	WDiscard  func() error
 	WRegister func(value any)
 	WType     func() vweb.PluginType
 }
 
-func (W _github_com_456vv_vweb_v3_PluginRPC) Call(name string, arg any) (any, error) {
-	return W.WCall(name, arg)
+func (W _github_com_456vv_vweb_v3_PluginRPC) Call(name string, arg any, reply any) error {
+	return W.WCall(name, arg, reply)
 }
 func (W _github_com_456vv_vweb_v3_PluginRPC) Close() error {
 	return W.WClose()
@@ -378,7 +391,7 @@ type _github_com_456vv_vweb_v3_Sessioner struct {
 	IValue          interface{}
 	WDefer          func(call any, args ...any) error
 	WDel            func(key any)
-	WFree           func()
+	WDels           func(keys []any)
 	WGet            func(key any) any
 	WGetHas         func(key any) (val any, ok bool)
 	WHas            func(key any) bool
@@ -386,6 +399,7 @@ type _github_com_456vv_vweb_v3_Sessioner struct {
 	WSet            func(key any, val any)
 	WSetExpired     func(key any, d time.Duration)
 	WSetExpiredCall func(key any, d time.Duration, f func(any))
+	WTTL            func(key any) (time.Duration, bool)
 	WToken          func() string
 }
 
@@ -395,8 +409,8 @@ func (W _github_com_456vv_vweb_v3_Sessioner) Defer(call any, args ...any) error 
 func (W _github_com_456vv_vweb_v3_Sessioner) Del(key any) {
 	W.WDel(key)
 }
-func (W _github_com_456vv_vweb_v3_Sessioner) Free() {
-	W.WFree()
+func (W _github_com_456vv_vweb_v3_Sessioner) Dels(keys []any) {
+	W.WDels(keys)
 }
 func (W _github_com_456vv_vweb_v3_Sessioner) Get(key any) any {
 	return W.WGet(key)
@@ -418,6 +432,9 @@ func (W _github_com_456vv_vweb_v3_Sessioner) SetExpired(key any, d time.Duration
 }
 func (W _github_com_456vv_vweb_v3_Sessioner) SetExpiredCall(key any, d time.Duration, f func(any)) {
 	W.WSetExpiredCall(key, d, f)
+}
+func (W _github_com_456vv_vweb_v3_Sessioner) TTL(key any) (time.Duration, bool) {
+	return W.WTTL(key)
 }
 func (W _github_com_456vv_vweb_v3_Sessioner) Token() string {
 	return W.WToken()

@@ -30,6 +30,7 @@ func init() {
 		"Number":            reflect.ValueOf(gjson.Number),
 		"Parse":             reflect.ValueOf(gjson.Parse),
 		"ParseBytes":        reflect.ValueOf(gjson.ParseBytes),
+		"SetEscapeHTML":     reflect.ValueOf(gjson.SetEscapeHTML),
 		"String":            reflect.ValueOf(gjson.String),
 		"True":              reflect.ValueOf(gjson.True),
 		"Valid":             reflect.ValueOf(gjson.Valid),

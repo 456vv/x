@@ -15,6 +15,8 @@ func init() {
 		// function, constant and variable definitions
 		"Delete":             reflect.ValueOf(sjson.Delete),
 		"DeleteBytes":        reflect.ValueOf(sjson.DeleteBytes),
+		"DeleteBytesOptions": reflect.ValueOf(sjson.DeleteBytesOptions),
+		"DeleteOptions":      reflect.ValueOf(sjson.DeleteOptions),
 		"Set":                reflect.ValueOf(sjson.Set),
 		"SetBytes":           reflect.ValueOf(sjson.SetBytes),
 		"SetBytesOptions":    reflect.ValueOf(sjson.SetBytesOptions),
