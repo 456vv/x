@@ -11,11 +11,11 @@ require (
 	github.com/456vv/vforward/v2 v2.0.1
 	github.com/456vv/vmap/v2 v2.4.2
 	github.com/456vv/vweb/v3 v3.5.0
-	github.com/456vv/x/db v0.0.0-20260926132016-140df78a12e2
-	github.com/456vv/x/smtp v0.0.0-20260926131449-189d798da154
-	github.com/456vv/x/sqltable v0.0.0-20260926132016-140df78a12e2
-	github.com/456vv/x/ticker v0.0.0-20260926132016-140df78a12e2
-	github.com/456vv/x/watch v0.0.0-20260926132016-140df78a12e2
+	github.com/456vv/x/db v0.0.0-20261106044156-b4961a9df826
+	github.com/456vv/x/smtp v0.0.0-20261106044156-b4961a9df826
+	github.com/456vv/x/sqltable v0.0.0-20261106044156-b4961a9df826
+	github.com/456vv/x/ticker v0.0.0-20261106044156-b4961a9df826
+	github.com/456vv/x/watch v0.0.0-20261106044156-b4961a9df826
 	github.com/goplus/ixgo v1.2.6
 	github.com/goplus/reflectx v1.8.3
 	github.com/pelletier/go-toml/v2 v2.4.3

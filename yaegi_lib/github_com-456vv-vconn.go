@@ -13,8 +13,9 @@ import (
 func init() {
 	Symbols["github.com/456vv/vconn/vconn"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"New":     reflect.ValueOf(vconn.New),
-		"NewConn": reflect.ValueOf(vconn.NewConn),
+		"ErrRawConnAlreadyUsed": reflect.ValueOf(&vconn.ErrRawConnAlreadyUsed).Elem(),
+		"New":                   reflect.ValueOf(vconn.New),
+		"NewData":               reflect.ValueOf(vconn.NewData),
 
 		// type definitions
 		"CloseNotifier": reflect.ValueOf((*vconn.CloseNotifier)(nil)),
