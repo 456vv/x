@@ -19,7 +19,9 @@ func init() {
 		Path: "github.com/tidwall/sjson",
 		Deps: map[string]string{
 			"encoding/json":            "json",
+			"fmt":                      "fmt",
 			"github.com/tidwall/gjson": "gjson",
+			"math":                     "math",
 			"sort":                     "sort",
 			"strconv":                  "strconv",
 			"unsafe":                   "unsafe",
