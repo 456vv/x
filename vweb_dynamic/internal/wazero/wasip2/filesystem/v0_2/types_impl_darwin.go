@@ -37,7 +37,7 @@ func GetATime(info os.FileInfo) (time.Time, error) {
 	}
 
 	// 转换为time.Time
-	return time.Unix(stat.Atimespec.Sec, int64(stat.Atimespec.Nsec)), nil
+	return time.Unix(int64(stat.Atimespec.Sec), int64(stat.Atimespec.Nsec)), nil
 }
 
 func adviseFile(_ *os.File, _ Filesize, _ Filesize, _ Advice) error {
