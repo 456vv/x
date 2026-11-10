@@ -37,6 +37,7 @@ func init() {
 		"PluginTypeRPC":        reflect.ValueOf(vweb.PluginTypeRPC),
 		"RouterContextKey":     reflect.ValueOf(&vweb.RouterContextKey).Elem(),
 		"SiteContextKey":       reflect.ValueOf(&vweb.SiteContextKey).Elem(),
+		"URLParamsContextKey":  reflect.ValueOf(&vweb.URLParamsContextKey).Elem(),
 
 		// type definitions
 		"Cookie":               reflect.ValueOf((*vweb.Cookie)(nil)),
